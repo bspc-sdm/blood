@@ -1,6 +1,6 @@
 # Lifolo — ব্যবহারের শর্ত / Terms of Use
 
-সর্বশেষ আপডেট / Last updated: ২০ অক্টোবর ২০২৬ / 20 October 2026
+সর্বশেষ আপডেট / Last updated: ২৩ অক্টোবর ২০২৬ / 23 October 2026
 
 এই শর্ত Lifolo-র Android অ্যাপ আর ওয়েবসাইট (https://lifolo.com) — দুটোর জন্যই। Lifolo ব্যবহার করলে আপনি এই শর্তে রাজি। অ্যাপের আগের নাম ছিল Get Blood। ইংরেজি সংস্করণ নিচে (English version below)।
 
@@ -93,6 +93,12 @@
 - রক্ত কেনা-বেচা আইনত নিষিদ্ধ। ব্লাড ব্যাংক শুধু নির্ধারিত পরীক্ষা ও প্রসেসিং খরচ নিতে পারে।
 - ব্লাড ব্যাংক: বেসরকারি হলে সরকারি লাইসেন্স থাকতে হবে; নিরাপদ রক্ত সঞ্চালন আইন ও বিধি মানবেন; খোলার সময় আর ফোন নম্বর সঠিক রাখবেন। রক্ত বিক্রি, ভুল তথ্য বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন। অ্যাডমিন নিজেও চেনা ব্লাড ব্যাংক তালিকায় যোগ করতে পারেন।
 
+## পেমেন্ট
+
+- **লাইফলো টাকা গ্রহণ বা সংরক্ষণ করে না; পেমেন্ট সরাসরি সেবাদাতার কাছে যায়।** লাইফলো বিক্রেতা নয়, টাকা ধরে রাখে না, ফেরতও দেয় না; পেমেন্ট ও ফেরতের দায় সেবাদাতার। লাইফলো পেমেন্টের জন্য কোনো ফি নেয় না।
+- সেবাদাতা টাকা পাওয়ার পরে বাতিল করলে বা সেবা না দিলে টাকা ফেরত দিতে বাধ্য। যাচাই করা পেমেন্ট না মানলে বা ফেরত না দিলে লাইফলো অভিযোগ দেখে প্রতিষ্ঠানের পেমেন্ট বা তালিকা বন্ধ করতে পারে।
+- সেবাদাতা শুধু নিজের নম্বর দেবেন, অ্যাপের বাইরে অন্য নম্বরে টাকা চাইবেন না। রক্তের জন্য কোনো টাকা চাওয়া নিষেধ। নগদ টাকায় সবসময় দেওয়া যায়; জরুরি সেবার আগে কোনো পেমেন্ট শর্ত নয়।
+
 ## দায়ের সীমা
 
 Lifolo যেমন আছে তেমনভাবে দেওয়া হয়। আমরা অ্যাপ চালু আর তথ্য ঠিক রাখার চেষ্টা করি, কিন্তু অ্যাপ সবসময় চলবে, কোনো রক্তদাতা বা সেবাদাতা পাওয়া যাবে, বা তালিকার তথ্য (সময়, দাম, স্টক) সবসময় ঠিক থাকবে — এমন নিশ্চয়তা দিই না। সেবাদাতার সেবা, ব্যবহারকারীদের নিজেদের মধ্যে যোগাযোগ আর লেনদেনের ফলে কোনো ক্ষতির দায় Lifolo নেয় না, যতটুকু আইন অনুমতি দেয়।
@@ -105,7 +111,7 @@ Lifolo যেমন আছে তেমনভাবে দেওয়া হয
 
 # English
 
-Last updated: 20 October 2026. These terms cover the Lifolo Android app and the website https://lifolo.com. By using Lifolo you agree to them. The app used to be called Get Blood.
+Last updated: 23 October 2026. These terms cover the Lifolo Android app and the website https://lifolo.com. By using Lifolo you agree to them. The app used to be called Get Blood.
 
 ## What Lifolo is, and is not
 
@@ -155,6 +161,12 @@ A patient chooses up to 2 caregivers by email (without a Lifolo account yet, the
 ## Emergency appeals and blood banks
 
 In a major emergency the Lifolo team may send an appeal after talking to the hospital blood bank; nearby eligible donors are notified in waves (the daily notification limit doesn't apply, but turned-off notifications are respected). Tap "I'm coming" only if you can go now, otherwise "Can't come"; groups close once enough donors are coming. Follow the hospital's instructions — the hospital checks before collecting blood. Blood banks are listed with their hours and phone numbers; Lifolo supplies no blood and does not guarantee stock — call to check. Blood banks may charge only the set testing and processing costs; private blood banks need a government licence and must follow the Safe Blood Transfusion Act and rules. Selling blood, wrong information or bad behaviour leads to removal.
+
+## Payments
+
+- **Lifolo does not receive or hold any money; payments go directly to the service provider.** Lifolo is not the seller, does not hold money and does not refund it; payments and refunds are the provider's responsibility. Lifolo takes no fee per payment.
+- A provider who cancels or does not deliver after being paid must refund. Lifolo handles complaints and may suspend a business's payments or listing if it does not honour verified payments or refunds.
+- Providers give only their own numbers and never ask for money to another number outside the app. Asking for money for blood is forbidden. Cash is always possible; no payment is ever a condition for emergency services.
 
 ## Limitation of liability
 

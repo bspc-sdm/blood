@@ -86,6 +86,8 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // the authorization sweep fuzzes every action with ~1 MB bodies; the default 512 MB ran out once the pay actions came
+    maxHeapSize = "1g"
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

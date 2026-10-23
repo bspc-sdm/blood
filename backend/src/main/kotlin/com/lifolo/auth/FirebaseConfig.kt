@@ -97,7 +97,7 @@ class FirebaseIdentityProvider(private val auth: FirebaseAuth) : IdentityProvide
 
     override fun verifyIdToken(token: String, checkRevoked: Boolean): DecodedToken = call {
         val t = auth.verifyIdToken(token, checkRevoked)
-        DecodedToken(t.uid, t.email, t.isEmailVerified, (t.claims["iat"] as? Number)?.toLong())
+        DecodedToken(t.uid, t.email, t.isEmailVerified, (t.claims["iat"] as? Number)?.toLong(), (t.claims["auth_time"] as? Number)?.toLong())
     }
 
     override fun getUser(uid: String): AuthAccount = call { auth.getUser(uid).toAccount() }

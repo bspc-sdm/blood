@@ -80,13 +80,14 @@ class OnlinePaySafetyIT : P2TestBase() {
         person("demo-ospat", "ডেমো রোগী")
         features.allOn = false
         setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc))
-        val r = save("demo-osdoc", listOf(online()))
+        val demoNo = mapOf("bkashNumber" to "01200000998")
+        val r = save("demo-osdoc", listOf(online(demoNo)))
         assertEquals(404, r.status)
         assertEquals("feature_off", r.code)
         assertEquals("এই সুবিধা এখনো চালু হয়নি", r.error)
         assertEquals(200, save(doc, listOf(online())).status, "a pilot doctor")
         setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc), demo = true)
-        assertEquals(200, save("demo-osdoc", listOf(online())).status)
+        assertEquals(200, save("demo-osdoc", listOf(online(demoNo))).status)
         setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc), demo = false)
         val b = call("demo-ospat", "book", mapOf("providerUid" to "demo-osdoc", "date" to today() + day, "chamberIndex" to 0, "note" to "x"))
         assertEquals(404, b.status)
@@ -94,35 +95,52 @@ class OnlinePaySafetyIT : P2TestBase() {
     }
 
     @Test
-    fun `R6 - a bKash number change is logged, pushed, and reaches new bookings after 24 h`() {
+    fun `R6 + payments P4 - the bKash number is a payment number - 24 h before patients see it, logged, pushed and emailed, recent login`() {
         seed()
-        val first = book()
-        assertEquals(listOf("—", "678"), jdbc.queryForList("SELECT coalesce(old_last3, '—') AS o, new_last3 FROM bkash_number_log WHERE provider_uid = ?", doc).single().let { listOf(it["o"], it["new_last3"]) })
         val t0 = clock.now()
+        val first = book()
+        assertNull(appt(first)["bkash_number"], "a new number never reaches patients before it has been active for 24 h")
+        assertEquals(listOf("—", "678"), jdbc.queryForList("SELECT coalesce(old_last3, '—') AS o, new_last3 FROM bkash_number_log WHERE provider_uid = ?", doc).single().let { listOf(it["o"], it["new_last3"]) })
+        var oc = ok(doc, "provider_me")["provider"]["chambers"][0]
+        assertEquals(listOf("01712345678", "null", (t0 + day).toString()), listOf(oc["bkashNumber"].textValue(), oc["bkashActive"].asText(), oc["bkashPendingUntil"].asText()))
+        // a day later it has matured
+        clock.fixedMs = t0 + day + hour
+        val matured = book(pat2, today() + day)
+        assertEquals("01712345678", appt(matured)["bkash_number"])
+        // a change: logged, pushed (always on) and emailed with "আমি করিনি"; the earlier number stays in use for 24 h
+        val t1 = clock.now()
         assertEquals(200, save(doc, listOf(online(mapOf("bkashNumber" to "01899999111")))).status)
         val log = jdbc.queryForList("SELECT old_last3, new_last3, by_uid FROM bkash_number_log WHERE provider_uid = ? ORDER BY id", doc)
         assertEquals(listOf("678", "111", doc), log.last().let { listOf(it["old_last3"], it["new_last3"], it["by_uid"]) })
-        val pushed = push.messages.filter { it.uid == doc && it.data["title"] == "আপনার বিকাশ নম্বর বদলানো হয়েছে" }
+        val pushed = pushesTo(doc, "পেমেন্ট নম্বর বদলানো হয়েছে")
         assertEquals(2, pushed.size, "set and changed")
-        assertEquals("account", pushed.last().data["cat"], "always on")
-        assertEquals("…৬৭৮ → …১১১", pushed.last().data["body"], "last 3 digits only (Bangla digits for a Bangla reader)")
-        // the doctor sees the new number, the one patients get now, and until when
-        val oc = ok(doc, "provider_me")["provider"]["chambers"][0]
-        assertEquals(listOf("01899999111", "01712345678", (t0 + day).toString()), listOf(oc["bkashNumber"].textValue(), oc["bkashActive"].textValue(), oc["bkashPendingUntil"].asText()))
-        // within 24 h: new bookings get the earlier number; booked ones keep theirs
-        val during = book(pat2)
+        assertTrue(pushed.last().second.contains("…678 → …111"), pushed.toString())
+        assertEquals(listOf("account", "account"), jdbc.queryForList("SELECT data->>'cat' FROM inbox_items WHERE uid = ? AND title LIKE '%পেমেন্ট নম্বর%'", String::class.java, doc))
+        val mailed = mail.sent.filter { it.to.equals("$doc@example.com", ignoreCase = true) && it.subject.contains("পেমেন্ট নম্বর") }
+        assertEquals(2, mailed.size)
+        assertTrue(mailed.last().text.contains("/api/pay/freeze?t="), "the email carries the freeze link")
+        oc = ok(doc, "provider_me")["provider"]["chambers"][0]
+        assertEquals(listOf("01899999111", "01712345678", (t1 + day).toString()), listOf(oc["bkashNumber"].textValue(), oc["bkashActive"].textValue(), oc["bkashPendingUntil"].asText()))
+        val during = book(pat, today() + 2 * day)
         assertEquals("01712345678", appt(during)["bkash_number"])
-        assertEquals("01712345678", appt(first)["bkash_number"])
+        assertNull(appt(first)["bkash_number"], "booked ones keep theirs")
         // saving again (same number) changes nothing
         assertEquals(200, save(doc, listOf(online(mapOf("bkashNumber" to "01899999111", "note" to "নতুন নোট")))).status)
         assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM bkash_number_log WHERE provider_uid = ?", Int::class.java, doc))
         // after 24 h: the new number
-        clock.fixedMs = t0 + day + hour
-        val after = book(pat, today() + day)
+        clock.fixedMs = t1 + day + hour
+        val after = book(pat2, today() + 2 * day)
         assertEquals("01899999111", appt(after)["bkash_number"])
-        assertEquals("01712345678", appt(first)["bkash_number"])
         val oc2 = ok(doc, "provider_me")["provider"]["chambers"][0]
         assertEquals(listOf("01899999111", "true"), listOf(oc2["bkashActive"].textValue(), oc2["bkashPendingUntil"].isNull.toString()))
+        // a login older than 10 minutes cannot change it (the same rule as pay_methods_set)
+        identity.users[doc]!!.authAt = System.currentTimeMillis() - 11 * 60_000L
+        val stale = save(doc, listOf(online(mapOf("bkashNumber" to "01899999222"))))
+        assertEquals(401, stale.status)
+        assertEquals("reauth_required", stale.code)
+        assertEquals("01899999111", row("SELECT bkash_number FROM provider_chambers WHERE provider_uid = ? AND mode = 'online'", doc)["bkash_number"])
+        // other edits need no fresh login
+        assertEquals(200, save(doc, listOf(online(mapOf("bkashNumber" to "01899999111", "note" to "আরেক নোট")))).status)
     }
 
     @Test

@@ -83,6 +83,9 @@ class AccountMail(
 
     fun reactivated(uid: String, email: String?) = send(uid, email, reactivatedLetter())
 
+    /** Lifolo Pay (security review P4): a business's payment numbers changed — with the "আমি করিনি" freeze link */
+    fun payNumbersChanged(uid: String, email: String?, changes: String, freezeUrl: String) = send(uid, email, payNumbersLetter(changes, freezeUrl))
+
     companion object {
         const val SITE = "https://lifolo.com"
 
@@ -132,12 +135,29 @@ class AccountMail(
             ),
         )
 
+        fun payNumbersLetter(changes: String, freezeUrl: String) = Letter(
+            "Lifolo: আপনার পেমেন্ট নম্বর বদলানো হয়েছে", // bn-ok
+            listOf(
+                "আপনার প্রতিষ্ঠানের পেমেন্ট নম্বর বদলানো হয়েছে: $changes", // bn-ok
+                "নতুন নম্বর ২৪ ঘণ্টা পরে রোগীরা দেখবেন।", // bn-ok
+                "আপনি নিজে এটা না করে থাকলে নিচের লিংকে \"আমি করিনি\" চাপুন — সব পেমেন্ট নম্বর সাথে সাথে বন্ধ হবে আর লাইফলো টিম যোগাযোগ করবে:", // bn-ok
+                freezeUrl,
+                ifNotYou(),
+                SITE,
+                "Your payment numbers on Lifolo were changed ($changes). If this was not you, open the link above (\"I did not do this\") to freeze them at once.",
+            ),
+        )
+
         fun text(l: Letter): String = l.lines.joinToString("\n\n")
 
         private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
         fun html(l: Letter): String = l.lines.joinToString("") { line ->
-            if (line == SITE) "<p><a href=\"$SITE\">lifolo.com</a></p>" else "<p>${esc(line)}</p>"
+            when {
+                line == SITE -> "<p><a href=\"$SITE\">lifolo.com</a></p>"
+                line.startsWith("https://") && !line.contains(' ') -> "<p><a href=\"${esc(line)}\">আমি করিনি — নম্বর বন্ধ করুন</a></p>" // bn-ok
+                else -> "<p>${esc(line)}</p>"
+            }
         }
     }
 }

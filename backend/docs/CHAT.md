@@ -69,6 +69,11 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
 | `admin_chat_report_resolve` | admin: `{id, status: resolved\|dismissed}` | `{ok}` |
 
 * **Message**: `{id, threadId, from (uid), text?, photoUrl?, photoThumb?, location?:{lat,lng}, at, readAt?, unsent?}`.
+  **`warn: "money_number"`** (spring-p20, payments security review P2): a text with a phone-like number (01…, Bangla or
+  English digits, separators allowed) **and** money words (টাকা/বিকাশ/নগদ/রকেট/উপায়/৳/send/bkash/nagad…) — clients show a
+  caution banner. `chat_send` also answers `warn` + `warnText` (blood threads: "রক্তের জন্য কোনো টাকা দিতে হয় না — টাকা
+  পাঠাবেন না, রিপোর্ট করুন"; else "অ্যাপের পেমেন্ট পাতা ছাড়া টাকা পাঠাবেন না — রিপোর্ট করুন"). `chat_report` / `call_report`
+  accept the reason `asked_other_number`. See PAYMENTS.md.
   An unsent message is `{id, threadId, from, at, unsent:true}` (+`readAt`) — its content is erased on the server;
   apps show "মেসেজ মুছে ফেলা হয়েছে".
 * **Paging** (`chat_open`, `chat_messages`): at most 50 messages, **oldest → newest within the page**, ordered by

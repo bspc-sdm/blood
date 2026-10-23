@@ -110,6 +110,17 @@ Google Play-র Data safety ফর্মে আমরা ঠিক এই উত
 
 বাসায় সেবায় (ডাক্তার/নার্স) ঠিকানা অ্যাপে দেওয়া হয় না, ফোনে বলেন; শুধু প্যাথলজির "বাসা থেকে নমুনা" আর ফার্মেসির অনলাইন অর্ডারে ঠিকানা দিতে হয় (নিয়ম ওপরের টেবিলে)। "রক্ত দেব" চাপার আগে স্বাস্থ্য-সংক্রান্ত যে প্রশ্নগুলোতে টিক দেন, সেগুলো কোথাও সংরক্ষণ করা হয় না।
 
+## পেমেন্ট (অনলাইনে টাকা পাঠানো)
+
+**লাইফলো টাকা গ্রহণ বা সংরক্ষণ করে না; পেমেন্ট সরাসরি সেবাদাতার কাছে যায়।** আপনি বিকাশ, নগদ, রকেট বা উপায়ে টাকা পাঠান সরাসরি ডাক্তার, ফার্মেসি, প্যাথলজি বা অ্যাম্বুলেন্সের নিজের নম্বরে। লাইফলো কোনো টাকা ধরে রাখে না, ভাগ করে না, পেমেন্টের জন্য কোনো ফি নেয় না, আর আপনার বা সেবাদাতার মোবাইল ওয়ালেট, SMS বা নোটিফিকেশন পড়ে না।
+
+- **যা রাখা হয়:** কিসের পেমেন্ট, কত টাকা, কোন মাধ্যম, আপনার দেওয়া **TrxID** আর যে নম্বর থেকে পাঠিয়েছেন তার **শুধু শেষ ৪ সংখ্যা**, আর অবস্থা (পাঠিয়েছি / পেয়েছি / পাইনি / ফেরত)। পুরো মোবাইল নম্বর, PIN, OTP বা কার্ডের তথ্য **কখনো** নেওয়া বা রাখা হয় না।
+- **কে দেখে:** আপনি (আর আপনার কেয়ারগিভার), আর যাঁকে টাকা পাঠিয়েছেন সেই প্রতিষ্ঠান (ডাক্তারের ক্ষেত্রে তাঁর সহকারীও)। কেউ রিপোর্ট করলে Lifolo টিম দেখে।
+- **কেন:** প্রতিষ্ঠান যেন নিজের অ্যাপে মিলিয়ে নিশ্চিত করতে পারে, রসিদ দেওয়া যায়, আর একই TrxID দুবার ব্যবহার বা প্রতারণা ঠেকানো যায়।
+- **কতদিন:** নিশ্চিত হওয়া পেমেন্টের রেকর্ড রসিদের মতোই প্রতিষ্ঠানের হিসাবের জন্য রাখা হয় (অ্যাকাউন্ট মুছলে আপনার নাম-পরিচয় সরিয়ে)। অ্যাকাউন্ট মুছলে শেষ ৪ সংখ্যাও মুছে যায় (নিশ্চিত না হওয়া পেমেন্টে)।
+- লাইফলোর নিজের সাবস্ক্রিপশনের টাকা (চালু হলে) বিকাশের অফিশিয়াল পেমেন্ট গেটওয়ে দিয়ে নেওয়া হয়; সেখানে আমরা রাখি শুধু বিকাশের paymentID, TrxID, টাকার পরিমাণ আর অবস্থা।
+- লাইফলো কখনো PIN, OTP বা টাকা চায় না। পেমেন্ট পাতায় দেখানো নম্বর ছাড়া অন্য কোথাও টাকা পাঠাবেন না। রক্তের জন্য কোনো টাকা দিতে হয় না।
+
 ## তথ্য কোথায় থাকে আর কারা প্রক্রিয়া করে
 
 - **আমাদের সার্ভার:** সব তথ্য (অ্যাকাউন্ট, প্রোফাইল, রিকোয়েস্ট, প্রেসক্রিপশন, রিপোর্ট, তালিকা …) আমাদের নিজের সার্ভারের ডাটাবেসে থাকে। সার্ভারটা Contabo নামের প্রতিষ্ঠান থেকে ভাড়া করা, এখন ইউরোপে; পরে সিঙ্গাপুরে সরানো হতে পারে — সরালে এই পাতা হালনাগাদ হবে। মানে আপনার তথ্য বাংলাদেশের বাইরে রাখা হয়।
@@ -290,6 +301,17 @@ These are exactly the answers we give in Google Play's Data safety form. "Requir
 **Money:** no money goes through the app. Doctor and nurse fees, medicine and test prices are paid directly (in the shop, cash on delivery or to the provider). Report-review fees go straight to the doctor's own bKash/Nagad/Rocket number; we keep only the TrxID you enter.
 
 **Location:** for ambulance, pharmacy and lab sorting, your phone's location is used only to measure distance for that search and is not stored (for ambulances it is first rounded to about 1 km). The Android app normally asks only for approximate location; precise location is asked only when an ambulance driver sets the waiting place or you tap "Use location" while calling an ambulance. No camera permission is needed to scan a shop's QR code.
+
+## Payments (sending money online)
+
+**Lifolo does not receive or hold any money; payments go directly to the service provider.** You send money by bKash, Nagad, Rocket or Upay straight to the doctor's, pharmacy's, lab's or ambulance's own number. Lifolo never holds, splits or settles money, takes no fee per payment, and never reads your or the business's mobile wallet, SMS or notifications.
+
+- **What we store:** what the payment is for, the amount, the method, the **TrxID** you enter and **only the last 4 digits** of the number you sent from, and the status (sent / received / not received / refunded). We **never** collect or store a full wallet number of yours, a PIN, an OTP or card details.
+- **Who sees it:** you (and your caregiver), and the business you paid (for a doctor, also their assistant). The Lifolo team sees it when someone reports it.
+- **Why:** so the business can check its own wallet and confirm, a receipt can be issued, and a TrxID cannot be used twice for fraud.
+- **How long:** a confirmed payment's record is kept like a receipt for the business's accounts (your identity removed when you delete your account). On account deletion the last 4 digits of unconfirmed payments are deleted too.
+- Lifolo's own subscription (when available) is paid through bKash's official payment gateway; we keep only bKash's paymentID, TrxID, the amount and the status.
+- Lifolo never asks for your PIN, OTP or money. Never send money to a number other than the one shown on the payment page. Nobody has to pay for blood.
 
 ## Where data is stored and who processes it
 

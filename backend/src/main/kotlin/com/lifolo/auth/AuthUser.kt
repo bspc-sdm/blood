@@ -13,6 +13,8 @@ data class AuthUser(
     val webSession: Boolean = false,
     val guest: Boolean = false,
     val actingBy: String? = null,
+    /** when the person last signed in (the token's auth_time, ms); null = unknown (web session, tests building users) */
+    val authTimeMs: Long? = null,
 ) {
     /** uid for handlers that never run for guests */
     val id: String get() = uid ?: error("guest has no uid")

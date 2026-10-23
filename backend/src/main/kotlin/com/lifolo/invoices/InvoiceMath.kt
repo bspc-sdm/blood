@@ -111,6 +111,8 @@ data class Invoice(
     val overFare: Boolean?,
     val chartFare: Int?,
     val isDemo: Boolean,
+    /** Lifolo Pay refunds in part (a full refund voids the receipt — reason `refunded`) */
+    val refunded: BigDecimal = BigDecimal.ZERO,
 ) {
     val verifyUrl: String get() = InvoiceMath.VERIFY_BASE + verifyCode
 
@@ -134,6 +136,7 @@ data class Invoice(
         m["paid"] = InvoiceMath.num(paid)
         m["due"] = InvoiceMath.num(due)
         m["payments"] = payments.map { it.toMap() }
+        if (refunded.signum() > 0) m["refunded"] = InvoiceMath.num(refunded)
         m["status"] = status
         if (voidReason != null) m["voidReason"] = voidReason
         if (voidNote != null) m["voidNote"] = voidNote

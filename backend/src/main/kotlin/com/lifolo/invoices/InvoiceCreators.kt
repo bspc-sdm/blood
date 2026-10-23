@@ -38,6 +38,7 @@ class InvoiceCreators(
     private val ambReqs: AmbReqService,
     private val ambRepo: AmbRepo,
     private val features: InvoiceFeatures,
+    private val switches: com.lifolo.features.Features,
 ) {
     private fun err(lang: String?, status: Int, en: String, bn: String, code: String? = null) = InvoiceService.err(lang, status, en, bn, code)
 
@@ -356,6 +357,9 @@ class InvoiceCreators(
             extras[code] = amount
         }
         val method = InvoiceMath.method(lang, ctx.body["method"], "cash")
+        // Lifolo Pay: "pay later by MFS" — the receipt is issued unpaid and the patient gets a fare request (only after the
+        // trip, never required; PAYMENTS.md). Ignored while pay_ambulance is off for the driver.
+        val payLater = ctx.body.isTrue("payLater") && switches.isOn(actor.uid, com.lifolo.features.Features.PAY_AMBULANCE)
         val x = ambReqs.load(reqId!!) ?: throw notFound(lang)
         if (x.acceptedBy != actor.uid || x.ambulanceId == null) throw notFound(lang)
         val biz = invoices.requireIssuer(lang, actor, "ambulance", x.ambulanceId)
@@ -388,11 +392,12 @@ class InvoiceCreators(
             lang, actor,
             IssueCmd(
                 "ambulance", x.ambulanceId, listOf(LineIn(if (dest.isNotEmpty()) "ভাড়া — $dest" else "ভাড়া", BigDecimal.ONE, fare)), // bn-ok
-                fees = extras.map { (code, amount) -> FeeIn(extraLabel[code]!!, amount) }, payments = listOf(PaymentIn(InvoiceMath.m2(total), method)),
+                fees = extras.map { (code, amount) -> FeeIn(extraLabel[code]!!, amount) },
+                payments = if (payLater) emptyList() else listOf(PaymentIn(InvoiceMath.m2(total), method)),
                 customer = Customer(x.patientName.ifEmpty { null }?.take(60), x.phone?.take(20)), patientUid = x.uid,
                 refType = "ambreq", refId = x.id, overFare = over, chartFare = limit,
             ),
         )
-        return linkedMapOf("ok" to true, "invoice" to inv.toMap(), "overFare" to over, "chartFare" to limit, "agreedFare" to x.agreedFare)
+        return linkedMapOf("ok" to true, "invoice" to inv.toMap(), "overFare" to over, "chartFare" to limit, "agreedFare" to x.agreedFare, "payLater" to payLater)
     }
 }

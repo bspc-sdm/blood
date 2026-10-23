@@ -877,7 +877,7 @@ class CallService(
         const val PAGE = 30
         const val RETENTION_DAYS = 180L
         const val DAY_MS = 24L * 60 * 60 * 1000
-        val REPORT_REASONS = setOf("harassment", "spam", "fake", "other")
+        val REPORT_REASONS = setOf("harassment", "spam", "fake", "asked_other_number", "other")
         val ID_RE = Regex("^[A-Za-z0-9_-]{1,64}$")
         val UID_RE = Regex("^[A-Za-z0-9_-]{1,128}$")
 

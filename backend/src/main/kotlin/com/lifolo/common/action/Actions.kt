@@ -114,6 +114,8 @@ object ActionPolicy {
         "appt_pay_claim", "appt_report",
         // receipts (docs/INVOICES.md): the patient's side only
         "invoice_get", "my_invoices", "my_expenses", "invoice_report",
+        // Lifolo Pay (docs/PAYMENTS.md): the payer's side only — a caregiver pays from their own wallet
+        "pay_request_get", "pay_claim", "pay_refund_ack", "pay_report", "my_payments", "pay_due_start",
     )
 
     /**

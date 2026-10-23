@@ -294,7 +294,8 @@ class AuthzSweepIT : IntegrationTest() {
                 val r = fuzzCall(uid, a, b, ipBase + i)
                 val text = r.body.toString()
                 // 503 calls_unavailable is the designed answer while the call server is not configured (CALLS.md)
-                val designed503 = r.status == 503 && r.code == "calls_unavailable"
+                // … and pgw_unavailable while the bKash gateway has no credentials (PAYMENTS.md)
+                val designed503 = r.status == 503 && (r.code == "calls_unavailable" || r.code == "pgw_unavailable")
                 if ((r.status >= 500 && !designed503) || text.contains("Exception") || text.contains("at com.lifolo")) {
                     bad += "$uid $a → ${r.status} ${text.take(200)} body=${b.entries.take(3)}"
                     break

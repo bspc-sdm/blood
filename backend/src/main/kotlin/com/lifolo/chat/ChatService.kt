@@ -216,6 +216,8 @@ class ChatService(
             return out
         }
         if (m.text != null) out["text"] = m.text
+        // payments security review P2: a phone-like number + money words → clients show a caution banner
+        if (m.text != null && MoneyWarn.check(m.text)) out["warn"] = MoneyWarn.CODE
         if (m.hasPhoto) out["photoUrl"] = photos.url(m.id, nowMs)
         if (m.thumb != null) out["photoThumb"] = m.thumb
         if (m.lat != null && m.lng != null) out["location"] = linkedMapOf("lat" to m.lat, "lng" to m.lng)
@@ -391,7 +393,12 @@ class ChatService(
                 log.error("chat_message notice failed", ex)
             }
         }
-        return linkedMapOf("ok" to true, "message" to messageMap(m))
+        val out = linkedMapOf<String, Any?>("ok" to true, "message" to messageMap(m))
+        if (m.text != null && MoneyWarn.check(m.text)) {
+            out["warn"] = MoneyWarn.CODE
+            out["warnText"] = MoneyWarn.text(t0.ctx, lang)
+        }
+        return out
     }
 
     private fun existing(threadId: String, uid: String, clientId: String): MessageRow? = jdbc.query(
@@ -707,5 +714,30 @@ class ChatContactHistory(private val jdbc: JdbcTemplate) : ContactHistory {
             """.trimIndent(),
             a, b, ctx, refId, from,
         ).isNotEmpty()
+    }
+}
+
+/**
+ * Payments security review P2: "send to this other number" — a message with a phone-like number (01…, Bangla or English
+ * digits, spaces/dashes/dots between them) AND money words gets `warn: "money_number"`; the clients show a caution
+ * banner. In blood threads the wording is stronger: nobody ever has to pay for blood.
+ */
+object MoneyWarn {
+    const val CODE = "money_number"
+    private val WORDS = listOf("টাকা", "বিকাশ", "নগদ", "রকেট", "উপায়", "৳", "send", "bkash", "nagad", "rocket", "upay", "taka", "tk") // bn-ok
+    private val PHONE = Regex("01[3-9][0-9]{8}")
+
+    fun check(text: String): Boolean {
+        val digits = text.map { c -> if (c in '\u09E6'..'\u09EF') '0' + (c - '\u09E6') else c }.joinToString("")
+        val packed = digits.replace(Regex("(?<=[0-9])[\\s.\\-]+(?=[0-9])"), "").replace(Regex("\\+?880(?=1[3-9])"), "0")
+        if (!PHONE.containsMatchIn(packed)) return false
+        val low = text.lowercase()
+        return WORDS.any { low.contains(it) }
+    }
+
+    fun text(ctx: String, lang: String?): String = if (ctx == "blood") {
+        com.lifolo.common.Lang.pick(lang, "Nobody has to pay for blood — never send money; report it", "রক্তের জন্য কোনো টাকা দিতে হয় না — টাকা পাঠাবেন না, রিপোর্ট করুন") // bn-ok
+    } else {
+        com.lifolo.common.Lang.pick(lang, "Send money only from the app's payment page — report this", "অ্যাপের পেমেন্ট পাতা ছাড়া টাকা পাঠাবেন না — রিপোর্ট করুন") // bn-ok
     }
 }

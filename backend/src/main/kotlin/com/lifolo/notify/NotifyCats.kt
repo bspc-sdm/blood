@@ -71,7 +71,16 @@ object NotifyCats {
         // in-app messages (CHAT.md): a new message (lock screen: "লাইফলো মেসেজ — <first name>" only), read receipts
         "chat_message" to MESSAGES,
         "chat_read" to MESSAGES,
+        // Lifolo Pay (PAYMENTS.md; the push sets cat: appointments for chamber fees/advances, else my_request; business)
+        "pay_requested" to MY_REQUEST,
+        "pay_confirmed" to MY_REQUEST,
+        "pay_rejected" to MY_REQUEST,
+        "pay_refunded" to MY_REQUEST,
+        "pay_claimed" to BUSINESS,
+        "pay_reminder" to BUSINESS,
+        "pay_refund_due" to BUSINESS,
         // always on
+        "pay_methods_changed" to ACCOUNT, // a business's payment numbers changed (with "আমি করিনি")
         "care" to ACCOUNT, // caregiver invitation / accepted; a caregiver's copy of patient news carries its own cat
         "support" to ACCOUNT, // Lifolo team reply
         "correction" to ACCOUNT, // last-donation-date correction result

@@ -69,6 +69,8 @@ class FakeIdentityProvider : IdentityProvider {
         var displayName: String? = null,
         var createdAt: Long = System.currentTimeMillis(),
         var lastSeenAt: Long? = null,
+        /** the token's auth_time (ms); null = signed in just now (every test token is a fresh login) */
+        var authAt: Long? = null,
     )
 
     val users = ConcurrentHashMap<String, User>()
@@ -106,7 +108,7 @@ class FakeIdentityProvider : IdentityProvider {
         val u = users[uidOf(token)] ?: throw IdentityException(IdentityException.Kind.INVALID_TOKEN, "bad token")
         if (u.disabled) throw IdentityException(IdentityException.Kind.USER_DISABLED)
         if (checkRevoked && u.revoked) throw IdentityException(IdentityException.Kind.TOKEN_REVOKED)
-        return DecodedToken(u.uid, u.email, u.emailVerified)
+        return DecodedToken(u.uid, u.email, u.emailVerified, authTimeSec = (u.authAt ?: System.currentTimeMillis()) / 1000)
     }
 
     private fun User.account() = AuthAccount(uid, email, emailVerified, disabled, createdAt, lastSeenAt)

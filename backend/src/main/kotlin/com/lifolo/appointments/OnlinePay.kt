@@ -39,9 +39,9 @@ class OnlinePay(
     private val payLog: ApptPayLog,
     private val quotas: QuotaService,
     private val admins: AdminService,
-    private val invoices: com.lifolo.invoices.InvoiceCreators,
     private val onlineSwitch: OnlineSwitch,
     private val privacy: com.lifolo.practice.PracticePrivacy,
+    private val pay: com.lifolo.payments.PayService,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -116,47 +116,8 @@ class OnlinePay(
         requirePayable(ctx, a)
         val ref = CareRules.payRef(ctx.body.string("payRef"))
         if (ref.error != null) throw ctx.err(400, ref.error.en, ref.error.bn)
-        val now = clock.now()
-        // R7: at most 5 claims per appointment per hour (counted before anything else, so guessing TrxIDs stops)
-        val n = jdbc.queryForObject(
-            """
-            UPDATE appointments SET
-              pay_claim_count = CASE WHEN pay_claim_window_at > ? THEN pay_claim_count + 1 ELSE 1 END,
-              pay_claim_window_at = CASE WHEN pay_claim_window_at > ? THEN pay_claim_window_at ELSE ? END
-            WHERE id = ? RETURNING pay_claim_count
-            """.trimIndent(),
-            Int::class.java, Sql.ts(now - HOUR), Sql.ts(now - HOUR), Sql.ts(now), a.id,
-        ) ?: 0
-        if (n > MAX_CLAIMS_PER_HOUR) {
-            throw ctx.err(429, "Too many tries — try again in an hour", "অনেকবার চেষ্টা হয়েছে — এক ঘণ্টা পরে আবার চেষ্টা করুন", "pay_claim_rate") // bn-ok
-        }
-        var changed = false
-        var payRef: String? = null
-        var from: String? = null
-        tx.executeWithoutResult {
-            val (status, pay) = lockState(a.id) ?: throw notFound(ctx)
-            from = pay
-            if (status != "pending" && status != "confirmed") throw stateErr(ctx)
-            if (pay == "paid") throw ctx.err(409, "The doctor already marked the fee as received", "ডাক্তার আগেই ফি পেয়েছেন বলে জানিয়েছেন", "state") // bn-ok
-            if (pay != "unpaid" && pay != "claimed") throw stateErr(ctx)
-            // a second claim without a TrxID keeps the earlier one
-            payRef = ref.value ?: if (pay == "claimed") a.payRef else null
-            changed = pay != "claimed" || payRef != a.payRef
-            // R7: a TrxID only once per doctor (another patient's screenshot, an earlier payment)
-            val r = payRef
-            if (r != null && jdbc.queryForList("SELECT 1 FROM appointments WHERE provider_uid = ? AND pay_ref = ? AND id <> ? LIMIT 1", a.providerUid, r, a.id).isNotEmpty()) {
-                throw refUsed(ctx)
-            }
-            try {
-                jdbc.update(
-                    "UPDATE appointments SET pay_state = 'claimed', pay_ref = ?, pay_note = NULL, pay_claimed_at = ?, updated_at = ? WHERE id = ?",
-                    payRef, Sql.ts(now), Sql.ts(now), a.id,
-                )
-            } catch (e: DuplicateKeyException) {
-                throw refUsed(ctx)
-            }
-            if (changed) payLog.log(a.id, ctx.caller.id, pay, "claimed", payRef, null)
-        }
+        // Lifolo Pay: the chamber_fee request and the appointment change together (rate limits, TrxID once per doctor)
+        val (changed, payRef) = pay.legacyClaim(ctx.lang, a.id, ctx.user.id, ctx.caller.id, ref.value, clock.now())
         if (changed) {
             val body = "${a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (payRef != null) " · TrxID $payRef" else ""}"
             val data = mapOf("type" to "appointment", "role" to "provider", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS)
@@ -168,9 +129,6 @@ class OnlinePay(
         return linkedMapOf("ok" to true, "payState" to "claimed", "payRef" to payRef)
     }
 
-    private fun refUsed(ctx: ActionContext) =
-        ctx.err(409, "This TrxID was already used", "এই TrxID আগেই ব্যবহার হয়েছে — বিকাশ মেসেজ থেকে ঠিক TrxID দিন", "pay_ref_used") // bn-ok
-
     // ------------------------------------------------------------------ doctor/assistant: "ফি পেয়েছি" / "পাইনি"
 
     fun confirm(ctx: ActionContext): Any {
@@ -178,32 +136,14 @@ class OnlinePay(
         val a = load(ctx)
         requireDoctorSide(ctx, a)
         requirePayable(ctx, a)
-        val now = clock.now()
-        var changed = false
-        tx.executeWithoutResult {
-            val (status, pay) = lockState(a.id) ?: throw notFound(ctx)
-            if (pay == "paid") return@executeWithoutResult
-            if (status !in setOf("pending", "confirmed", "completed")) throw stateErr(ctx)
-            jdbc.update(
-                "UPDATE appointments SET pay_state = 'paid', pay_note = NULL, pay_paid_at = ?, pay_paid_by = ?, updated_at = ? WHERE id = ?",
-                Sql.ts(now), ctx.user.id, Sql.ts(now), a.id,
-            )
-            payLog.log(a.id, ctx.user.id, pay, "paid", a.payRef, null)
-            changed = true
-        }
+        // Lifolo Pay: the request is confirmed with the appointment; the receipt follows (a receipt problem never undoes it)
+        val (changed, invoice) = pay.legacyConfirm(ctx.lang, ctx.user, a.id, clock.now())
         if (changed && onlineSwitch.allowed(a.patientUid)) {
             push.pushPatient(
                 a.patientUid, "The doctor received the fee", "ডাক্তার ফি পেয়েছেন", // bn-ok
                 "${a.providerName} · ${ApptRepo.dateLabel(a.date)}",
                 mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
             )
-        }
-        // the patient's receipt (docs/INVOICES.md) — a receipt problem never undoes the confirmation
-        val invoice = if (!changed) null else try {
-            invoices.onlineFeePaid(ctx.lang, ctx.user, a.id)
-        } catch (e: Exception) {
-            org.slf4j.LoggerFactory.getLogger(javaClass).warn("online fee receipt failed: {}", e.message)
-            null
         }
         return linkedMapOf("ok" to true, "payState" to "paid", "invoice" to invoice?.toMap())
     }
@@ -214,16 +154,7 @@ class OnlinePay(
         requireDoctorSide(ctx, a)
         requirePayable(ctx, a)
         val reason = Rules.cleanText(ctx.body.string("reason"), 200)
-        val now = clock.now()
-        tx.executeWithoutResult {
-            val (_, pay) = lockState(a.id) ?: throw notFound(ctx)
-            if (pay != "claimed") throw stateErr(ctx)
-            jdbc.update(
-                "UPDATE appointments SET pay_state = 'unpaid', pay_note = ?, updated_at = ? WHERE id = ?",
-                reason, Sql.ts(now), a.id,
-            )
-            payLog.log(a.id, ctx.user.id, "claimed", "unpaid", a.payRef, reason)
-        }
+        pay.legacyReject(ctx.lang, ctx.user, a.id, reason, clock.now())
         if (onlineSwitch.allowed(a.patientUid)) push.pushPatient(
             a.patientUid, "The doctor has not received the fee yet", "ডাক্তার এখনো ফি পাননি — বিকাশ লেনদেনটা আবার দেখুন", // bn-ok
             "${a.providerName} · ${ApptRepo.dateLabel(a.date)}${if (reason != null) " · $reason" else ""}",

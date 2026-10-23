@@ -57,6 +57,9 @@ class AppointmentActions(
     private val pushService: PushService,
     private val gate: PracticeGate,
     private val privacy: PracticePrivacy,
+    private val payMethods: com.lifolo.payments.PayMethodStore,
+    private val payGuard: com.lifolo.payments.PayMethodGuard,
+    private val payHooks: org.springframework.beans.factory.ObjectProvider<ApptPayHook>,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -227,14 +230,15 @@ class AppointmentActions(
     fun providerMe(ctx: ActionContext): Any {
         val p = store.load(ctx.user.id) ?: return mapOf("provider" to null)
         val out = providerOut(p, own = true, systemsOn = gate.systemsOn(ctx))
-        // R6: after a bKash number change new bookings get the earlier number for 24 h
+        // the bKash number new bookings get comes from the payment numbers (PAYMENTS.md, one code path): a number reaches
+        // patients only after 24 h active (security review P4) — the matured one in use, and when the newest takes over
         val now = clock.now()
+        val (active, pending) = payMethods.chamberBkash(ctx.user.id, now)
         out["chambers"] = p.chambers.map { c ->
             val m = LinkedHashMap(c.toMap(withPrivate = true))
             if (c.online) {
-                val active = CareRules.activeBkash(p, c, now)
                 m["bkashActive"] = active
-                m["bkashPendingUntil"] = if (active != c.bkashNumber) p.bkashChangedAt?.plus(CareRules.BKASH_COOL_MS) else null
+                m["bkashPendingUntil"] = pending
             }
             m
         }
@@ -359,6 +363,16 @@ class AppointmentActions(
         val now = clock.now()
         var saved: List<Ch> = parsed
         var bkashChanged: Pair<String, String>? = null
+        // the online chamber's bKash number is a payment number (PAYMENTS.md, security review P4): the same rules as
+        // pay_methods_set — a login of the last 10 minutes, demo numbers only in the demo, never while frozen
+        val newBk = parsed.firstOrNull { it.online }?.bkashNumber ?: ""
+        val bkChange = newBk.isNotEmpty() && newBk != payMethods.list("chamber", uid).firstOrNull { it.method == "bkash" }?.number
+        if (bkChange) {
+            payGuard.requireNotFrozen(ctx.lang, "chamber", uid)
+            payGuard.requireRecentLogin(ctx.lang, ctx.caller)
+            payGuard.requireWorldNumber(ctx.lang, uid, newBk)
+        }
+        var payChanges: List<com.lifolo.payments.MethodChange> = emptyList()
         // read and write in one transaction, so an admin switching it off at the same time is not undone
         tx.executeWithoutResult {
             val cur = store.load(uid, forUpdate = true)
@@ -412,7 +426,7 @@ class AppointmentActions(
                     oc.note.ifEmpty { null }, uid,
                 )
             }
-            // R6: a bKash number change is logged; the earlier number stays active for new bookings for 24 h
+            // R6: a bKash number change is logged (the admins' view); the number itself goes through the payment numbers
             val oldCh = cur?.chambers?.firstOrNull { it.online }
             val oldNo = oldCh?.bkashNumber ?: ""
             val newNo = saved.firstOrNull { it.online }?.bkashNumber ?: ""
@@ -421,24 +435,12 @@ class AppointmentActions(
                     "INSERT INTO bkash_number_log (provider_uid, old_last3, new_last3, by_uid, at) VALUES (?, ?, ?, ?, ?)",
                     uid, oldNo.takeLast(3).ifEmpty { null }, newNo.takeLast(3).ifEmpty { null }, ctx.caller.id, Sql.ts(now),
                 )
-                if (oldNo.isNotEmpty() && newNo.isNotEmpty()) {
-                    jdbc.update(
-                        "UPDATE providers SET online_bkash_prev = ?, online_bkash_changed_at = ? WHERE uid = ?",
-                        CareRules.activeBkash(cur!!, oldCh!!, now), Sql.ts(now), uid,
-                    )
-                } else {
-                    jdbc.update("UPDATE providers SET online_bkash_prev = NULL, online_bkash_changed_at = NULL WHERE uid = ?", uid)
-                }
                 bkashChanged = oldNo to newNo
             }
+            if (bkChange) payChanges = payMethods.setOne("chamber", uid, uid, "bkash", newBk, "personal", ctx.caller.id, now)
         }
-        bkashChanged?.let { (o, n) ->
-            users.push(
-                uid, "Your bKash number was changed", "আপনার বিকাশ নম্বর বদলানো হয়েছে", // bn-ok
-                "${if (o.isEmpty()) "—" else "…" + o.takeLast(3)} → ${if (n.isEmpty()) "—" else "…" + n.takeLast(3)}",
-                mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.ACCOUNT),
-            )
-        }
+        // P4: push AND email with "আমি করিনি" (the same notice as pay_methods_set)
+        if (bkashChanged != null || payChanges.isNotEmpty()) payGuard.notifyChanged("chamber", uid, uid, payChanges, now)
         // a chamber removed, days changed, list or appointments off: cancel what no longer holds and tell the patients
         val chambers = saved
         val cancelled = cancel.cancelStale(
@@ -550,7 +552,7 @@ class AppointmentActions(
             id, uid, providerUid, name, ps.name, member?.get("member_id"), (member?.get("age") as? Number)?.toInt(),
             (member?.get("gender") as? String) ?: "", user.actingBy, ps.type, ch.hospitalName, ch.hospitalNameBn, ch.key, slotStart,
             ch.room, ch.schedule, Sql.date(DhakaTime.fromUtcMidnightMs(date)), note, Sql.ts(now),
-            online, payState, if (online) CareRules.activeBkash(ps, ch, now).ifEmpty { null } else null, if (online) (if (noFee) "" else ch.fee) else null,
+            online, payState, if (online) payMethods.chamberBkash(providerUid, now).first else null, if (online) (if (noFee) "" else ch.fee) else null,
             noFee, if (online) ch.note.ifEmpty { null } else null,
         )
         users.push(
@@ -560,7 +562,14 @@ class AppointmentActions(
             "$name · ${ApptRepo.dateLabel(date)}",
             mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS) + Practice.privateTag(ps.type),
         )
-        return mapOf("id" to id)
+        // Lifolo Pay: the online fee's request, or the in-person chamber's advance (when the doctor asks one) — never
+        // a reason for the booking to fail (an unpaid advance does not cancel it either, M-PAY-34)
+        val payRequestId = try {
+            payHooks.ifAvailable?.afterBook(id, now)
+        } catch (e: Exception) {
+            null
+        }
+        return if (payRequestId != null) mapOf("id" to id, "payRequestId" to payRequestId) else mapOf("id" to id)
     }
 
     // ------------------------------------------------------------------ my_appointments
@@ -761,4 +770,9 @@ class AppointmentActions(
         }
         return mapOf("ok" to true)
     }
+}
+
+/** Lifolo Pay (payments package): after a booking — the online fee's request or the chamber's advance; returns its id */
+fun interface ApptPayHook {
+    fun afterBook(appointmentId: String, nowMs: Long): String?
 }

@@ -7,6 +7,8 @@ data class DecodedToken(
     val emailVerified: Boolean,
     /** the token's `iat` (seconds), for the revocation check against [AuthAccount.tokensValidAfterMs] */
     val issuedAtSec: Long? = null,
+    /** the token's `auth_time` (seconds): when the person last signed in (a recent login for payment numbers, P4) */
+    val authTimeSec: Long? = null,
 )
 
 /** A Firebase Auth user record. */

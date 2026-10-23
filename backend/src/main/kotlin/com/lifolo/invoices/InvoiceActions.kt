@@ -21,6 +21,7 @@ class InvoiceActions(
     private val creators: InvoiceCreators,
     private val features: InvoiceFeatures,
     private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
+    private val payHooks: org.springframework.beans.factory.ObjectProvider<AmbFinishPayHook>,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "invoice_get" to ActionHandler { ctx -> mapOf("invoice" to invoices.get(ctx.lang, ctx.user, ctx.body.string("id")).toMap()) },
@@ -43,11 +44,28 @@ class InvoiceActions(
         "my_expenses" to ActionHandler { ctx -> invoices.expenses(ctx.lang, ctx.user, ctx.body.string("month")) },
         "lab_bill_create" to ActionHandler { ctx -> creators.labBill(ctx.lang, ctx.user, ctx.body) },
         "chamber_fee_collect" to ActionHandler { ctx -> creators.chamberFee(ctx.lang, ctx.user, ctx.body) },
-        "ambreq_finish" to ActionHandler { ctx -> creators.ambreqFinish(ctx) },
+        "ambreq_finish" to ActionHandler(::ambreqFinish),
         "assistant_chambers" to ActionHandler(::chambers),
         "chamber_checkin" to ActionHandler(::checkin),
         "invoice_day_summary" to ActionHandler(::daySummary),
     )
+
+    /**
+     * ambreq_finish: the trip's receipt (InvoiceCreators); with `payLater` (pay_ambulance) the fare request for the
+     * patient is made right after (Lifolo Pay — after the trip only, never required). Answer + `payRequest`.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun ambreqFinish(ctx: ActionContext): Any {
+        val res = creators.ambreqFinish(ctx) as Map<String, Any?>
+        if (res["payLater"] != true) return res
+        val reqId = ctx.body.string("reqId") ?: return res
+        val pr = try {
+            payHooks.ifAvailable?.afterFinish(ctx.lang, ctx.user, reqId)
+        } catch (e: Exception) {
+            null
+        }
+        return LinkedHashMap(res).apply { put("payRequest", pr) }
+    }
 
     private fun id(ctx: ActionContext): String {
         val id = ctx.body.string("id")
@@ -161,4 +179,9 @@ class InvoicePurgeTask(private val invoices: InvoiceService) : DailyTask {
     override val order = 20
 
     override fun run(nowMs: Long): Any = invoices.purge(nowMs)
+}
+
+/** Lifolo Pay (payments package): the fare request after ambreq_finish with payLater; returns the request JSON or null */
+fun interface AmbFinishPayHook {
+    fun afterFinish(lang: String?, driver: com.lifolo.auth.AuthUser, reqId: String): Map<String, Any?>?
 }

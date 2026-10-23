@@ -341,6 +341,7 @@ class InvoiceService(
             voidReason = rs.getString("void_reason"), voidNote = rs.getString("void_note"), voidedAt = rs.ms("voided_at"), issuedAt = rs.ms("issued_at")!!, issuedBy = rs.getString("issued_by"),
             deviceId = rs.getString("device_id"), deviceNo = rs.getString("device_no"), offline = rs.getBoolean("offline"), verifyCode = rs.getString("verify_code"),
             overFare = rs.getObject("over_fare") as Boolean?, chartFare = rs.getObject("chart_fare") as Int?, isDemo = rs.getBoolean("is_demo"),
+            refunded = rs.getBigDecimal("refunded") ?: BigDecimal.ZERO,
         )
     }
 
@@ -406,11 +407,12 @@ class InvoiceService(
      * any receipt; a doctor's assistant only their own and within 2 hours — and the doctor is told (security review I7).
      */
     @Transactional
-    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, note: String? = null, stamp: DeviceStamp? = null): Invoice {
+    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, note: String? = null, stamp: DeviceStamp? = null, refund: Boolean = false): Invoice {
         val inv = load(invoiceId, lock = true) ?: throw notFound(lang)
         val role = roleOf(actor, inv.kind, inv.bizId, inv.ownerUid) ?: throw notFound(lang)
         features.requireKind(lang, inv.ownerUid, inv.kind)
-        if (reason !in InvoiceMath.VOID_REASONS) throw InvoiceMath.bad(lang, "Choose why it is void", "বাতিলের কারণ বেছে নিন", "reason") // bn-ok
+        // `refunded` only from a Lifolo Pay refund in full (PAYMENTS.md), never typed by a business
+        if (reason !in InvoiceMath.VOID_REASONS && !(refund && reason == "refunded")) throw InvoiceMath.bad(lang, "Choose why it is void", "বাতিলের কারণ বেছে নিন", "reason") // bn-ok
         val text = Rules.cleanText(note, 200)
         if (reason == "other" && text == null) throw InvoiceMath.bad(lang, "Write why it is void", "বাতিলের কারণ লিখুন", "reason") // bn-ok
         if (inv.status == "void") throw err(lang, 409, "This receipt is already void", "এই রসিদ আগেই বাতিল", "already_void") // bn-ok
@@ -439,6 +441,24 @@ class InvoiceService(
                 }
             }
         }
+        return load(inv.id)!!
+    }
+
+    /**
+     * Lifolo Pay: part of a payment went back to the patient (security review P5) — a refund line on the receipt
+     * (`refunded`); the paid amount stays as it was paid. In full, the receipt is voided instead (reason `refunded`).
+     */
+    @Transactional
+    fun refundLine(lang: String?, actor: AuthUser, invoiceId: String, amount: BigDecimal, ref: String?): Invoice {
+        val inv = load(invoiceId, lock = true) ?: throw notFound(lang)
+        requireIssuerOf(lang, actor, inv)
+        if (inv.status == "void") throw err(lang, 409, "This receipt is void", "এই রসিদ বাতিল", "void") // bn-ok
+        val a = InvoiceMath.m2(amount)
+        if (a.signum() <= 0 || a > inv.paid - inv.refunded) throw InvoiceMath.bad(lang, "The refund is more than the payment", "ফেরত পেমেন্টের চেয়ে বেশি", "amount") // bn-ok
+        val now = System.currentTimeMillis()
+        jdbc.update("INSERT INTO invoice_refunds (invoice_id, at, amount, ref, by_uid) VALUES (?, ?, ?, ?, ?)", inv.id, Sql.ts(now), a, ref?.take(40), actor.id)
+        jdbc.update("UPDATE invoices SET refunded = refunded + ? WHERE id = ?", a, inv.id)
+        event(inv.id, "refund", actor.id, null, mapOf("amount" to InvoiceMath.num(a)))
         return load(inv.id)!!
     }
 
@@ -692,6 +712,7 @@ class InvoiceService(
         jdbc.update("UPDATE invoices SET issued_by = NULL WHERE id IN ($marks) AND issued_by = ?", *ids.toTypedArray(), uid)
         jdbc.update("UPDATE invoices SET voided_by = NULL WHERE id IN ($marks) AND voided_by = ?", *ids.toTypedArray(), uid)
         jdbc.update("UPDATE invoice_payments SET ref = NULL, by_uid = NULL WHERE invoice_id IN ($marks)", *ids.toTypedArray())
+        jdbc.update("UPDATE invoice_refunds SET ref = NULL, by_uid = NULL WHERE invoice_id IN ($marks)", *ids.toTypedArray())
         jdbc.update("UPDATE invoice_events SET by_uid = NULL WHERE by_uid = ? AND invoice_id IN ($marks)", uid, *ids.toTypedArray())
         jdbc.update(
             "UPDATE invoices SET anonymised_at = coalesce(anonymised_at, now()), purge_after = GREATEST(coalesce(purge_after, ?), ?) WHERE id IN ($marks)",

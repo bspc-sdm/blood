@@ -87,5 +87,10 @@ abstract class P2TestBase : IntegrationTest() {
 
     fun district(en: String): String = Places.DISTRICTS.first { it.en == en }.bn
 
+    /** Lifolo Pay: a business's payment numbers have been active for 2 days (patients only ever see matured numbers, P4) */
+    fun matureNumbers(bizId: String) {
+        jdbc.update("UPDATE pay_methods SET active_since = active_since - interval '2 days' WHERE biz_id = ? AND active_since IS NOT NULL", bizId)
+    }
+
     fun hhmm(ms: Long): String = com.lifolo.admin.kernel.ListingRules.dhakaHHMM(ms)
 }

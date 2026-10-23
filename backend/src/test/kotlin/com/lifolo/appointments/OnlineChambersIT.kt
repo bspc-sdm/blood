@@ -49,6 +49,8 @@ class OnlineChambersIT : P2TestBase() {
         jdbc.update("INSERT INTO care_links (patient_uid, caretaker_uid, status) VALUES (?, ?, 'active')", pat, cg)
         val r = save(doc, listOf(inPerson(h.id), online()))
         assertEquals(200, r.status, r.toString())
+        // the bKash number reaches patients after 24 h active (payments security review P4)
+        matureNumbers(doc)
         jdbc.update("INSERT INTO provider_assistants (provider_uid, email, position) VALUES (?, 'asst@online.test', 0)", doc)
         return h.id
     }
@@ -314,7 +316,9 @@ class OnlineChambersIT : P2TestBase() {
         // a demo doctor with an online chamber: demo patients book it (pay flow works inside the demo world)
         person("demo-oldoc", "ডা. ডেমো অনলাইন")
         badge("demo-oldoc", "doctor", "ডা. ডেমো অনলাইন")
-        ok("demo-oldoc", "provider_save", mapOf("chambers" to listOf(online()), "specialties" to listOf("medicine"), "appointments" to true))
+        // the demo world has demo numbers only (payments security review P8)
+        assertEquals("demo_number", call("demo-oldoc", "provider_save", mapOf("chambers" to listOf(online()), "specialties" to listOf("medicine"), "appointments" to true)).code)
+        ok("demo-oldoc", "provider_save", mapOf("chambers" to listOf(online(mapOf("bkashNumber" to "01200000999"))), "specialties" to listOf("medicine"), "appointments" to true))
         val did = ok("demo-olpat", "book", mapOf("providerUid" to "demo-oldoc", "date" to today() + day, "chamberIndex" to 0, "note" to "x"))["id"].textValue()
         assertEquals(404, call(x, "appt_pay_confirm", mapOf("appointmentId" to did)).status)
         assertEquals("claimed", ok("demo-olpat", "appt_pay_claim", mapOf("appointmentId" to did))["payState"].textValue())

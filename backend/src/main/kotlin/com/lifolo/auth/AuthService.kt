@@ -63,7 +63,7 @@ class AuthService(
         }
         if (decoded != null) {
             accounts.ensure(decoded.uid, decoded.email, decoded.emailVerified)
-            return AuthUser(uid = decoded.uid, email = decoded.email ?: "", emailVerified = decoded.emailVerified)
+            return AuthUser(uid = decoded.uid, email = decoded.email ?: "", emailVerified = decoded.emailVerified, authTimeMs = decoded.authTimeSec?.let { it * 1000 })
         }
         val kind = failure?.kind
         // Firebase could not check the login (outage, throttling): retryable, the session itself is fine
