@@ -57,6 +57,8 @@ class TitleGuardIT : P2TestBase() {
 
     private fun nameOf(items: JsonNode, uid: String): String = items.first { it["uid"].textValue() == uid }["name"].textValue()
 
+    private fun adminUids(): Set<String> = ok(owner, "admin_title_names")["items"].map { it["uid"].textValue() }.toSet()
+
     private fun rename(uid: String, name: String) = call(uid, "profile_update", mapOf("set" to mapOf("name" to name)))
 
     /** every switch this test needs on, title_guard as given */
@@ -96,6 +98,26 @@ class TitleGuardIT : P2TestBase() {
         assertEquals("ডাক্তার", TitleRules.typeLabel("doctor", "homeopathy", false), "switch off: as before")
         assertEquals("ফিজিওথেরাপিস্ট", TitleRules.typeLabel("physio", null, true))
         assertEquals("ক্লিনিক্যাল সাইকোলজিস্ট / কাউন্সেলর", TitleRules.typeLabel("psychologist", null, true))
+    }
+
+    @Test
+    fun `rules - unicode tricks cannot hide a title (security review 2026-10-23)`() {
+        val titled = listOf(
+            "\u200BDr. Karim", "Dr\u00A0Karim", "\u00A0ডা. করিম", "ডা\u200C. করিম", "ＤＲ. Karim", "𝐃𝐫. Karim", "Dr\uFF0E Karim",
+            "Dr\u2024Karim", "ডা৽ করিম", "ডা। করিম", "(ডা.) করিম", "[Dr] Karim", "Dоctоr Karim", "Dг. Karim", "D\u0301r. Karim",
+            "ডক্টর করিম", "ডাক্\u200Dতার করিম", "\uFEFFDr. Karim", "Dr.\u2060 Karim", "ᴅʀ. Karim", "Dr\u3000Karim", "Ꭰr. Karim",
+            "ডা\u09BC. করিম", "Dr\u202FKarim", "\u2066Dr. Karim", "Dr\uFE0F. Karim", "🩺 Dr. Karim", "ডাঃ\u00A0করিম",
+        )
+        for (v in titled) {
+            assertTrue(TitleRules.hasTitle(v), v)
+            val out = TitleRules.strip(v)
+            assertTrue(out == "করিম" || out == "Karim", "$v → $out")
+        }
+        assertEquals("Karim", TitleRules.strip("Dr.\u200B Karim"))
+        assertEquals("Karim", TitleRules.strip("\u200BDr. \u200BKarim"))
+        for (n in listOf("ডালিয়া আক্তার", "Drabir Hasan", "Doctorate Ali", "Dr.", "ডা.", "\u200BDr.", "করিম ডা.", "Andrew", "Dmitry", "ড়াকু", "\u00A0করিম")) {
+            assertFalse(TitleRules.hasTitle(n), n)
+        }
     }
 
     // ------------------------------------------------------------------ saving a name
@@ -256,6 +278,54 @@ class TitleGuardIT : P2TestBase() {
     }
 
     @Autowired lateinit var ctx: org.springframework.context.ApplicationContext
+
+    @Test
+    fun `security review - unicode titles refused on saving and stripped when stored`() {
+        pro("homeo", "হোমিও", system = "homeopathy", specialties = listOf("alt_general"))
+        pro("homeoOld", "Dr\u00A0Old Homeo", system = "homeopathy", specialties = listOf("alt_general"))
+        pro("physioOld", "\u200Bডা. পুরোনো ফিজিও", type = "physio", specialties = listOf("physio_back_neck"))
+        person(owner, "মালিক", "owner@example.com")
+        person("pt")
+        for (v in listOf("Dr\u00A0Homeo", "\u200Bডা. হোমিও", "ＤＲ. Homeo", "Dоctоr Homeo", "(ডা.) হোমিও", "ডক্টর হোমিও")) {
+            val r = rename("homeo", v)
+            assertEquals(listOf(400, "title_not_allowed"), listOf(r.status, r.code), v)
+        }
+        assertEquals("Old Homeo", nameOf(list("pt"), "homeoOld"))
+        assertEquals("পুরোনো ফিজিও", nameOf(list("pt", "physio"), "physioOld"))
+        val admin = adminUids()
+        assertTrue(admin.containsAll(setOf("homeoOld", "physioOld")), admin.toString())
+    }
+
+    @Test
+    fun `security review - an MBBS claim counts only once approved (pending, rejected)`() {
+        person(owner, "মালিক", "owner@example.com")
+        // an approved homeopath re-verifying as an allopathic doctor: the badge is pending with system allopathy
+        pro("homeo", "ডা. হোমিও", system = "homeopathy", specialties = listOf("alt_general"))
+        jdbc.update("UPDATE badges SET system = 'allopathy', status = 'pending', reverify_from = 'homeopathy' WHERE uid = 'homeo'")
+        person("pt")
+        assertEquals("হোমিও", titleGuard.name("ডা. হোমিও", "pt"), "pending: not shown with the title")
+        assertEquals(200, rename("homeo", "ডা. হোমিও").status, "pending: the name can be saved (the admin checks it)")
+        // rejected: never eligible
+        jdbc.update("UPDATE badges SET status = 'rejected' WHERE uid = 'homeo'")
+        assertEquals("হোমিও", titleGuard.name("ডা. হোমিও", "pt"))
+        assertEquals("title_not_allowed", rename("homeo", "Dr. Homeo").code)
+        assertTrue("homeo" in adminUids())
+        // approved: an MBBS/BDS doctor keeps it
+        jdbc.update("UPDATE badges SET status = 'approved' WHERE uid = 'homeo'")
+        jdbc.update("UPDATE providers SET system = 'allopathy' WHERE uid = 'homeo'")
+        assertEquals("ডা. হোমিও", titleGuard.name("ডা. হোমিও", "pt"))
+        assertEquals("ডা. হোমিও", nameOf(list("pt"), "homeo"))
+    }
+
+    @Test
+    fun `security review - a non-eligible provider with the same titled name as an MBBS doctor is still stripped next to their uid`() {
+        pro("allo", "ডা. একই নাম")
+        pro("homeo", "ডা. একই নাম", system = "homeopathy", specialties = listOf("alt_general"))
+        person("pt")
+        val items = list("pt")
+        assertEquals("ডা. একই নাম", nameOf(items, "allo"))
+        assertEquals("একই নাম", nameOf(items, "homeo"))
+    }
 
     // ------------------------------------------------------------------ admin list
 

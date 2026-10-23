@@ -44,7 +44,7 @@ class TitleGuard(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Volatile
-    private var cached: Pair<Long, Map<String, String>>? = null
+    private var cached: Pair<Long, Loaded>? = null
 
     /** how long [names] is kept (tests: 0 — every answer reads the names again) */
     @Volatile
@@ -70,6 +70,22 @@ class TitleGuard(
     }
 
     /**
+     * may [uid] carry the title ([TitleRules.eligibleProfile]: an MBBS/BDS badge counts once approved, while pending only
+     * when [saving])? null = not a provider (no badge, no listing).
+     */
+    fun eligibleUser(uid: String, saving: Boolean): Boolean? {
+        val r = jdbc.queryForList(
+            """
+            SELECT b.type AS b_type, b.system AS b_system, b.status AS b_status, p.type AS p_type, p.system AS p_system
+            FROM (SELECT ?::text AS uid) u LEFT JOIN badges b ON b.uid = u.uid LEFT JOIN providers p ON p.uid = u.uid
+            """.trimIndent(),
+            uid,
+        ).firstOrNull() ?: return null
+        if (r["b_type"] == null && r["p_type"] == null) return null
+        return TitleRules.eligibleProfile(r["b_type"] as String?, r["b_system"] as String?, r["b_status"] as String?, r["p_type"] as String?, r["p_system"] as String?, saving)
+    }
+
+    /**
      * 400 `title_not_allowed` "MBBS/BDS ছাড়া নামের আগে ‘ডা.’ বা ‘Dr.’ লেখা যাবে না" when the rule is on for [caller],
      * the profession ([type], [system]) may not carry the title and [name] starts with one.
      */
@@ -82,8 +98,10 @@ class TitleGuard(
     /** the same for a provider's own name change (profile_update): the profession is looked up */
     fun requireOwnName(caller: String?, uid: String, name: String?, lang: String?) {
         if (!TitleRules.hasTitle(name)) return
-        val (type, system) = professionOf(uid) ?: return
-        requireName(caller, name, type, system, lang)
+        // a pending MBBS/BDS application may keep its title; a rejected one, or any other profession, may not
+        if (eligibleUser(uid, saving = true) != false) return
+        if (!on(caller)) return
+        throw error(lang)
     }
 
     // ------------------------------------------------------------------ showing names
@@ -92,7 +110,7 @@ class TitleGuard(
     fun apply(value: Any?, viewer: String?): Any? {
         if (value == null || !on(viewer)) return value
         val names = names()
-        if (names.isEmpty()) return value
+        if (names.isEmpty() && shared().isEmpty()) return value
         return try {
             val tree: JsonNode = if (value is JsonNode) value.deepCopy() else mapper.valueToTree(value)
             rewrite(tree, names)
@@ -120,7 +138,9 @@ class TitleGuard(
                 val v = e.value
                 if (v.isTextual) {
                     val s = v.textValue()
-                    val r = replaceField(e.key, s, names)
+                    var r = replaceField(e.key, s, names)
+                    // a titled name an eligible doctor also has: stripped only next to the uid of the one who may not
+                    if (r === s) shared()[s]?.let { uids -> if (node.any { it.isTextual && it.textValue() in uids }) r = TitleRules.strip(s) }
                     if (r !== s) e.setValue(TextNode(r))
                 } else if (v.isContainerNode) {
                     rewrite(v, names)
@@ -173,14 +193,21 @@ class TitleGuard(
     }
 
     /** stored name → name without the title, longest first */
-    fun names(): Map<String, String> {
+    fun names(): Map<String, String> = loaded().strip
+
+    /** titled names an eligible doctor and a non-eligible provider both have → the non-eligible uids */
+    private fun shared(): Map<String, Set<String>> = loaded().shared
+
+    private class Loaded(val strip: Map<String, String>, val shared: Map<String, Set<String>>)
+
+    private fun loaded(): Loaded {
         val now = System.currentTimeMillis()
         cached?.let { (at, m) -> if (now - at in 0 until ttlMs) return m }
         val m = try {
             load()
         } catch (e: Exception) {
             log.warn("title names load failed: {}", e.message)
-            emptyMap()
+            Loaded(emptyMap(), emptyMap())
         }
         cached = now to m
         return m
@@ -190,20 +217,29 @@ class TitleGuard(
         cached = null
     }
 
-    private fun load(): Map<String, String> {
+    private fun load(): Loaded {
         val strip = HashMap<String, String>()
+        val bad = HashMap<String, MutableSet<String>>()
         val keep = HashSet<String>()
         jdbc.query(
             NAMES_SQL,
             RowCallbackHandler { rs ->
                 val name = rs.getString("name")
                 if (name != null && TitleRules.hasTitle(name)) {
-                    if (TitleRules.eligible(rs.getString("type"), rs.getString("system"))) keep.add(name) else strip[name] = TitleRules.strip(name)
+                    val ok = TitleRules.eligibleProfile(rs.getString("b_type"), rs.getString("b_system"), rs.getString("b_status"), rs.getString("p_type"), rs.getString("p_system"))
+                    if (ok) {
+                        keep.add(name)
+                    } else {
+                        strip[name] = TitleRules.strip(name)
+                        bad.getOrPut(name) { HashSet() }.add(rs.getString("uid"))
+                    }
                 }
             },
         )
+        // a name an eligible doctor also has is never stripped by itself — only next to the other person's uid ([rewrite])
+        val shared = keep.filter { it in bad }.associateWith { bad.getValue(it).toSet() }
         keep.forEach { strip.remove(it) }
-        return strip.entries.sortedByDescending { it.key.length }.associateTo(LinkedHashMap()) { it.key to it.value }
+        return Loaded(strip.entries.sortedByDescending { it.key.length }.associateTo(LinkedHashMap()) { it.key to it.value }, shared)
     }
 
     // ------------------------------------------------------------------ admin list
@@ -219,7 +255,7 @@ class TitleGuard(
             val uid = r["uid"] as String
             val type = r["type"] as String?
             val system = r["system"] as String?
-            if (TitleRules.eligible(type, system)) continue
+            if (TitleRules.eligibleProfile(r["b_type"] as String?, r["b_system"] as String?, r["badge_status"] as String?, r["p_type"] as String?, r["p_system"] as String?)) continue
             val names = linkedMapOf(
                 "listing" to r["listing_name"] as String?,
                 "badge" to r["badge_name"] as String?,
@@ -256,26 +292,34 @@ class TitleGuard(
          */
         val RAW_ACTIONS: Set<String> = setOf("admin_title_names", "profile_get")
 
-        /** text that could hold a title at all (a cheap check before the map lookups) */
+        /**
+         * text that could hold a title at all (a cheap check before the map lookups): the title letters, or any character
+         * the rule folds (invisible, Unicode space, full-width, look-alike — [TitleRules.fold])
+         */
         fun maybeTitled(s: String): Boolean =
-            s.contains("ডা") || s.contains("dr", ignoreCase = true) || s.contains("doctor", ignoreCase = true) // bn-ok
+            s.contains("ডা") || s.contains("ডক্ট") || s.contains("dr", ignoreCase = true) || s.contains("doctor", ignoreCase = true) || // bn-ok
+                s.any { it.code > 0x7E && it.code !in 0x0980..0x09FF }
 
         /** what may follow a whole name in a notification text */
         private const val NAME_END = " \t\n·,.:;!?()-–—/|'\"’”।"
 
         fun error(lang: String?): ApiException = ApiException(400, Lang.tr(lang, TitleRules.ERROR_EN, TitleRules.ERROR_BN), TitleRules.CODE)
 
-        /** a loose Postgres filter for names that might start with a title (TitleRules.TITLE decides) */
-        private const val LOOKS = "~* '^\\s*(ডা|dr|doctor)'" // bn-ok
+        /**
+         * a loose Postgres filter for names that might start with a title (TitleRules.TITLE decides): the title behind
+         * spaces / brackets / symbols, or any character the rule folds among the first 13 (zero-width, NBSP, full-width,
+         * look-alike letters …)
+         */
+        private const val LOOKS = "~* '^[^a-z0-9ঀ-৿]*(ডা|ডক্ট|dr|doctor)|^.{0,12}[^ -~ঀ-৿]'" // bn-ok
 
         /** the profession of every provider (badge first, else the listing) and every stored spelling of their name */
         private val NAMES_SQL = """
             WITH pro AS (
-              SELECT coalesce(b.uid, p.uid) AS uid, coalesce(b.type, p.type) AS type,
-                     CASE WHEN b.uid IS NOT NULL THEN b.system ELSE p.system END AS system
+              SELECT coalesce(b.uid, p.uid) AS uid, b.type AS b_type, b.system AS b_system, b.status AS b_status,
+                     p.type AS p_type, p.system AS p_system
               FROM providers p FULL JOIN badges b ON b.uid = p.uid
             )
-            SELECT pro.type, pro.system, n.name FROM pro JOIN (
+            SELECT pro.uid, pro.b_type, pro.b_system, pro.b_status, pro.p_type, pro.p_system, n.name FROM pro JOIN (
               SELECT uid, name FROM providers WHERE name $LOOKS
               UNION SELECT uid, name FROM badges WHERE name $LOOKS
               UNION SELECT uid, change_name FROM badges WHERE change_name $LOOKS
@@ -285,6 +329,7 @@ class TitleGuard(
               UNION SELECT doctor_uid, doctor_name FROM lab_orders WHERE doctor_name $LOOKS
               UNION SELECT doctor_uid, doctor_name FROM rx_reviews WHERE doctor_name $LOOKS
               UNION SELECT biz_id, biz_name FROM invoices WHERE kind = 'chamber' AND biz_name $LOOKS
+              UNION SELECT biz_id, biz_name FROM pay_requests WHERE kind = 'chamber' AND biz_name $LOOKS
               UNION SELECT uid, author_name FROM answers WHERE author_name $LOOKS
               UNION SELECT uid, author_name FROM tips WHERE author_name $LOOKS
             ) n ON n.uid = pro.uid
@@ -293,6 +338,7 @@ class TitleGuard(
         private val AFFECTED_SQL = """
             SELECT coalesce(b.uid, p.uid) AS uid, coalesce(b.type, p.type) AS type,
                    CASE WHEN b.uid IS NOT NULL THEN b.system ELSE p.system END AS system,
+                   b.type AS b_type, b.system AS b_system, p.type AS p_type, p.system AS p_system,
                    p.name AS listing_name, b.name AS badge_name, b.change_name, up.name AS profile_name,
                    a.email, up.phone, p.listed, b.status AS badge_status
             FROM providers p FULL JOIN badges b ON b.uid = p.uid
