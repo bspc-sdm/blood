@@ -347,6 +347,12 @@ say "LiveKit-এর সেটিং: $LK_CONF"
   echo "  # relay-র পোর্ট শুধু এই মেশিনের ভেতরে (TURN → SFU), ফায়ারওয়ালে খোলা লাগে না"
   echo "  relay_range_start: 30000"
   echo "  relay_range_end: 40000"
+  if [[ "$NODE_IP" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.) ]]; then
+    # node IP private (NAT-এর পেছনে / CI): LiveKit private ঠিকানায় relay করে না — শুধু নিজের ঠিকানাটা ছাড়
+    # (embedded TURN এমনিতেও শুধু এই মেশিনের মিডিয়া-পোর্টে relay করে)
+    echo "  allow_restricted_peer_cidrs:"
+    echo "    - $NODE_IP/32"
+  fi
   if [ "$TURN_TLS" = on ]; then
     echo "  # TURN/TLS: বাইরে turns:$TURN_DOMAIN:443 (nginx stream, SNI) → এখানে $TURN_TLS_INTERNAL"
     echo "  domain: $TURN_DOMAIN"
