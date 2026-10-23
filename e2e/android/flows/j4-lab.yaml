@@ -19,13 +19,13 @@ env:
 - scroll
 - takeScreenshot: j4-03-requests-new-more
 - tapOn:
-    text: "নমুনা/চলছে"
+    text: "চলছে.*"
     optional: true
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: j4-04-seg-active
 - tapOn:
-    text: "রিপোর্ট দেওয়া"
+    text: "শেষ.*"
     optional: true
 - waitForAnimationToEnd:
     timeout: 3000

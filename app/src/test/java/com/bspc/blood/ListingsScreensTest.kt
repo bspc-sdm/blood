@@ -234,7 +234,7 @@ class ListingsScreensTest {
         list(ListingType.BLOODBANK, banks.map { bloodBankCard(it, {}, {}, {}) }, chips = listOf(ListingChip(tr("Open now", "এখন খোলা"), false, {}), ListingChip(ListingText.hours24(), false, {})))
         firstChipNotCut()
         assertTrue("cards above the fold: ${cardsAboveFold()}", cardsAboveFold() >= 3)
-        rule.onNodeWithText(if (en) "Old Information" else "পুরনো তথ্য").assertExists()
+        rule.onNodeWithText(if (en) "Old Info" else "পুরনো তথ্য", substring = true).assertExists()
         shot("bloodbank-list-${sfx(en)}")
     }
 
@@ -301,7 +301,7 @@ class ListingsScreensTest {
         rule.setContent { GetBloodTheme { Surface { ProviderDetailDialog(doctors[0], Profile(name = "ডেমো রোগী"), {}, {}) } } }
         rule.waitForIdle()
         rule.onNodeWithTag("listing_detail_bar").assertExists()
-        rule.onNodeWithText(if (en) "Get a Serial" else "সিরিয়াল নিন").assertExists()
+        rule.onNodeWithText(if (en) "Book Serial" else "সিরিয়াল নিন").assertExists()
         shot("doctor-detail-${sfx(en)}")
     }
 

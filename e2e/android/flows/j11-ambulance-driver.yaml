@@ -52,6 +52,21 @@ env:
     visible: ".*ডেমো .*অ্যাম্বুলেন্স.*"
     timeout: 30000
 - takeScreenshot: j11-03-list
+# সবার তালিকার নতুন ছাঁচ: "রেটিং দিন" কার্ডে নয় — বিস্তারিতের "রেটিং" ভাগে (দেওয়া গেলে)
+- scrollUntilVisible:
+    element: "ডেমো জীবন অ্যাম্বুলেন্স .এসি."
+    direction: DOWN
+    timeout: 20000
+- tapOn: "ডেমো জীবন অ্যাম্বুলেন্স .এসি."
+- extendedWaitUntil:
+    visible: "মূল তথ্য"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "রেটিং"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- takeScreenshot: j11-03b-detail-rating
 - runFlow:
     when:
       visible: "রেটিং দিন"

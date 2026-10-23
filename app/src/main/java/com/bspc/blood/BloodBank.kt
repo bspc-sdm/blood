@@ -292,7 +292,7 @@ internal fun MyBloodBanksSection(profile: Profile) {
                         if (detail) ListingDetail(bloodBankDetail(cur, {}, null), { detail = false })
                         StockEditor(cur) { x ->
                             cur = cur.copy(extras = cur.extras.copy(stock = x.stock, stockUpdatedAt = x.stockUpdatedAt.takeIf { it > 0 } ?: System.currentTimeMillis(), stockStaleRaw = x.stockStaleRaw ?: false))
-                            infoMsg = tr("Stock updated", "স্টক হালনাগাদ হয়েছে")
+                            infoMsg = tr("Stock saved", "মজুদ সেভ হয়েছে")
                         }
                     }
                     stats[b.id]?.let { st -> CallStatsBlock(st, expanded = openStats == b.id) { openStats = if (openStats == b.id) null else b.id } }

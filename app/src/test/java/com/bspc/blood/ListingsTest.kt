@@ -105,7 +105,7 @@ class ListingsTest {
         // ৪৮ ঘণ্টার বেশি পুরনো → "পুরনো তথ্য" (সার্ভারের stockStale না এলে হিসাব)
         val old = ListingExtras.parse(JSONObject().put("stock", g).put("stockUpdatedAt", now - 49 * 3_600_000L))
         assertTrue(old.stockStale(now))
-        assertEquals("পুরনো তথ্য", Listing.stockNote(old.stockUpdatedAt, true))
+        assertEquals("পুরনো তথ্য · হালনাগাদ: ২ দিন আগে", Listing.stockNote(old.stockUpdatedAt, true))
         // সার্ভারের stockStale আগে
         assertFalse(ListingExtras.parse(JSONObject().put("stockUpdatedAt", now - 49 * 3_600_000L).put("stockStale", false)).stockStale(now))
         // কখনো দেননি: লেখা নেই
@@ -216,7 +216,7 @@ class ListingsTest {
     fun ambulanceCardKeyLine() {
         val a = Ambulance("a1", "জননী অ্যাম্বুলেন্স", "01700000002", listOf("ac", "icu"), "ময়মনসিংহ", null, "চরপাড়া", "", true, 4.6, 23, km = 0.0)
         val c = ambulanceCard(a, {}, {}, null)
-        assertEquals("এসি, আইসিইউ · ১ কিমির কম · ★৪.৬ (২৩)", c.keyLine)
+        assertEquals("এসি/আইসিইউ · ১ কিমির কম · ★৪.৬ (২৩)", c.keyLine)
         assertEquals(listOf("খালি আছে"), c.badges.map { it.text })
         assertEquals("ফোন করুন", c.primary!!.label)
         // ফোনই মূল কাজ — পাশে আবার ফোনের আইকন নয়
@@ -241,7 +241,7 @@ class ListingsTest {
         val c = bloodBankCard(b, {}, {}, null)
         assertEquals("প্রায় ৩ কিমি · খোলা", c.keyLine)
         assertEquals(mapOf("A+" to "have", "O-" to "none"), c.stock)
-        assertEquals("পুরনো তথ্য", c.stockNote!!.text)
+        assertTrue(c.stockNote!!.text.startsWith("পুরনো তথ্য · "))
         assertEquals(BadgeTone.WARN, c.stockNote!!.tone)
         assertEquals("ফোন করুন", c.primary!!.label)
         // রেটিং নেই

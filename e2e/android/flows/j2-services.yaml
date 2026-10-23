@@ -1,4 +1,4 @@
-# যাত্রা ২ — সেবা ট্যাব: অ্যাম্বুলেন্স, ফার্মেসি, প্যাথলজি, ব্লাড ব্যাংকের তালিকা আর বিস্তারিত (নিচের বাটন কাটা পড়ে কি না)
+# যাত্রা ২ — সেবা ট্যাব: অ্যাম্বুলেন্স, ডাক্তার, ফার্মেসি, ব্লাড ব্যাংক, ল্যাব — পাঁচ তালিকা একই ছাঁচে, একই বিস্তারিত (নিচে আটকানো বার)
 appId: com.bspc.blood
 env:
   J: j2
@@ -70,17 +70,27 @@ env:
 - takeScreenshot: j2-03-ambulance-sheet-bottom
 - back
 - scrollUntilVisible:
-    element: "ফার্মেসি"
+    element: "ডাক্তার"
     direction: UP
     timeout: 10000
+# ডাক্তারও "সেবা"-তে (অ্যাপয়েন্টমেন্ট ট্যাবেও আগের মতো)
+- tapOn:
+    text: "ডাক্তার"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*ডা\\. ডেমো.*"
+    timeout: 30000
+- takeScreenshot: j2-03b-doctor-list
+- tapOn: ".*ডা\\. ডেমো হাসান.*"
+- extendedWaitUntil:
+    visible: ".*চেম্বার বেছে অ্যাপ(?:য়|য়)েন্টমেন্ট নিন.*"
+    timeout: 30000
+- takeScreenshot: j2-03c-doctor-detail
+- back
 - tapOn:
     text: "ফার্মেসি"
     index: 0
-# ২.৩২.০: তালিকার আগে "কীভাবে কিনবেন?" — দোকানে গিয়ে কিনব (বাছা থাকলেও ঘর দুটো থাকে, আবার চাপলে ক্ষতি নেই)
-- extendedWaitUntil:
-    visible: ".*দোকানে গি(?:য়|য়)ে কিনব.*"
-    timeout: 30000
-- tapOn: ".*দোকানে গি(?:য়|য়)ে কিনব.*"
+# তালিকা সাথে সাথে — "দোকানে গিয়ে / অনলাইন অর্ডার" এখন এক জোড়া চিপ, তালিকা আটকায় না
 - extendedWaitUntil:
     visible: "ডেমো .*ফার্মেসি"
     timeout: 30000
@@ -96,7 +106,9 @@ env:
 - scroll
 - takeScreenshot: j2-06-pharmacy-sheet-bottom
 - back
-- tapOn: "প্যাথলজি"
+- tapOn:
+    text: "ল্যাব"
+    index: 0
 - extendedWaitUntil:
     visible: "ডেমো সিটি ডা(?:য়|য়)াগনস্টিক সেন্টার.*"
     timeout: 30000

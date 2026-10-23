@@ -20,7 +20,7 @@ env:
     commands:
       # সব পদ্ধতির ডাক্তার, প্রত্যেকের পাশে লেবেল
       - extendedWaitUntil:
-          visible: "এলোপ্যাথি"
+          visible: "এলোপ্যাথি.*"
           timeout: 20000
       - takeScreenshot: j25-02-system-chips
       - tapOn:
@@ -53,8 +53,9 @@ env:
       - tapOn:
           id: "system_ayurveda"
       - takeScreenshot: j25-06-ayurveda
+      # "সব" চিপ নেই — বাছা চিপ আবার চাপলে বাদ
       - tapOn:
-          id: "system_all"
+          id: "system_ayurveda"
 # ফিজিওথেরাপিস্ট (pro_physio)
 - runFlow:
     when:

@@ -31,12 +31,12 @@ env:
     timeout: 4000
 - takeScreenshot: j3-04-marked-ready
 - scrollUntilVisible:
-    element: ".*চলছে / তৈরি.*"
+    element: "চলছে.*"
     direction: UP
     timeout: 15000
     optional: true
 - tapOn:
-    text: ".*চলছে / তৈরি.*"
+    text: "চলছে.*"
     optional: true
 - waitForAnimationToEnd:
     timeout: 3000

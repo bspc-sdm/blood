@@ -50,17 +50,20 @@ object ProviderText {
     fun preview(): String = tr("How patients see you", "রোগীরা আপনাকে যেভাবে দেখেন")
     fun switches(): String = tr("Quick switches", "এক চাপে বদলান")
     fun openNow(): String = tr("Open now", "এখন খোলা")
-    fun openNowSub(open: Boolean, until: Long): String =
-        (if (open) tr("Patients see \"Open\"", "রোগীরা \"খোলা\" দেখছেন") else tr("Patients see \"Closed\"", "রোগীরা \"বন্ধ\" দেখছেন")) +
-            (if (until > 0) tr(" until ", " — ") + Rules.formatTime(until) + tr("", " পর্যন্ত") else tr(" (by your hours)", " (সময় অনুযায়ী)"))
+    fun closedNow(): String = tr("Closed now", "এখন বন্ধ")
+    fun overrideNote(): String = tr("Until the next opening/closing time", "পরের খোলা/বন্ধের সময় পর্যন্ত")
+    fun deliveryOn(): String = tr("Delivery on", "ডেলিভারি চালু")
+    fun deliveryOff(): String = tr("Delivery off", "ডেলিভারি বন্ধ")
+    fun homeOn(): String = tr("Home sample on", "বাসা থেকে নমুনা চালু")
+    fun homeOff(): String = tr("Home sample off", "বাসা থেকে নমুনা বন্ধ")
     fun delivery(): String = tr("Home delivery", "ডেলিভারি")
     fun homeSample(): String = tr("Sample from home", "বাসা থেকে নমুনা")
-    fun available(): String = tr("Available now", "খালি আছি")
+    fun available(): String = tr("I am free", "খালি আছি")
     fun onTrip(): String = tr("On a trip", "ট্রিপে আছি")
-    fun todaySerial(): String = tr("Serials running today", "আজ সিরিয়াল চলছে")
+    fun todaySerial(): String = tr("Serial running today", "আজ সিরিয়াল চলছে")
     fun todayClosed(): String = tr("Closed today", "আজ বন্ধ")
     fun stockAllGood(): String = tr("All correct — update now", "সব ঠিক আছে — এখন হালনাগাদ")
-    fun saveStock(): String = tr("Save stock", "স্টক সেভ করুন")
+    fun saveStock(): String = tr("Save stock", "মজুদ সেভ করুন")
     fun notYet(): String = tr("This switch isn't available on the server yet", "এই সুইচ সার্ভারে এখনো চালু হয়নি")
     fun segNew(): String = tr("New", "নতুন")
     fun segActive(): String = tr("In progress", "চলছে")
@@ -269,11 +272,11 @@ fun PharmacyProviderTop(p: Pharmacy, onChanged: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("provider_top"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PatientViewPreview(pharmacyCard(cur, { detail = true }, {}, {}, null))
         if (!open.hidden) QuickSwitch(
-            ProviderText.openNow(), ProviderText.openNowSub(open.value, if (p.openOverride != null) p.overrideUntil else 0L), open.value,
+            if (open.value) ProviderText.openNow() else ProviderText.closedNow(), ProviderText.overrideNote(), open.value,
             { v -> open.toggle(scope, v, { ProviderSwitches.pharmacyOpen(p.id, v) }, onChanged) }, open.busy, "sw_open",
         )
         if (!delivery.hidden) QuickSwitch(
-            ProviderText.delivery(), ListingText.delivery(delivery.value), delivery.value,
+            if (delivery.value) ProviderText.deliveryOn() else ProviderText.deliveryOff(), null, delivery.value,
             { v -> delivery.toggle(scope, v, { ProviderSwitches.pharmacyDelivery(p.id, v) }, onChanged) }, delivery.busy, "sw_delivery",
         )
         ErrorText(open.error ?: delivery.error)
@@ -292,11 +295,11 @@ fun LabProviderTop(l: Lab, onChanged: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("provider_top"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PatientViewPreview(labCard(cur, { detail = true }, {}, {}, null))
         if (!open.hidden) QuickSwitch(
-            ProviderText.openNow(), ProviderText.openNowSub(open.value, if (l.openOverride != null) l.overrideUntil else 0L), open.value,
+            if (open.value) ProviderText.openNow() else ProviderText.closedNow(), ProviderText.overrideNote(), open.value,
             { v -> open.toggle(scope, v, { ProviderSwitches.labOpen(l.id, v) }, onChanged) }, open.busy, "sw_open",
         )
         if (!home.hidden) QuickSwitch(
-            ProviderText.homeSample(), null, home.value,
+            if (home.value) ProviderText.homeOn() else ProviderText.homeOff(), null, home.value,
             { v -> home.toggle(scope, v, { ProviderSwitches.labHome(l.id, v) }, onChanged) }, home.busy, "sw_home",
         )
         ErrorText(open.error ?: home.error)

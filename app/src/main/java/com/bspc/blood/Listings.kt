@@ -194,7 +194,7 @@ object ListingText {
 
     fun searchHint(t: ListingType): String = when (t) {
         ListingType.AMBULANCE -> tr("Ambulance name or area", "অ্যাম্বুলেন্সের নাম বা এলাকা")
-        ListingType.DOCTOR -> tr("Doctor name, specialty or chamber", "ডাক্তারের নাম, বিশেষজ্ঞতা বা চেম্বার")
+        ListingType.DOCTOR -> tr("Doctor name or area", "ডাক্তারের নাম বা এলাকা")
         ListingType.PHARMACY -> tr("Pharmacy name or area", "ফার্মেসির নাম বা এলাকা")
         ListingType.BLOODBANK -> tr("Blood bank name or area", "ব্লাড ব্যাংকের নাম বা এলাকা")
         ListingType.LAB -> tr("Lab name or area", "ল্যাবের নাম বা এলাকা")
@@ -208,7 +208,7 @@ object ListingText {
         ListingType.LAB -> tr("No lab in this area yet", "এই এলাকায় এখনো কোনো ল্যাব নেই")
     }
 
-    fun noMatch(): String = tr("Nothing matches this search", "এই খোঁজে কিছু মেলেনি")
+    fun noMatch(): String = tr("Nothing matches these filters", "এই ছাঁকনিতে কিছু মেলেনি")
     fun changeArea(): String = tr("Change area", "এলাকা বদলান")
     fun clear(): String = tr("Clear", "মুছুন")
     fun filter(): String = tr("Filter", "ফিল্টার")
@@ -217,7 +217,7 @@ object ListingText {
     fun sort(s: ListingSort): String = when (s) {
         ListingSort.NEAR -> tr("Nearest", "নিকটতম")
         ListingSort.RATING -> tr("Rating", "রেটিং")
-        ListingSort.OPEN -> tr("Open now first", "এখন খোলা আগে")
+        ListingSort.OPEN -> tr("Open first", "এখন খোলা আগে")
     }
 
     fun open(o: Boolean): String = if (o) tr("Open", "খোলা") else tr("Closed", "বন্ধ")
@@ -228,19 +228,19 @@ object ListingText {
     fun available(): String = tr("Available", "খালি আছে")
     fun callToCheck(): String = tr("Call to check", "ফোনে জেনে নিন")
     fun onTrip(): String = tr("On a trip", "ট্রিপে আছে")
-    fun slotToday(): String = tr("Serial available today", "আজ সিরিয়াল আছে")
+    fun slotToday(): String = tr("Serial today", "আজ সিরিয়াল আছে")
     fun slotNext(label: String): String = tr("Next serial: ", "পরের সিরিয়াল: ") + slotLabel(label)
     fun stock(state: String): String = when (state) {
-        "have" -> tr("In stock", "আছে")
+        "have" -> tr("Have", "আছে")
         "low" -> tr("Low", "কম")
         else -> tr("None", "নেই")
     }
     fun updated(ago: String): String = tr("Updated: ", "হালনাগাদ: ") + ago
-    fun stale(): String = tr("Old information", "পুরনো তথ্য")
-    fun noStock(): String = tr("Stock not shared yet", "স্টকের খবর এখনো দেওয়া হয়নি")
+    fun stale(): String = tr("Old info", "পুরনো তথ্য")
+    fun noStock(): String = tr("Stock not shared yet", "মজুদের খবর এখনো দেওয়া হয়নি")
 
     // মূল বাটন
-    fun book(): String = tr("Get a serial", "সিরিয়াল নিন")
+    fun book(): String = tr("Book serial", "সিরিয়াল নিন")
     fun sendRx(): String = tr("Send prescription", "প্রেসক্রিপশন পাঠান")
     fun sendTests(): String = tr("Send tests", "পরীক্ষা পাঠান")
     fun call(): String = tr("Call", "ফোন করুন")
@@ -251,11 +251,11 @@ object ListingText {
     fun keyFacts(): String = tr("Key facts", "মূল তথ্য")
     fun addressPhone(): String = tr("Address and phone", "ঠিকানা ও ফোন")
     fun ratings(): String = tr("Ratings", "রেটিং")
-    fun noRating(): String = tr("No ratings yet", "এখনো রেটিং নেই")
+    fun noRating(): String = tr("No ratings yet", "এখনো কোনো রেটিং নেই")
     fun rate(): String = tr("Rate", "রেটিং দিন")
     fun copy(): String = tr("Copy", "কপি")
     fun copied(): String = tr("Copied", "কপি হয়েছে")
-    fun bloodStock(): String = tr("Blood stock", "রক্তের স্টক")
+    fun bloodStock(): String = tr("Blood stock", "রক্তের মজুদ")
 
     /** সার্ভারের label ("আজ"/"কাল"/তারিখ) — ইংরেজিতে today/tomorrow */
     fun slotLabel(label: String): String = when (label.trim()) {
@@ -307,7 +307,7 @@ object Listing {
     /** স্টকের পাশে: "হালনাগাদ: ২ ঘণ্টা আগে" বা "পুরনো তথ্য" */
     fun stockNote(at: Long, stale: Boolean): String? = when {
         at <= 0L -> null
-        stale -> ListingText.stale()
+        stale -> ListingText.stale() + " · " + ListingText.updated(timeAgo(at))
         else -> ListingText.updated(timeAgo(at))
     }
 

@@ -37,7 +37,7 @@ fun ambulanceBadge(a: Ambulance): ListingBadge = when {
 
 /** মূল লাইন: ধরন · দূরত্ব · রেটিং */
 fun ambulanceKeyLine(a: Ambulance): String =
-    Listing.keyLine(a.types.joinToString(", ") { AmbulanceTypes.label(it) }, ambulanceDistance(a), ratingText(ambulanceRating(a)))
+    Listing.keyLine(a.types.joinToString("/") { AmbulanceTypes.label(it) }, ambulanceDistance(a), ratingText(ambulanceRating(a)))
 
 fun ambulanceCard(a: Ambulance, onOpen: () -> Unit, onCall: () -> Unit, onReport: (() -> Unit)?): ListingCardData = ListingCardData(
     id = a.id, type = ListingType.AMBULANCE, name = a.name, icon = R.drawable.ic_ambulance,
@@ -139,10 +139,7 @@ fun bloodBankKeyLine(b: BloodBank): String =
 fun bloodBankCard(b: BloodBank, onOpen: () -> Unit, onCall: () -> Unit, onReport: (() -> Unit)?): ListingCardData = ListingCardData(
     id = b.id, type = ListingType.BLOODBANK, name = b.name, icon = R.drawable.ic_bloodtype, danger = true,
     keyLine = bloodBankKeyLine(b), onOpen = onOpen, verified = b.extras.verified,
-    badges = listOfNotNull(
-        ListingBadge(BloodBankInfo.kind(b.kind), BadgeTone.NEUTRAL),
-        if (b.extras.is24h ?: b.open24) ListingBadge(ListingText.hours24(), BadgeTone.INFO) else null,
-    ),
+    badges = listOfNotNull(if (b.extras.is24h ?: b.open24) ListingBadge(ListingText.hours24(), BadgeTone.INFO) else null),
     stock = b.extras.stock, stockNote = stockNoteOf(b.extras),
     primary = CardAction(ListingText.call(), R.drawable.ic_call, onCall),
     onReport = onReport,
@@ -150,9 +147,10 @@ fun bloodBankCard(b: BloodBank, onOpen: () -> Unit, onCall: () -> Unit, onReport
 
 fun bloodBankDetail(b: BloodBank, onCall: () -> Unit, onReport: (() -> Unit)?): ListingDetailData = ListingDetailData(
     type = ListingType.BLOODBANK, name = b.name, icon = R.drawable.ic_bloodtype, danger = true, keyLine = bloodBankKeyLine(b), verified = b.extras.verified,
-    badges = listOf(ListingBadge(BloodBankInfo.kind(b.kind), BadgeTone.NEUTRAL)),
+    badges = listOfNotNull(if (b.extras.is24h ?: b.open24) ListingBadge(ListingText.hours24(), BadgeTone.INFO) else null),
     stock = b.extras.stock, stockNote = stockNoteOf(b.extras),
     facts = listOf(
+        R.drawable.ic_info to BloodBankInfo.kind(b.kind),
         R.drawable.ic_schedule to listOf(b.hoursText, closedDaysText(b.closedDays)).filter { it.isNotBlank() }.joinToString(" · "),
         R.drawable.ic_info to tr("Buying or selling blood is illegal; only processing costs apply.", "রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।"),
     ),
@@ -179,6 +177,7 @@ fun labCard(l: Lab, onOpen: () -> Unit, onSend: () -> Unit, onPhone: (() -> Unit
     id = l.id, type = ListingType.LAB, name = l.name, icon = R.drawable.ic_local_hospital,
     keyLine = labKeyLine(l), onOpen = onOpen, verified = l.extras.verified,
     ratingText = ratingText(l.extras.ratingAvg?.let { it to l.extras.ratingCount }),
+    badges = listOfNotNull(l.prices?.discountPct?.takeIf { it > 0 }?.let { ListingBadge(ListingText.discount(it), BadgeTone.INFO) }),
     primary = CardAction(ListingText.sendTests(), R.drawable.ic_send, onSend),
     contact = ListingContact(l.phone, onPhone = onPhone),
     onReport = onReport,
