@@ -9,7 +9,8 @@ import { currentPosition } from '@/lib/geo';
 import { formatDayOf } from '@/lib/format';
 import { num, tr } from '@/lib/i18n';
 import { useNav } from '@/lib/nav';
-import CallButtons from '@/calls/CallButtons.vue';
+import { featureOn } from '@/lib/features';
+import ContactActions from '@/calls/ContactActions.vue';
 import type { CallCtx } from '@/calls/api';
 import { REPORT_REASONS, type ChatMessage, type ReportReason } from './api';
 import { TEXT_MAX, block, chat, discard, loadLatest, loadOlder, markRead, report, retry, send, unsend } from './store';
@@ -253,7 +254,7 @@ async function doBlock() {
         <h1 class="t-title-m ellipsis" data-testid="thread-peer">{{ peerName }}</h1>
         <span class="t-label-m muted ellipsis">{{ ctxText(info?.ctx ?? null) }}</span>
       </div>
-      <CallButtons
+      <ContactActions
         v-if="info && info.ctx && info.refId && canSend"
         class="chat-calls"
         :ctx="info.ctx as CallCtx"
@@ -305,8 +306,8 @@ async function doBlock() {
       <ErrorText :text="sendErr" />
       <div class="chat-compose-row">
         <input ref="fileIn" type="file" accept="image/*" hidden data-testid="compose-file" @change="picked" />
-        <IconButton icon="image" :label="T.photo()" :disabled="photoBusy" data-testid="compose-photo" @click="fileIn?.click()" />
-        <IconButton icon="location_on" :label="T.location()" data-testid="compose-location" @click="askLoc = true; locErr = null" />
+        <IconButton v-if="featureOn('chat_media')" icon="image" :label="T.photo()" :disabled="photoBusy" data-testid="compose-photo" @click="fileIn?.click()" />
+        <IconButton v-if="featureOn('chat_media')" icon="location_on" :label="T.location()" data-testid="compose-location" @click="askLoc = true; locErr = null" />
         <label class="chat-input">
           <span class="sr-only">{{ T.placeholder() }}</span>
           <textarea

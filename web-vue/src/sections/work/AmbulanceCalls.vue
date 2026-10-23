@@ -17,6 +17,7 @@ import ReasonDialog from '@/sections/services/ReasonDialog.vue';
 import { parseTaka, taka } from '@/sections/services/fare';
 import { mapLink, type DriverReq } from './ambcalls';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 
 const props = defineProps<{ names: Record<string, string>; onChanged: () => void }>();
 // পাতা খোলা থাকলে ৫ সেকেন্ড পরপর (পেছনের ট্যাবে ব্রাউজার নিজেই থামায়)
@@ -90,7 +91,7 @@ async function pickReason(reason: string) {
           <!-- নিজের ম্যাপ (খরচ নেই): ঠিক জায়গা থাকলে সেটা, নইলে ঠিকানা আর এলাকার লেখা দিয়ে খোঁজা -->
           <a class="btn outline square has-icon" :href="mapLink(r)" target="_blank" rel="noopener noreferrer" data-testid="amb-open-map"><Icon name="map" />{{ tr('Open in map', 'ম্যাপে খুলুন') }}</a>
         </div>
-        <ContactActions ctx="ambulance" :ref-id="r.id" :peer-name="r.patientName" :phone="r.phone || null" :show="r.status === 'accepted' || r.status === 'arrived'" />
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="r.id" :peer-name="r.patientName" :phone="r.phone || null" :show="r.status === 'accepted' || r.status === 'arrived'" />
         <div class="row wrap gap-8">
           <Button v-if="r.status === 'accepted'" :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'arrived' }))">{{ tr('Arrived', 'পৌঁছেছি') }}</Button>
           <Button :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'done' }), true, tr('Trip finished. You\'re available again.', 'ট্রিপ শেষ। আপনি আবার খালি।'))">{{ tr('Finish', 'শেষ') }}</Button>

@@ -17,6 +17,7 @@ import HomeConfirmDialog from './HomeConfirmDialog.vue';
 import ReportEntry from './ReportEntry.vue';
 import ReportPane from './ReportPane.vue';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 
 const props = defineProps<{ o: LabOrder }>();
 const invalidate = useInvalidate();
@@ -91,7 +92,7 @@ const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.va
         <Tag v-for="t in o.tests" :key="t" tone="primary">{{ t }}</Tag>
       </div>
       <PriceLine v-if="o.prices" :p="o.prices" />
-      <ContactActions ctx="lab_order" :ref-id="o.id" :peer-name="o.patientName" :phone="h?.phone || null" :show="active" />
+      <ContactActions :message="chatOn()" @message="openChatAt" ctx="lab_order" :ref-id="o.id" :peer-name="o.patientName" :phone="h?.phone || null" :show="active" />
       <div v-if="active" class="row wrap gap-8">
         <Button v-if="o.status === 'sent'" variant="tonal" icon="check_circle" :busy="busy" @click="setStatus('received')">{{ tr('Sample taken', 'নমুনা নিয়েছি') }}</Button>
         <Button variant="danger-text" :disabled="busy" @click="cancelling = true">{{ tr('Can\'t do it', 'করতে পারব না') }}</Button>

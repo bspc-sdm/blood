@@ -56,5 +56,5 @@ export async function compressPhoto(file: Blob, maxB64 = PHOTO_MAX_B64): Promise
   throw new Error(T.photoBig());
 }
 
-/** base64 বা লিংক → <img src> */
-export const imgSrc = (v: string) => (/^(data:|https?:|\/|blob:)/.test(v) ? v : `data:image/jpeg;base64,${v}`);
+/** base64 বা লিংক → <img src> (JPEG-এর base64 নিজেই "/9j/" দিয়ে শুরু — সেটা পথ নয়) */
+export const imgSrc = (v: string) => (/^(data:|https?:|blob:)/.test(v) || (v.startsWith('/') && !v.startsWith('/9j/')) ? v : `data:image/jpeg;base64,${v}`);

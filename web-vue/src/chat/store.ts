@@ -6,11 +6,12 @@ import { reactive } from 'vue';
 import { errorText } from '@/lib/api';
 import { TEST_MODE } from '@/lib/testmode';
 import { sseLive, tapEvents } from '@/calls/events';
+import { forgetContactCan } from '@/calls/contactCan';
 import {
   chatBlock, chatMessages, chatOpen, chatRead, chatReport, chatSend, chatThreads, chatUnread, chatUnsend, parseMessage, refusalOf,
   type ChatCtx, type ChatLocation, type ChatMessage, type OpenResult, type ReportReason, type ThreadInfo, type ThreadItem,
 } from './api';
-import { refusalText } from './text';
+import { T, refusalText } from './text';
 
 export const UNSEND_MS = 10 * 60_000;
 export const TEXT_MAX = 1000;
@@ -21,9 +22,7 @@ function applyTestTiming() {
   Object.assign(timing, base, t && typeof t === 'object' ? t : {});
 }
 
-/** closed = কেন পাঠানো যায় না: আমি ব্লক করেছি / সার্ভার মানা করেছে (ওপাশের ব্লকও এতে) / সম্পর্ক শেষ */
-export type Closed = 'blocked' | 'not_allowed' | 'closed';
-interface ThreadState extends ThreadInfo { closed?: Closed }
+type ThreadState = ThreadInfo;
 export const chat = reactive({
   me: null as string | null,
   unread: 0,
@@ -69,7 +68,7 @@ export function setInfo(i: Partial<ThreadState> & { threadId: string }) {
 
 /** chat_open-এর ফল বসানো (মেসেজ বোতাম থেকে) */
 export function primeOpen(r: OpenResult) {
-  setInfo({ threadId: r.threadId, ctx: r.ctx, refId: r.refId, peer: r.peer, canSend: r.canSend });
+  setInfo({ threadId: r.threadId, ctx: r.ctx, refId: r.refId, peer: r.peer, canSend: r.canSend, closed: r.closed });
   mergeMessages(r.threadId, r.messages);
   if (chat.older[r.threadId] === undefined) chat.older[r.threadId] = r.before;
 }
@@ -100,7 +99,10 @@ export function loadLatest(threadId: string): Promise<void> {
       if (chat.older[threadId] === undefined) chat.older[threadId] = r.before;
       chat.error[threadId] = null;
     } catch (e) {
-      if (!chat.msgs[threadId]?.length) chat.error[threadId] = errorText(e);
+      if (!chat.msgs[threadId]?.length) {
+        const r = refusalOf(e);
+        chat.error[threadId] = r === 'gone' || r === 'not_allowed' ? T.noThread() : errorText(e);
+      }
     } finally {
       chat.loading[threadId] = false;
     }
@@ -205,7 +207,12 @@ function bumpThread(threadId: string, text: string, at: number, mine: boolean) {
 export const canUnsend = (m: ChatMessage, now = Date.now()) => !!chat.me && m.from === chat.me && !m.unsent && !m.status && now - m.at < UNSEND_MS;
 
 export async function unsend(threadId: string, m: ChatMessage): Promise<void> {
-  await chatUnsend(m.id);
+  try {
+    await chatUnsend(m.id);
+  } catch (e) {
+    const r = refusalOf(e);
+    throw r === 'other' ? e : new Error(refusalText(r));
+  }
   chat.msgs[threadId] = (chat.msgs[threadId] ?? []).map((x) => (x.id === m.id ? { id: x.id, threadId, from: x.from, at: x.at, readAt: x.readAt, unsent: true } : x));
 }
 export const report = (m: ChatMessage, reason: ReportReason, note: string) => chatReport(m.id, reason, note);
@@ -213,6 +220,8 @@ export async function block(threadId: string): Promise<void> {
   const peer = chat.info[threadId]?.peer.uid;
   if (!peer) return;
   await chatBlock(peer);
+  // কল/মেসেজের বোতাম (ContactActions) নতুন করে জিজ্ঞেস করুক
+  forgetContactCan();
   setInfo({ threadId, canSend: false, closed: 'blocked' });
 }
 
@@ -252,8 +261,11 @@ export function handleChatEvent(name: string, o: any) {
   if (!o || typeof o !== 'object') return;
   const threadId = typeof o.threadId === 'string' ? o.threadId : '';
   if (name === 'chat_message' && threadId) {
-    if (o.message && typeof o.message === 'object') mergeMessages(threadId, [parseMessage(o.message, threadId)]);
-    else if (chat.msgs[threadId] || chat.openThread === threadId) later(`l:${threadId}`, () => void loadLatest(threadId));
+    const known = !!chat.msgs[threadId] || chat.openThread === threadId;
+    // পুরো মেসেজ সাথে এলে (সার্ভার তাই পাঠায়) সরাসরি; না এলে সবচেয়ে নতুন পাতা আনা
+    if (o.message && typeof o.message === 'object') {
+      if (known) mergeMessages(threadId, [parseMessage(o.message, threadId)]);
+    } else if (known) later(`l:${threadId}`, () => void loadLatest(threadId));
     later('unread', () => void refreshUnread());
     if (chat.threadsLoaded) later('threads', () => void loadThreads().catch(() => {}));
   } else if (name === 'chat_read' && threadId) {

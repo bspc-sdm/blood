@@ -15,6 +15,7 @@ import OnlinePayPro from '../online/OnlinePayPro.vue';
 import { onlineOn } from '../online/flags';
 import { T as OT } from '../online';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 import { apptCallOpen } from '@/calls/window';
 import { useNow } from '@/ui/composables';
 
@@ -181,7 +182,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
             <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
             <td v-if="manyCh">{{ apptChamber(a) }}</td>
             <td><Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag></td>
-            <td class="appt-phone-cell"><PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" /><span v-else class="muted">—</span><ContactActions ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" /></td>
+            <td class="appt-phone-cell"><PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" /><span v-else class="muted">—</span><ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" /></td>
             <td>
               <div class="row wrap appt-acts">
                 <template v-if="a.status === 'pending'">
@@ -208,7 +209,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
         <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
         <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
         <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" />
-        <ContactActions ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" />
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" />
         <div class="row wrap appt-acts">
           <template v-if="a.status === 'pending'">
             <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>

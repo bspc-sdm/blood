@@ -22,6 +22,7 @@ import ShareDialog from './parts/ShareDialog.vue';
 import ShareCard from './ShareCard.vue';
 import DonationChecklistDialog from './DonationChecklistDialog.vue';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 
 const props = defineProps<{ id: string; title: string }>();
 const s = useSession();
@@ -176,7 +177,7 @@ function doReport() {
           <template v-if="q.data?.contact">
             <span>{{ q.data.contact.name }}</span>
             <PhoneLine :phone="q.data.contact.phone" big />
-            <ContactActions ctx="blood" :ref-id="id" :peer-uid="r.requesterUid" :peer-name="q.data.contact.name" :phone="q.data.contact.phone" :small="false" :show="resp.confirmed || requesterCalled" />
+            <ContactActions :message="chatOn()" @message="openChatAt" ctx="blood" :ref-id="id" :peer-uid="r.requesterUid" :peer-name="q.data.contact.name" :phone="q.data.contact.phone" :small="false" :show="resp.confirmed || requesterCalled" />
           </template>
           <span v-else>{{ tr("Couldn't load the number. Open this page again.", 'নম্বর লোড হয়নি, পাতাটা আবার খুলুন।') }}</span>
         </section>

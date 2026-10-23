@@ -136,7 +136,8 @@ test('তালিকা: না পড়া ব্যাজ → খোলা �
   await expect(bubbles(page)).toHaveCount(3);
   // মোবাইলে পুরো পাতা: নিচের ট্যাব লুকানো
   await expect(page.locator('.bottom-nav')).toBeHidden();
-  await expect.poll(() => did(st, 'chat_read')).toEqual([{ threadId: 't1', upTo: st.msgs.t1[2].at, lang: 'bn' }]);
+  await expect.poll(() => did(st, 'chat_read').length).toBe(1);
+  expect(did(st, 'chat_read')[0]).toMatchObject({ threadId: 't1', upTo: st.msgs.t1[2].at });
   // নিজের পুরোনো মেসেজে ✓✓ (দেখেছেন)
   await expect(bubbles(page).first().getByTestId('msg-tick')).toHaveAttribute('aria-label', 'দেখেছেন');
 
@@ -164,11 +165,16 @@ test('SSE: নতুন মেসেজ (chat_message) আর ✓✓ (chat_read)
   await expect(bubbles(page).last().getByTestId('msg-tick')).toHaveAttribute('aria-label', 'গেছে');
   const n0 = did(st, 'chat_messages').length;
 
-  st.msgs.t1.push({ id: 'n9', threadId: 't1', from: 'd1', text: 'ঠিক আছে, অপেক্ষা করছি', at: Date.now() });
-  sse.push([
-    { event: 'chat_message', data: { threadId: 't1', messageId: 'n9', from: 'সুমাইয়া', cat: 'messages' } },
-  ]);
+  const n9 = { id: 'n9', threadId: 't1', from: 'd1', text: 'ঠিক আছে, অপেক্ষা করছি', at: Date.now() };
+  st.msgs.t1.push(n9);
+  // সার্ভার পুরো মেসেজটাই পাঠায় — আলাদা করে আনা লাগে না
+  sse.push([{ event: 'chat_message', data: { threadId: 't1', messageId: 'n9', from: 'সুমাইয়া', message: n9 } }]);
   await expect(bubbles(page).last()).toContainText('ঠিক আছে, অপেক্ষা করছি');
+  expect(did(st, 'chat_messages').length).toBe(n0);
+  // শুধু খবর এলে (message ছাড়া) সবচেয়ে নতুন পাতা আনে
+  st.msgs.t1.push({ id: 'n10', threadId: 't1', from: 'd1', text: 'গেটে আছি', at: Date.now() + 1 });
+  sse.push([{ event: 'chat_message', data: { threadId: 't1', messageId: 'n10', from: 'সুমাইয়া', cat: 'messages' } }]);
+  await expect(bubbles(page).last()).toContainText('গেটে আছি', { timeout: 8000 });
   expect(did(st, 'chat_messages').length).toBe(n0 + 1);
   const mine = bubbles(page).filter({ hasText: 'আসছি' });
   await expect(mine.getByTestId('msg-tick')).toHaveAttribute('aria-label', 'গেছে');
@@ -278,6 +284,7 @@ test('ছবি (এখানেই ছোট করা JPEG, ১ MB-র নি�
   expect(photo.startsWith('/9j/')).toBe(true);
   expect(photo.length).toBeLessThanOrEqual(900 * 1024);
   expect(Buffer.byteLength(photo, 'base64')).toBeLessThan(1024 * 1024);
+  await expect(bubbles(page).last().locator('.chat-photo img')).toHaveAttribute('src', /^data:image\/jpeg;base64,\/9j\//);
   await expect(bubbles(page).last().locator('.chat-photo img')).toBeVisible();
 
   await page.getByTestId('compose-location').click();
@@ -286,6 +293,53 @@ test('ছবি (এখানেই ছোট করা JPEG, ১ MB-র নি�
   await expect.poll(() => did(st, 'chat_send').length).toBe(2);
   expect(did(st, 'chat_send')[1].location).toEqual({ lat: 24.7471, lng: 90.4203 });
   await expect(bubbles(page).last().getByTestId('msg-location')).toHaveAttribute('href', 'https://www.google.com/maps?q=24.7471,90.4203');
+});
+
+test('যোগাযোগের সারির "মেসেজ" → chat_open (ctx, refId, peerUid) → সেই কথোপকথন; মানা করলে বাংলায় কারণ', async ({ page }) => {
+  const errs = watchErrors(page);
+  const st = await fakeChat(page);
+  await sseDown(page);
+  await openLive(page, def('blood', 'my-request-detail'), '/my-requests/m1');
+  const btn = page.getByTestId('contact-message').first();
+  await expect(btn).toHaveText('মেসেজ');
+  await btn.click();
+  await expect(page).toHaveURL(/\/messages\/t1$/);
+  await expect(page.getByTestId('thread-peer')).toHaveText('সুমাইয়া আক্তার');
+  const o = did(st, 'chat_open')[0];
+  expect(o).toMatchObject({ ctx: 'blood', refId: 'm1' });
+  expect(o.peerUid).toBeTruthy();
+  // মেসেজ খোলা থেকে আর আলাদা chat_messages লাগে না (chat_open-এর ৫০টা) — তারপর নতুনগুলো দেখা চলে
+  await expect(bubbles(page)).toHaveCount(3);
+
+  await page.goBack();
+  st.fail.chat_open = [{ status: 403, code: 'chat_not_allowed', error: 'not allowed' }];
+  await page.getByTestId('contact-message').first().click();
+  await expect(page.getByText('এখন অ্যাপে এঁকে মেসেজ করা যায় না।')).toBeVisible();
+  await expect(page).toHaveURL(/\/my-requests\/m1$/);
+  expect(errs.filter((e) => !/403/.test(e))).toEqual([]);
+});
+
+test('ফিচার সুইচ: chat বন্ধ — মেসেজের পাতা "শিগগির আসছে", উপরের বোতাম আর যোগাযোগের "মেসেজ" নেই; chat_media বন্ধ — ছবি/লোকেশন নেই', async ({ page }) => {
+  const st = await fakeChat(page);
+  await sseDown(page);
+  await openLive(page, base(), '/messages/t1', { features: { chat: false } });
+  await expect(page.getByText('এই সুবিধা শিগগির আসছে')).toBeVisible();
+  await expect(page.getByTestId('thread-view')).toHaveCount(0);
+  await expect(page.getByTestId('top-chat')).toHaveCount(0);
+  await page.goto('/my-requests/m1', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByTestId('call-audio').first()).toBeVisible();
+  await expect(page.getByTestId('contact-message')).toHaveCount(0);
+  expect(did(st, 'chat_unread')).toHaveLength(0);
+  expect(did(st, 'chat_messages')).toHaveLength(0);
+});
+
+test('ফিচার সুইচ: chat চালু, chat_media বন্ধ — লেখা যায়, ছবি/লোকেশনের বোতাম নেই', async ({ page }) => {
+  await fakeChat(page);
+  await sseDown(page);
+  await openLive(page, base(), '/messages/t1', { features: { chat_media: false } });
+  await expect(compose(page)).toBeVisible();
+  await expect(page.getByTestId('compose-photo')).toHaveCount(0);
+  await expect(page.getByTestId('compose-location')).toHaveCount(0);
 });
 
 test('@desktop বড় পর্দা: বাঁয়ে তালিকা, ডানে কথোপকথন; অন্যটা চাপলে ডান পাশ বদলায়, পাশের মেনুতে ব্যাজ', async ({ page }) => {

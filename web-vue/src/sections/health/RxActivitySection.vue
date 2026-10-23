@@ -21,6 +21,7 @@ import LabPickDialog from './LabPickDialog.vue';
 import LabReportDialog from './LabReportDialog.vue';
 import PayDialog from './PayDialog.vue';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 
 const props = defineProps<{ rx: Rx }>();
 const lang = useLang();
@@ -132,7 +133,7 @@ function onPaid() {
         <span v-if="OPEN.includes(o.status) && extraOf(o).length" class="t-body-s muted">{{ extraOf(o).join(' · ') }}</span>
         <span v-if="o.missed?.length" class="t-body-s muted">{{ tr("Didn't have: ", 'ছিল না: ') + o.missed.join(', ') }}</span>
         <div v-if="['sent', 'ready', 'accepted'].includes(o.status)"><Action icon="close" @click="withdrawing = o">{{ tr('Take back', 'ফিরিয়ে নিন') }}</Action></div>
-        <ContactActions ctx="rx_order" :ref-id="o.id" :peer-name="o.pharmacyName" :show="o.mode === 'online' && OPEN.includes(o.status)" />
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="rx_order" :ref-id="o.id" :peer-name="o.pharmacyName" :show="o.mode === 'online' && OPEN.includes(o.status)" />
       </div>
       <template v-if="!cancelled && a.medicines.some((m) => !m.done)">
         <!-- উপরের বড় বাটনের মতোই একটা — একই বাছাই (দোকানে আছি / অনলাইনে অর্ডার) -->
@@ -154,7 +155,7 @@ function onPaid() {
           <Tag :tone="o.status === 'reported' ? 'good' : undefined">{{ labStatus(o.status) }}</Tag>
         </div>
         <span class="t-body-s muted">{{ o.tests.join(', ') }}</span>
-        <ContactActions ctx="lab_order" :ref-id="o.id" :peer-name="o.labName" :show="['sent', 'received'].includes(o.status)" />
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="lab_order" :ref-id="o.id" :peer-name="o.labName" :show="['sent', 'received'].includes(o.status)" />
         <!-- পাঠানোর সময়ের আনুমানিক দাম; তালিকায় না থাকা পরীক্ষা ("ECG দাম জানা নেই") -->
         <span v-if="o.prices && o.status !== 'cancelled'" class="t-body-s">{{ snapText(o.prices, o.home) }}</span>
         <IconLine

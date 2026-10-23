@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router';
 import { Button, EmptyState, Icon } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { comingSoon, featureOn } from '@/lib/features';
 import { useDetailMode, useMobile, usePageTitle, useTwoPane } from '@/shell/chrome';
 import { chat, loadThreads } from './store';
 import { T } from './text';
@@ -22,11 +23,11 @@ const threadId = computed(() => {
 });
 const authed = computed(() => s.ready && !s.guest && !!s.uid);
 usePageTitle(() => T.messages());
-useDetailMode(() => mobile.value && !!threadId.value && authed.value);
+useDetailMode(() => mobile.value && !!threadId.value && authed.value && featureOn('chat'));
 
 // তালিকা: পাতা খুললে একবার (তারপর SSE/পোল নতুন রাখে)
 watch(
-  () => (authed.value && (two.value || !threadId.value) ? s.uid : null),
+  () => (authed.value && featureOn('chat') && (two.value || !threadId.value) ? s.uid : null),
   (u) => {
     if (u) void loadThreads().catch(() => {});
   },
@@ -35,7 +36,10 @@ watch(
 </script>
 
 <template>
-  <div v-if="s.ready && s.guest" class="ld-list"><div class="list-inner">
+  <div v-if="!featureOn('chat')" class="ld-list"><div class="list-inner">
+    <EmptyState icon="forum_outline" :title="comingSoon()" />
+  </div></div>
+  <div v-else-if="s.ready && s.guest" class="ld-list"><div class="list-inner">
     <EmptyState icon="forum_outline" :title="tr('Log in to do this', 'এর জন্য লগইন করুন')">
       <Button @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
     </EmptyState>

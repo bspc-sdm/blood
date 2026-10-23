@@ -5,6 +5,7 @@ import { Action, BloodGroupBadge, ConfirmDialog, PhoneLine, Tag } from '@/ui/kit
 import { num, tr } from '@/lib/i18n';
 import { needsFare, type DonorResponse } from '../model';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 
 const props = withDefaults(defineProps<{ d: DonorResponse; active: boolean; busy: boolean; canConfirm?: boolean; reqId?: string }>(), { canConfirm: true });
 const emit = defineEmits<{ confirm: []; remove: [] }>();
@@ -34,7 +35,7 @@ function doRemove() {
     </div>
     <div class="blood-indent"><PhoneLine :phone="d.donorPhone" /></div>
     <!-- অ্যাপে কল: রিকোয়েস্ট খোলা আর ডোনার রাজি থাকলে (ফোনই আগে) -->
-    <div v-if="reqId" class="blood-indent"><ContactActions ctx="blood" :ref-id="reqId" :peer-uid="d.donorUid" :peer-name="d.donorName" :phone="d.donorPhone" :show="active && d.status === 'accepted'" /></div>
+    <div v-if="reqId" class="blood-indent"><ContactActions :message="chatOn()" @message="openChatAt" ctx="blood" :ref-id="reqId" :peer-uid="d.donorUid" :peer-name="d.donorName" :phone="d.donorPhone" :show="active && d.status === 'accepted'" /></div>
     <div v-if="active && d.status === 'accepted'" class="row gap-8 blood-indent">
       <Action v-if="!d.confirmed && canConfirm" icon="check_circle" :busy="busy" @click="emit('confirm')">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Action>
       <Action icon="close" :disabled="busy" @click="askRemove = true">{{ tr('Remove', 'বাদ দিন') }}</Action>

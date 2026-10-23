@@ -3,6 +3,7 @@
 import { ref } from 'vue';
 import { router } from '@/router';
 import { toast } from '@/ui/toast';
+import { featureOn } from '@/lib/features';
 import { refusalOf, type ChatCtx } from './api';
 import { openThreadFor } from './store';
 import { T, refusalText } from './text';
@@ -34,3 +35,9 @@ export async function openChat(ctx: ChatCtx | string, refId: string, peerUid?: s
     opening.value = false;
   }
 }
+
+/** ContactActions-এর `@message` সরাসরি: <ContactActions … message @message="openChatAt" /> */
+export const openChatAt = (t: { ctx: string; refId: string; peerUid?: string }) => void openChat(t.ctx, t.refId, t.peerUid);
+
+/** "মেসেজ" বোতাম দেখাবে কি না (ফিচার সুইচ `chat`) — <ContactActions :message="chatOn()" …> */
+export const chatOn = () => featureOn('chat');

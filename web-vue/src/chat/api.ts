@@ -24,7 +24,9 @@ export interface ChatMessage {
   status?: 'sending' | 'failed';
   error?: string;
 }
-export interface ThreadInfo { threadId: string; ctx: ChatCtx | null; refId: string; peer: ChatPeer; canSend: boolean }
+/** closed = কেন পাঠানো যায় না: আমি ব্লক করেছি / সার্ভার মানা করেছে (ওপাশের ব্লকও এতে, জানানো হয় না) / সম্পর্ক শেষ */
+export type Closed = 'blocked' | 'not_allowed' | 'closed';
+export interface ThreadInfo { threadId: string; ctx: ChatCtx | null; refId: string; peer: ChatPeer; canSend: boolean; closed?: Closed }
 export interface ThreadLast { text: string; at: number; mine: boolean }
 export interface ThreadItem extends ThreadInfo { last: ThreadLast | null; unread: number }
 /** একটা পাতা: পুরোনো → নতুন; before = আরও পুরোনোর cursor (null = আর নেই) */
@@ -74,10 +76,15 @@ export function parseThread(o: any): ThreadItem {
   };
 }
 
+/** chat_open / chat_messages-এর মাথা: canSend আর কেন বন্ধ (blocked / closed) */
+function closedOf(r: any): Closed | undefined {
+  if (r?.canSend !== false) return undefined;
+  return r?.blocked === true ? 'blocked' : r?.closed === true ? 'closed' : 'not_allowed';
+}
 export async function chatOpen(body: { ctx: ChatCtx; refId: string; peerUid?: string }): Promise<OpenResult> {
   const r = await call('chat_open', { ctx: body.ctx, refId: body.refId, ...(body.peerUid ? { peerUid: body.peerUid } : {}) });
   const threadId = str(r?.threadId);
-  return { threadId, ctx: ctxOf(r?.ctx) ?? body.ctx, refId: str(r?.refId) || body.refId, peer: parsePeer(r?.peer), canSend: r?.canSend !== false, ...parsePage(r, threadId) };
+  return { threadId, ctx: ctxOf(r?.ctx) ?? body.ctx, refId: str(r?.refId) || body.refId, peer: parsePeer(r?.peer), canSend: r?.canSend !== false, closed: closedOf(r), ...parsePage(r, threadId) };
 }
 export interface SendBody { threadId: string; clientId: string; text?: string; photo?: string; location?: ChatLocation }
 export async function chatSend(body: SendBody): Promise<ChatMessage> {
@@ -89,7 +96,10 @@ export async function chatMessages(threadId: string, before?: string | null): Pr
   const r = await call('chat_messages', { threadId, ...(before ? { before } : {}) });
   const info: Partial<ThreadInfo> = {};
   if (r?.peer) info.peer = parsePeer(r.peer);
-  if (typeof r?.canSend === 'boolean') info.canSend = r.canSend;
+  if (typeof r?.canSend === 'boolean') {
+    info.canSend = r.canSend;
+    info.closed = closedOf(r);
+  }
   if (ctxOf(r?.ctx)) info.ctx = ctxOf(r.ctx);
   if (str(r?.refId)) info.refId = str(r.refId);
   return { ...parsePage(r, threadId), info };
@@ -114,13 +124,17 @@ export async function chatUnread(): Promise<number> {
 export const chatBlock = (peerUid: string) => call('call_block', { peerUid });
 
 /** সার্ভারের "না" — কোনটা কী */
-export type ChatRefusal = 'rate' | 'not_allowed' | 'blocked' | 'closed' | 'net' | 'other';
+export type ChatRefusal = 'off' | 'rate' | 'not_allowed' | 'blocked' | 'closed' | 'unsend_window' | 'bad_photo' | 'gone' | 'net' | 'other';
 export function refusalOf(e: unknown): ChatRefusal {
   if (!(e instanceof ServerError)) return 'other';
   if (e.status === 0) return 'net';
+  if (e.code === 'feature_off') return 'off';
   if (e.code === 'chat_rate' || e.status === 429) return 'rate';
   if (e.code === 'call_blocked') return 'blocked';
+  if (e.code === 'chat_unsend_window') return 'unsend_window';
+  if (e.code === 'bad_photo') return 'bad_photo';
   if (e.code === 'chat_closed' || e.status === 409) return 'closed';
   if (e.code === 'chat_not_allowed' || e.status === 403) return 'not_allowed';
+  if (e.status === 404) return 'gone';
   return 'other';
 }

@@ -25,8 +25,8 @@ const rev = ref(0);
 /** শেষ বদলের ক্রম — পরে আরেকটা বদল চললে তার উত্তরই শেষ কথা */
 let seq = 0;
 
-// অ্যাপে কল: ফিচার সুইচ calls_audio চালু থাকলে তবেই
-const cats = () => NOTIFY_CATS.filter((c) => (c !== BUSINESS_CAT || props.showBusiness) && (c !== 'calls' || featureOn('calls_audio')));
+// অ্যাপে কল / মেসেজ: ফিচার সুইচ calls_audio / chat চালু থাকলে তবেই
+const cats = () => NOTIFY_CATS.filter((c) => (c !== BUSINESS_CAT || props.showBusiness) && (c !== 'calls' || featureOn('calls_audio')) && (c !== 'messages' || featureOn('chat')));
 
 function set(p: NotifyPrefs) {
   const was = prefs.value?.cats.blood_nearby;

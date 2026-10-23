@@ -67,7 +67,7 @@ describe('সার্ভারের উত্তর', () => {
     expect(call).toHaveBeenCalledWith('chat_messages', { threadId: 't1' });
     expect(r.before).toBe('cur1');
     expect(r.messages[0].threadId).toBe('t1');
-    expect(r.info).toEqual({ peer: { uid: 'p', name: 'রিনা' }, canSend: false, ctx: 'blood', refId: 'r' });
+    expect(r.info).toEqual({ peer: { uid: 'p', name: 'রিনা' }, canSend: false, closed: 'not_allowed', ctx: 'blood', refId: 'r' });
     call.mockResolvedValueOnce({ messages: [], before: null });
     expect((await chatMessages('t1', 'cur1')).before).toBeNull();
     expect(call).toHaveBeenLastCalledWith('chat_messages', { threadId: 't1', before: 'cur1' });
@@ -260,5 +260,46 @@ describe('ছবি আর চেহারা', () => {
     const theirs = mount(MessageBubble, { props: { m: msg({ id: 'b', from: 'p', at, text: 'x' }), mine: false, selected: true, now: at, canReport: true } });
     await theirs.find('[data-testid="msg-report"]').trigger('click');
     expect(theirs.emitted('report')).toHaveLength(1);
+  });
+});
+
+describe('ছবির src', () => {
+  it('JPEG base64 ("/9j/…") data: হয়; লিংক যেমন আছে', async () => {
+    const { imgSrc } = await import('@/chat/photo');
+    expect(imgSrc('/9j/4AAQ')).toBe('data:image/jpeg;base64,/9j/4AAQ');
+    expect(imgSrc('https://r2.example/x.jpg?sig=1')).toBe('https://r2.example/x.jpg?sig=1');
+    expect(imgSrc('/api/files/x')).toBe('/api/files/x');
+    expect(imgSrc('data:image/png;base64,AA')).toBe('data:image/png;base64,AA');
+  });
+});
+
+describe('CHAT.md-এর শেষ রূপ', () => {
+  it('মাথা: blocked → আমি ব্লক করেছি, closed → সম্পর্ক শেষ, শুধু canSend:false → মানা', async () => {
+    call.mockResolvedValueOnce({ threadId: 't', canSend: false, blocked: true, messages: [], before: null });
+    expect((await chatOpen({ ctx: 'blood', refId: 'r' })).closed).toBe('blocked');
+    call.mockResolvedValueOnce({ canSend: false, closed: true, messages: [], before: null });
+    expect((await chatMessages('t')).info.closed).toBe('closed');
+    call.mockResolvedValueOnce({ canSend: false, messages: [], before: null });
+    expect((await chatMessages('t')).info.closed).toBe('not_allowed');
+    call.mockResolvedValueOnce({ canSend: true, messages: [], before: null });
+    expect((await chatMessages('t')).info.closed).toBeUndefined();
+  });
+  it('SSE chat_message-এ পুরো মেসেজ: খোলা কথোপকথনে সরাসরি (আনা লাগে না), মোছা হলে বদলায়; অজানা কথোপকথনে জমায় না', () => {
+    chat.openThread = 't1';
+    mergeMessages('t1', [msg({ id: 'x', from: 'p', text: 'আগে', at: 1 })]);
+    handleChatEvent('chat_message', { threadId: 't1', messageId: 'y', from: 'রিনা', message: { id: 'y', threadId: 't1', from: 'p', text: 'পরে', at: 2 } });
+    expect(chat.msgs.t1.map((m) => m.text)).toEqual(['আগে', 'পরে']);
+    handleChatEvent('chat_message', { threadId: 't1', messageId: 'y', message: { id: 'y', threadId: 't1', from: 'p', at: 2, unsent: true } });
+    expect(chat.msgs.t1[1]).toMatchObject({ id: 'y', unsent: true });
+    handleChatEvent('chat_message', { threadId: 't9', messageId: 'z', message: { id: 'z', from: 'q', text: 'অন্য', at: 3 } });
+    expect(chat.msgs.t9).toBeUndefined();
+    expect(actions('chat_messages')).toHaveLength(0);
+  });
+  it('১০ মিনিট পার (409 chat_unsend_window), খারাপ ছবি (400 bad_photo), বন্ধ সুবিধা (feature_off) — বাংলায়', async () => {
+    const m = msg({ id: 'a', from: 'me', text: 'x', at: Date.now() });
+    call.mockRejectedValueOnce(new ServerError('window', 409, 'chat_unsend_window'));
+    await expect(unsend('t1', m)).rejects.toThrow('শুধু ১০ মিনিটের মধ্যে মোছা যায়');
+    expect(refusalText(refusalOf(new ServerError('x', 400, 'bad_photo')))).toBe('ছবিটা পড়া যায়নি');
+    expect(refusalText(refusalOf(new ServerError('x', 404, 'feature_off')))).toBe('এই সুবিধা শিগগির আসছে');
   });
 });

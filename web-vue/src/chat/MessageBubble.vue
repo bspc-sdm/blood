@@ -30,7 +30,7 @@ const tick = computed(() => (props.m.readAt ? 'done_all' : 'done'));
       <p v-if="m.unsent" class="t-body-m chat-unsent"><Icon name="block" :size="16" />{{ T.unsent() }}</p>
       <template v-else>
         <button v-if="thumb" type="button" class="chat-photo" :aria-label="T.photo()" @click.stop="emit('photo')">
-          <img :src="imgSrc(thumb)" alt="" loading="lazy" @error="emit('photoError')" />
+          <img :src="imgSrc(thumb)" alt="" @error="emit('photoError')" />
         </button>
         <a v-if="m.location" class="chat-loc" :href="mapUrl" target="_blank" rel="noopener noreferrer" data-testid="msg-location" @click.stop>
           <Icon name="location_on" :size="28" />

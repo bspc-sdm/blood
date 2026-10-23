@@ -76,10 +76,14 @@ export const T = {
 
 export function refusalText(r: ChatRefusal, serverMsg?: string): string {
   switch (r) {
+    case 'off': return tr('This feature is coming soon', 'এই সুবিধা শিগগির আসছে'); // bn-ok
     case 'rate': return tr('You are sending too fast. Wait a minute and try again.', 'খুব দ্রুত পাঠাচ্ছেন — এক মিনিট পরে আবার চেষ্টা করুন।'); // bn-ok
     case 'not_allowed': return tr("You can't message this person in the app now.", 'এখন অ্যাপে এঁকে মেসেজ করা যায় না।'); // bn-ok
     case 'blocked': return tr('You have blocked this person, so messages are off.', 'আপনি এঁকে ব্লক করেছেন — মেসেজ যাবে না।'); // bn-ok
     case 'closed': return tr('This conversation is closed. You can only read it.', 'এই কথোপকথন বন্ধ — এখন শুধু পড়া যায়।'); // bn-ok
+    case 'unsend_window': return T.unsendLate();
+    case 'bad_photo': return T.photoFailed();
+    case 'gone': return T.noThread();
     case 'net': return tr('No internet connection. Check and try again.', 'ইন্টারনেট সংযোগ নেই। দেখে আবার চেষ্টা করুন।');
     default: return serverMsg && /[ঀ-৿]/.test(serverMsg) ? serverMsg : tr("Couldn't send. Try again.", 'পাঠানো যায়নি — আবার চেষ্টা করুন।'); // bn-ok
   }

@@ -10,6 +10,7 @@ import { chrome } from './chrome';
 import { useNavItems } from './navItems';
 import LoginFlow from '@/account/LoginFlow.vue';
 import { useChatBadge } from '@/chat/badge';
+import { featureOn } from '@/lib/features';
 
 const s = useSession();
 const route = useRoute();
@@ -43,7 +44,7 @@ watch(
 
 const extra = computed(() =>
   [
-    { to: '/messages', label: tr('Messages', 'মেসেজ'), icon: 'forum_outline', show: !s.guest, badge: chatUnread.value }, // bn-ok
+    { to: '/messages', label: tr('Messages', 'মেসেজ'), icon: 'forum_outline', show: !s.guest && featureOn('chat'), badge: chatUnread.value }, // bn-ok
     { to: '/profile', label: tr('Profile', 'প্রোফাইল'), icon: 'person_outline', show: !s.guest },
     { to: '/settings', label: tr('Settings', 'সেটিংস'), icon: 'settings_outline', show: true },
     { to: '/help', label: tr('Help', 'সাহায্য'), icon: 'help', show: true },
@@ -90,7 +91,7 @@ const photoSrc = computed(() => {
           <Button variant="tonal" class="login-btn" @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
         </div>
         <div v-else class="top-actions">
-          <IconButton icon="forum_outline" :label="tr('Messages', 'মেসেজ')" :badge="badgeText(chatUnread)" class="chat-nav" data-testid="top-chat" @click="router.push('/messages')" /><!-- bn-ok -->
+          <IconButton v-if="featureOn('chat')" icon="forum_outline" :label="tr('Messages', 'মেসেজ')" :badge="badgeText(chatUnread)" class="chat-nav" data-testid="top-chat" @click="router.push('/messages')" /><!-- bn-ok -->
           <IconButton icon="notifications_round" :label="tr('Notifications', 'নোটিফিকেশন')" :badge="s.me?.unread || null" class="bell" @click="router.push('/inbox')" />
           <button type="button" class="icon-btn" :aria-label="tr('Menu and profile', 'মেনু ও প্রোফাইল')" @click="router.push('/profile')">
             <span class="menu-avatar">

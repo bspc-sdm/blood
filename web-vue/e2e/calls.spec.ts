@@ -72,8 +72,8 @@ test('রক্তের রিকোয়েস্ট: ডোনারকে �
   await expect.poll(() => did(st, 'contact_can').length).toBe(1);
   expect(did(st, 'contact_can')[0].body.items.length).toBeGreaterThan(1);
   expect(did(st, 'contact_can')[0].body.items[0]).toMatchObject({ ctx: 'blood', refId: 'm1' });
-  // মেসেজ বোতাম চ্যাট অংশ জুড়লে তবেই
-  await expect(page.getByTestId('contact-message')).toHaveCount(0);
+  // মেসেজ বোতামও একই সারিতে (চাপলে কী হয় — e2e/chat.spec.ts)
+  await expect(page.getByTestId('contact-message').first()).toHaveText('মেসেজ');
   await btn.click();
   await expect(screen(page)).toBeVisible();
   await expect(status(page)).toHaveText('রিং হচ্ছে');

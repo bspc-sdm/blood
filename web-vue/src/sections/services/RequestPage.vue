@@ -16,6 +16,7 @@ import PickCarDialog from './PickCarDialog.vue';
 import RatingDialog from './RatingDialog.vue';
 import AmbHead from './AmbHead.vue';
 import ContactActions from '@/calls/ContactActions.vue';
+import { chatOn, openChatAt } from '@/chat/open';
 
 const props = defineProps<{ id: string }>();
 const nav = useNav();
@@ -166,7 +167,7 @@ async function onReplace(c: AmbCar | null) {
         <a v-if="r.ambulance.phone" class="btn square has-icon block" :href="`tel:${r.ambulance.phone}`" @click="callCar(r.ambulance!)">
           <Icon name="call" />{{ tr('Call driver ', 'চালককে ফোন ') + num(r.ambulance.phone) }}
         </a>
-        <ContactActions ctx="ambulance" :ref-id="id" :peer-name="r.ambulance.name" :phone="r.ambulance.phone || null" />
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="id" :peer-name="r.ambulance.name" :phone="r.ambulance.phone || null" />
       </div>
       <template v-if="r.status === 'done'">
         <AmbHead icon="check_circle" :t="tr('Trip finished', 'ট্রিপ শেষ')" :sub="r.ambulance?.name" />
