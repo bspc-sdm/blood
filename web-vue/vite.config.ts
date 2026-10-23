@@ -14,6 +14,8 @@ export default defineConfig({
     emptyOutDir: true,
     assetsDir: 'assets',
     sourcemap: false,
+    // ফন্ট কখনো data: URL নয় — ওয়েবের CSP-তে font-src 'self' (ছোট latin-ext ফাইলও আলাদা ফাইলে)
+    assetsInlineLimit: (file) => (/\.(woff2?|ttf|otf)$/.test(file) ? false : undefined),
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
