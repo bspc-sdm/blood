@@ -67,13 +67,13 @@ fun CallHistoryScreen(onBack: () -> Unit) {
     var items by remember { mutableStateOf<List<CallHistoryItem>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
-    var more by remember { mutableStateOf(true) }
+    var next by remember { mutableStateOf<Long?>(null) }
     var loadingMore by remember { mutableStateOf(false) }
 
     LaunchedEffect(reload) {
         errorMsg = null
         runCatching { CallsApi.history() }
-            .onSuccess { items = it; more = it.size >= 20 }
+            .onSuccess { (l, n) -> items = l; next = n }
             .onFailure { errorMsg = it.message }
     }
 
@@ -99,14 +99,14 @@ fun CallHistoryScreen(onBack: () -> Unit) {
                 }
                 else -> {
                     items(l, key = { it.callId }) { c -> CallRow(c) }
-                    if (more) item {
+                    if (next != null) item {
                         TextButton(
                             onClick = {
-                                val before = l.lastOrNull()?.startedAt ?: return@TextButton
+                                val before = next ?: return@TextButton
                                 scope.launch {
                                     loadingMore = true
                                     runCatching { CallsApi.history(before) }
-                                        .onSuccess { next -> items = (l + next).distinctBy { it.callId }; more = next.size >= 20 }
+                                        .onSuccess { (more, n) -> items = (l + more).distinctBy { it.callId }; next = n }
                                         .onFailure { errorMsg = it.message }
                                     loadingMore = false
                                 }
@@ -124,6 +124,10 @@ fun CallHistoryScreen(onBack: () -> Unit) {
 @Composable
 private fun CallRow(c: CallHistoryItem) {
     val cs = MaterialTheme.colorScheme
+    var menu by remember { mutableStateOf(false) }
+    var blocking by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
         Column(Modifier.padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -140,10 +144,27 @@ private fun CallRow(c: CallHistoryItem) {
                         style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                     )
                 }
+                // ব্লক / রিপোর্ট
+                Box {
+                    IconButton(onClick = { menu = true }, modifier = Modifier.testTag("call_row_menu")) { AppIcon(R.drawable.ic_more_vert, tr("More", "আরও")) }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Block", "ব্লক করুন")) }, onClick = { menu = false; blocking = true })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Report", "রিপোর্ট করুন")) }, onClick = { menu = false; reporting = true })
+                    }
+                }
             }
+            note?.let { SmallNote(it) }
             if (c.ctx in CallCtx.ALL && c.refId.isNotBlank()) {
                 AppCallButtons(c.ctx, c.refId, peerUid = c.peer.uid.ifBlank { null }, peerName = c.peer.name, emphasis = CallEmphasis.ICONS, modifier = Modifier.align(Alignment.End))
             }
         }
+    }
+    if (blocking) CallBlockDialog(c.peer.uid, c.peer.name, c.callId, onDismiss = { blocking = false }) {
+        blocking = false
+        note = tr("Blocked", "ব্লক করা হয়েছে")
+    }
+    if (reporting) CallReportDialog(c.callId, onDismiss = { reporting = false }) {
+        reporting = false
+        note = tr("Reported", "রিপোর্ট পাঠানো হয়েছে")
     }
 }

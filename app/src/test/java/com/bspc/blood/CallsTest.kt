@@ -156,6 +156,47 @@ class CallsTest {
     }
 
     @Test
+    fun audioCallUpgradesToVideoOnlyWithConsent() {
+        var s = run(CallEvent.Dialed(join, CallCtx.BLOOD, "r1", false, ""))
+        assertEquals("u2", s.peerUid)
+        // এখনো ধরেননি — অনুরোধ নয়
+        assertEquals(s, CallMachine.reduce(s, CallEvent.UpgradeAsked, t0))
+        s = CallMachine.reduce(s, CallEvent.PeerJoined, t0)
+        // আমি চাইলাম → অপেক্ষা; উনি রাজি হননি → ছোট বার্তা
+        s = CallMachine.reduce(s, CallEvent.UpgradeSent, t0)
+        assertTrue(s.upgradePending)
+        val declined = CallMachine.reduce(s, CallEvent.UpgradeDeclined, t0)
+        assertFalse(declined.upgradePending)
+        assertTrue(declined.upgradeDeclined)
+        assertFalse(CallMachine.reduce(declined, CallEvent.UpgradeDismissed, t0).upgradeDeclined)
+        // রাজি হলেন → ভিডিও, ক্যামেরা চালু, লাউডস্পিকার
+        val up = CallMachine.reduce(s, CallEvent.Upgraded(camera = true), t0)
+        assertTrue(up.video)
+        assertTrue(up.camOn)
+        assertTrue(up.speakerOn)
+        assertFalse(up.upgradePending)
+        // ভিডিও কলে আর অনুরোধ নয়
+        assertEquals(up, CallMachine.reduce(up, CallEvent.UpgradeSent, t0))
+        // অন্যজনের অনুরোধ → আমার উত্তর বাকি; না বললে সরে যায়
+        val asked = CallMachine.reduce(s.copy(upgradePending = false), CallEvent.UpgradeAsked, t0)
+        assertTrue(asked.upgradeAsked)
+        assertFalse(CallMachine.reduce(asked, CallEvent.UpgradeDismissed, t0).upgradeAsked)
+        // শুধু অ্যাপয়েন্টমেন্ট ভিডিও দিয়ে শুরু
+        assertTrue(CallCtx.videoFirst(CallCtx.APPOINTMENT))
+        listOf(CallCtx.BLOOD, CallCtx.AMBULANCE, CallCtx.RX_ORDER, CallCtx.LAB_ORDER).forEach { assertFalse(it, CallCtx.videoFirst(it)) }
+    }
+
+    @Test
+    fun lockScreenShowsFirstNameOnly() {
+        assertEquals("রহিম", CallMachine.firstName("  রহিম উদ্দিন  "))
+        assertEquals("", CallMachine.firstName(""))
+        val s = CallState(peerName = "রহিম উদ্দিন")
+        assertEquals("রহিম", displayName(s, locked = true))
+        assertEquals("রহিম উদ্দিন", displayName(s, locked = false))
+        assertEquals("লাইফলো কল", CallNotifications.lockText())
+    }
+
+    @Test
     fun durationText() {
         assertEquals("০০:০৫", CallMachine.duration(5))
         assertEquals("০৩:২৫", CallMachine.duration(205))
@@ -197,6 +238,12 @@ class CallsTest {
         assertEquals(CallFailure.BUSY, CallErrors.classify("call_busy"))
         assertEquals(CallFailure.UNAVAILABLE, CallErrors.classify("calls_unavailable"))
         assertEquals(CallFailure.OTHER, CallErrors.classify("weird"))
+        assertEquals(CallFailure.BLOCKED, CallErrors.classify("call_blocked"))
+        assertEquals(CallFailure.RATE_LIMIT, CallErrors.classify("call_rate"))
+        assertEquals(CallFailure.GONE, CallErrors.classify("call_gone"))
+        // ব্লক: কে করেছেন বলা হয় না, ফোনের বিকল্পও নয়
+        assertFalse(CallErrors.offersPhone(CallFailure.BLOCKED))
+        assertTrue(CallErrors.message(CallFailure.RATE_LIMIT).contains("১০ মিনিট"))
         assertEquals(CallFailure.OFF, CallErrors.of(ServerError("উনি অ্যাপে কল বন্ধ রেখেছেন — ফোনে কল করুন", "call_off")))
         assertEquals(CallFailure.NETWORK, CallErrors.of(IllegalStateException("x")))
         // call_off: সার্ভারের বার্তাই, আর ফোনের বিকল্প
@@ -215,6 +262,9 @@ class CallsTest {
         assertFalse(CallAvailability.shows(CallCtx.BLOOD, "r1"))
         assertTrue(CallAvailability.shows(CallCtx.BLOOD, "r2"))
         assertTrue(CallAvailability.shows(CallCtx.ORDER, "r1"))
+        // ব্লক: এই সূত্রের বাটন যায়
+        CallAvailability.onFailure(CallFailure.BLOCKED, CallCtx.RX_ORDER, "x9")
+        assertFalse(CallAvailability.shows(CallCtx.RX_ORDER, "x9"))
         // ব্যস্ত/বন্ধ: বাটন থাকে
         CallAvailability.onFailure(CallFailure.BUSY, CallCtx.ORDER, "o1")
         CallAvailability.onFailure(CallFailure.OFF, CallCtx.ORDER, "o1")
@@ -240,6 +290,13 @@ class CallsTest {
         // url/token ছাড়া উত্তর = কল চালু নেই
         val e = runCatching { CallsApi.parseJoin(JSONObject("""{"ok":true}""")) }.exceptionOrNull()
         assertEquals("calls_unavailable", (e as ServerError).code)
+
+        // call_status: চলমান কলে নতুন টোকেন, ভিডিও চালু হয়েছে কি না
+        val st = CallsApi.parseStatus(JSONObject("""{"ok":true,"callId":"c1","state":"accepted","video":true,"url":"wss://x","token":"t2","peer":{"uid":"u2","name":"রহিম","photoThumb":"abc"}}"""))
+        assertTrue(st.video)
+        assertEquals("t2", st.join("c1")?.token)
+        assertEquals("abc", st.peer?.photoThumb)
+        assertNull(CallsApi.parseStatus(JSONObject("""{"state":"ended"}""")).join("c1"))
 
         val h = CallsApi.parseHistory(JSONObject("""{"callId":"c1","ctx":"blood","refId":"r1","peer":{"uid":"u2","name":"রহিম"},"video":true,"state":"missed","dir":"in","startedAt":5,"durationSec":0}"""))
         assertTrue(h.incoming)
@@ -282,6 +339,10 @@ class CallsTest {
         // শেষ হওয়া কল আবার বাজে না
         assertFalse(CallManager.onIncoming(ctx, "p1", true, "করিম", "", CallCtx.BLOOD, "r1"))
         CallManager.reset()
+        assertEquals(CallPhase.IDLE, CallManager.state.value.phase)
+        // ভিডিওর অনুরোধের পুশ: কল না থাকলে কিছু হয় না, কিন্তু নোটিফিকেশনও নয়
+        assertTrue(CallPush.handle(ctx, mapOf("type" to "call_upgrade", "callId" to "zz", "by" to "u2")))
+        assertTrue(CallPush.handle(ctx, mapOf("type" to "call_state", "callId" to "zz", "state" to "upgrade_request")))
         assertEquals(CallPhase.IDLE, CallManager.state.value.phase)
         // অন্য পুশ সাধারণ নোটিফিকেশনে যায়
         assertFalse(CallPush.handle(ctx, mapOf("type" to "appt_call_ready", "appointmentId" to "a1")))

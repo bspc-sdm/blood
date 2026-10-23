@@ -57,6 +57,12 @@ object CallManager {
     private var tickJob: Job? = null
     private var audio: AudioSwitchHandler? = null
     private var poorSince: Long? = null
+    private var pingJob: Job? = null
+    private var peerGoneJob: Job? = null
+    /** নতুন টোকেনে আবার যুক্ত হওয়ার চেষ্টা (টোকেন ১০ মিনিটের) */
+    private var rejoinTries = 0
+    /** যে ঘরে সত্যিই যুক্ত হয়েছিলাম (প্রথমবার যুক্ত হতে না পারার বিচ্ছিন্নতা আলাদা) */
+    private var connectedRoom: Room? = null
     /** কোন ফোনে ঘণ্টা বাজা শুরু হলো (বাজার সময়সীমা) */
     private var ringingSince = 0L
 
@@ -85,7 +91,10 @@ object CallManager {
         if (new.usesMedia) CallService.sync(ctx) else if (old.usesMedia) CallService.stop(ctx)
         if (old.phase == CallPhase.INCOMING && new.phase != CallPhase.INCOMING) CallNotifications.cancelIncoming(ctx)
         if (new.phase == CallPhase.ENDED && old.phase != CallPhase.ENDED) cleanup()
-        if (new.phase != old.phase) startPolling(new)
+        if (new.phase != old.phase) {
+            startPolling(new)
+            startPing(new)
+        }
     }
 
     // ------------------------------------------------------------
@@ -101,13 +110,17 @@ object CallManager {
     }
 
     /** পুশে কল এলো। অন্য কল চললে false (সার্ভার সাধারণত আগেই call_busy বলে) */
-    fun onIncoming(context: Context, callId: String, video: Boolean, peerName: String, peerPhoto: String, ctx: String, refId: String): Boolean {
+    fun onIncoming(context: Context, callId: String, video: Boolean, peerName: String, peerPhoto: String, ctx: String, refId: String, peerUid: String = ""): Boolean {
         init(context)
         val s = _state.value
         // একই কল আবার (পুরো পর্দার intent, দুবার পুশ): চলছে কি না; শেষ হয়ে গেলে আবার বাজানো নয়
         if (s.callId == callId) return s.live
         if (s.live) return false
-        dispatch(CallEvent.Ringing(callId, video, peerName, peerPhoto, ctx, refId))
+        dispatch(CallEvent.Ringing(callId, video, peerName, peerPhoto, ctx, refId, peerUid))
+        // পুশে ছবি থাকে না — call_status থেকে
+        if (peerPhoto.isBlank()) scope.launch {
+            runCatching { CallsApi.status(callId) }.onSuccess { st -> st.peer?.let { if (_state.value.callId == callId) dispatch(CallEvent.PeerInfo(it)) } }
+        }
         return true
     }
 
@@ -188,6 +201,7 @@ object CallManager {
             CallFailure.BUSY -> EndReason.BUSY
             CallFailure.OFF -> EndReason.OFF
             CallFailure.NOT_ALLOWED -> EndReason.NOT_ALLOWED
+            CallFailure.BLOCKED -> EndReason.BLOCKED
             CallFailure.UNAVAILABLE -> EndReason.UNAVAILABLE
             else -> EndReason.FAILED
         }
@@ -208,7 +222,8 @@ object CallManager {
         return ContextCompat.checkSelfPermission(c, perm) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun connect(join: CallJoin, video: Boolean) {
+    /** ঘরে যুক্ত হওয়া। rejoin = কল চলার মাঝে নতুন টোকেনে আবার (টোকেন ফুরোলে, ভিডিও চালু হলে) */
+    private fun connect(join: CallJoin, video: Boolean, rejoin: Boolean = false) {
         val ctx = app ?: return
         releaseRoom()
         val r = runCatching {
@@ -228,7 +243,7 @@ object CallManager {
             return
         }
         room = r
-        setupAudio(r, video)
+        setupAudio(r, _state.value.video || video)
         roomJob = scope.launch { r.events.collect { onRoomEvent(r, it) } }
         scope.launch {
             runCatching {
@@ -242,6 +257,8 @@ object CallManager {
                 }
             }.onSuccess {
                 if (room !== r) return@onSuccess
+                rejoinTries = 0
+                connectedRoom = r
                 dispatch(CallEvent.RoomConnected)
                 if (r.remoteParticipants.isNotEmpty()) {
                     dispatch(CallEvent.PeerJoined)
@@ -251,6 +268,7 @@ object CallManager {
             }.onFailure { e ->
                 if (room !== r) return@onFailure
                 Log.w(TAG, "connect failed", e)
+                if (rejoin) { rejoin(); return@onFailure }
                 val s = _state.value
                 if (s.live) {
                     if (s.outgoing && s.connectedAt == null && !s.isAppointment) scope.launch { runCatching { CallsApi.cancel(s.callId) } }
@@ -292,15 +310,28 @@ object CallManager {
         if (room !== r) return
         when (e) {
             is RoomEvent.ParticipantConnected -> {
+                peerGoneJob?.cancel()
                 dispatch(CallEvent.PeerJoined)
                 refreshRemoteVideo(r)
             }
             is RoomEvent.ParticipantDisconnected -> if (r.remoteParticipants.isEmpty()) {
                 remoteVideo.value = null
+                dispatch(CallEvent.RemoteVideo(false))
                 val s = _state.value
-                dispatch(CallEvent.PeerLeft)
-                // দুজনের কলে অন্যজন চলে গেলে সার্ভারেও শেষ (অন্যজন ইতিমধ্যে call_end পাঠিয়ে থাকতে পারেন — দুবার ক্ষতি নেই)
-                if (!s.isAppointment && s.connectedAt != null) scope.launch { runCatching { CallsApi.end(s.callId) } }
+                if (s.isAppointment || s.connectedAt == null) {
+                    dispatch(CallEvent.PeerLeft)
+                } else {
+                    // অন্যজন নতুন টোকেনে/নেটওয়ার্ক বদলে আবার আসতে পারেন — একটু অপেক্ষা, তারপর কল শেষ (সার্ভারেও)
+                    peerGoneJob?.cancel()
+                    peerGoneJob = scope.launch {
+                        delay(CallMachine.PEER_GRACE_MS)
+                        val cur = _state.value
+                        if (room === r && r.remoteParticipants.isEmpty() && cur.live && cur.callId == s.callId) {
+                            dispatch(CallEvent.PeerLeft)
+                            runCatching { CallsApi.end(s.callId) }
+                        }
+                    }
+                }
             }
             is RoomEvent.TrackSubscribed -> if (e.track is VideoTrack) refreshRemoteVideo(r)
             is RoomEvent.TrackUnsubscribed -> if (e.track is VideoTrack) refreshRemoteVideo(r)
@@ -308,8 +339,10 @@ object CallManager {
             is RoomEvent.TrackUnmuted -> if (e.participant !is LocalParticipant) refreshRemoteVideo(r)
             is RoomEvent.Reconnecting -> dispatch(CallEvent.Reconnecting)
             is RoomEvent.Reconnected -> dispatch(CallEvent.Reconnected)
-            is RoomEvent.Disconnected -> if (_state.value.live) {
-                dispatch(CallEvent.Failed(EndReason.FAILED, tr("The call was cut off", "কল কেটে গেছে")))
+            // LiveKit নিজে আবার যুক্ত হতে পারেনি (টোকেন ফুরিয়েছে বা নেটওয়ার্ক): নতুন টোকেন নিয়ে আবার
+            is RoomEvent.Disconnected -> if (_state.value.live && connectedRoom === r) {
+                connectedRoom = null
+                rejoin()
             }
             is RoomEvent.ConnectionQualityChanged -> if (e.participant is LocalParticipant) {
                 val poor = e.quality == ConnectionQuality.POOR || e.quality == ConnectionQuality.LOST
@@ -377,6 +410,119 @@ object CallManager {
         }
     }
 
+    /** নতুন টোকেন (চলমান কল: call_status; অ্যাপয়েন্টমেন্ট: appt_join) নিয়ে আবার যুক্ত হওয়া — ৩ বার পর্যন্ত */
+    private fun rejoin() {
+        val s = _state.value
+        if (!s.live) return
+        if (rejoinTries >= 3) {
+            if (!s.isAppointment) scope.launch { runCatching { CallsApi.end(s.callId) } }
+            dispatch(CallEvent.Failed(EndReason.FAILED, tr("The call was cut off", "কল কেটে গেছে")))
+            return
+        }
+        rejoinTries++
+        dispatch(CallEvent.Reconnecting)
+        val tries = rejoinTries
+        scope.launch {
+            delay(1000L * tries)
+            val j = runCatching { freshJoin(s) }.getOrNull()
+            val cur = _state.value
+            if (!cur.live || cur.callId != s.callId) return@launch
+            if (j == null) rejoin() else connect(j, cur.camOn, rejoin = true)
+        }
+    }
+
+    private suspend fun freshJoin(s: CallState): CallJoin? {
+        if (s.isAppointment) return CallsApi.apptJoin(s.appointmentId)
+        val st = CallsApi.status(s.callId)
+        if (st.state in setOf("ended", "cancelled", "declined", "missed")) {
+            dispatch(CallEvent.Server(st.state))
+            return null
+        }
+        return st.join(s.callId)
+    }
+
+    /** কল চলার সময় ৩০ সেকেন্ড পরপর call_status: শেষ হলো কি না, নতুন টোকেন, ভিডিও চালু হলো কি না (পুশ না এলেও) */
+    private fun startPing(s: CallState) {
+        val inCall = s.phase in setOf(CallPhase.ACTIVE, CallPhase.WAITING, CallPhase.RECONNECTING) && s.callId.isNotBlank()
+        if (!inCall) { pingJob?.cancel(); pingJob = null; return }
+        if (pingJob?.isActive == true) return
+        val id = s.callId
+        pingJob = scope.launch {
+            while (isActive) {
+                delay(CallMachine.PING_MS)
+                val cur = _state.value
+                if (!cur.live || cur.callId != id) break
+                val st = runCatching { CallsApi.status(id) }.getOrNull() ?: continue
+                if (_state.value.callId != id) break
+                dispatch(CallEvent.Server(st.state))
+                st.peer?.let { dispatch(CallEvent.PeerInfo(it)) }
+                val after = _state.value
+                if (after.live && !after.video && st.video) st.join(id)?.let { applyUpgrade(it, after.upgradePending && has(Manifest.permission.CAMERA)) }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------
+    // অডিও কল → ভিডিও (দুজনের সম্মতিতে)
+    // ------------------------------------------------------------
+
+    /** "ভিডিও চালু করতে অনুরোধ" (ক্যামেরার অনুমতি আগেই নেওয়া) */
+    fun requestUpgrade() {
+        val s = _state.value
+        if (!s.live || s.video || s.upgradePending || s.connectedAt == null) return
+        scope.launch {
+            runCatching { CallsApi.upgrade(s.callId) }
+                .onSuccess { if (_state.value.callId == s.callId) dispatch(CallEvent.UpgradeSent) }
+                .onFailure { e -> upgradeError.value = CallErrors.message(CallErrors.of(e), e.message) }
+        }
+    }
+
+    /** অনুরোধ পাঠানো/উত্তর দেওয়া না গেলে ছোট বার্তা (পর্দা দেখায়, পরে সরায়) */
+    val upgradeError = MutableStateFlow<String?>(null)
+
+    /** অন্যজনের অনুরোধ (পুশ call_upgrade) */
+    fun onUpgradeAsked(callId: String) {
+        if (_state.value.callId == callId) dispatch(CallEvent.UpgradeAsked)
+    }
+
+    /** অনুরোধের উত্তর; withCamera = ক্যামেরার অনুমতি আছে */
+    fun answerUpgrade(accept: Boolean, withCamera: Boolean) {
+        val s = _state.value
+        dispatch(CallEvent.UpgradeDismissed)
+        if (!s.live) return
+        scope.launch {
+            if (accept) {
+                runCatching { CallsApi.upgradeAccept(s.callId) }
+                    .onSuccess { j -> if (_state.value.callId == s.callId) applyUpgrade(j, withCamera) }
+                    .onFailure { e -> upgradeError.value = CallErrors.message(CallErrors.of(e), e.message) }
+            } else {
+                runCatching { CallsApi.upgradeDecline(s.callId) }
+            }
+        }
+    }
+
+    /** অন্যজন রাজি হয়েছেন (পুশ call_upgraded): call_status-এ ভিডিওর টোকেন */
+    fun onUpgraded(callId: String) {
+        val s = _state.value
+        if (s.callId != callId || !s.live || s.video) return
+        scope.launch {
+            val st = runCatching { CallsApi.status(callId) }.getOrNull() ?: return@launch
+            val j = st.join(callId) ?: return@launch
+            if (st.video && _state.value.callId == callId && !_state.value.video) applyUpgrade(j, has(Manifest.permission.CAMERA))
+        }
+    }
+
+    fun onUpgradeDeclined(callId: String) {
+        if (_state.value.callId == callId) dispatch(CallEvent.UpgradeDeclined)
+    }
+
+    fun dismissUpgradeNote() = dispatch(CallEvent.UpgradeDismissed)
+
+    private fun applyUpgrade(j: CallJoin, camera: Boolean) {
+        dispatch(CallEvent.Upgraded(camera))
+        connect(j, camera, rejoin = true)
+    }
+
     // ------------------------------------------------------------
     // বোতাম
     // ------------------------------------------------------------
@@ -432,6 +578,9 @@ object CallManager {
 
     private fun cleanup() {
         pollJob?.cancel()
+        pingJob?.cancel()
+        peerGoneJob?.cancel()
+        rejoinTries = 0
         releaseRoom()
         app?.let { CallNotifications.cancelIncoming(it); CallService.stop(it) }
     }

@@ -146,6 +146,7 @@ fun NotifySettingsSection(
                 if (cat == NotifyCats.BLOOD_NEARBY && on && master) nearbyExtras()
                 // Android ১৪+: লক স্ক্রিনে কল দেখানোর অনুমতি না থাকলে সেটিংসে যাওয়ার সারি
                 if (cat == NotifyCats.CALLS && on && master) CallsFullScreenRow()
+                if (cat == NotifyCats.CALLS) CallBlocksRow()
             }
             SwitchRow(
                 title = NotifyCats.label(NotifyCats.ACCOUNT),

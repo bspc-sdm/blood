@@ -138,7 +138,9 @@ object CallNotifications {
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(s.peerName, s.peerPhoto), decline, answer).setIsVideo(s.video))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // লক স্ক্রিনে শুধু প্রথম নাম + "লাইফলো কল" (কোন রিকোয়েস্ট/অ্যাপয়েন্টমেন্ট — খোলার পরে)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(lockScreenVersion(context, channel, s, full))
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(full)
@@ -151,6 +153,18 @@ object CallNotifications {
         n.flags = n.flags or Notification.FLAG_INSISTENT
         runCatching { NotificationManagerCompat.from(context).notify(INCOMING_ID, n) }
     }
+
+    /** লক স্ক্রিনের রূপ: প্রথম নাম আর "লাইফলো কল" — আর কিছু নয় */
+    private fun lockScreenVersion(context: Context, channel: String, s: CallState, tap: PendingIntent): Notification =
+        NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_call)
+            .setContentTitle(CallMachine.firstName(s.peerName).ifBlank { APP_NAME })
+            .setContentText(lockText())
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setContentIntent(tap)
+            .build()
+
+    fun lockText() = tr("Lifolo call", "লাইফলো কল")
 
     fun cancelIncoming(context: Context) {
         runCatching { NotificationManagerCompat.from(context).cancel(INCOMING_ID) }
@@ -178,6 +192,8 @@ object CallNotifications {
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setContentIntent(show)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(lockScreenVersion(context, ONGOING_CHANNEL, s, show))
         s.connectedAt?.let { b.setWhen(it).setUsesChronometer(true).setShowWhen(true) }
         return b.build()
     }
@@ -296,13 +312,22 @@ object CallPush {
                 val video = data["video"].toBool()
                 val name = data["caller"] ?: data["callerName"] ?: data["peerName"] ?: ""
                 val photo = data["callerPhoto"] ?: data["photoThumb"] ?: ""
-                val ok = CallManager.onIncoming(context, callId, video, name, photo, data["ctx"].orEmpty(), data["refId"].orEmpty())
+                val ok = CallManager.onIncoming(context, callId, video, name, photo, data["ctx"].orEmpty(), data["refId"].orEmpty(), data["callerUid"].orEmpty())
                 if (ok) CallNotifications.showIncoming(context, CallManager.state.value)
                 true
             }
+            // অডিও কল → ভিডিও: অন্যজন চাইলেন / রাজি হলেন / রাজি হননি
+            "call_upgrade" -> { CallManager.init(context); CallManager.onUpgradeAsked(callId); true }
+            "call_upgraded" -> { CallManager.init(context); CallManager.onUpgraded(callId); true }
+            "call_upgrade_declined" -> { CallManager.init(context); CallManager.onUpgradeDeclined(callId); true }
             "call_state", "call_cancelled" -> {
                 val st = data["state"] ?: if (type == "call_cancelled") "cancelled" else ""
                 CallManager.init(context)
+                when (st) {
+                    "upgrade_request" -> { CallManager.onUpgradeAsked(callId); return true }
+                    "upgraded" -> { CallManager.onUpgraded(callId); return true }
+                    "upgrade_declined" -> { CallManager.onUpgradeDeclined(callId); return true }
+                }
                 CallManager.onServerState(callId, st)
                 // এই ফোনে আর বাজছে না (বা প্রসেস নতুন — অবস্থা জানা নেই): ঘণ্টার নোটিফিকেশন সরানো
                 if (st != "ringing" && CallManager.state.value.phase != CallPhase.INCOMING) CallNotifications.cancelIncoming(context)

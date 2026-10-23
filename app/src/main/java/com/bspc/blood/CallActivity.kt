@@ -155,6 +155,10 @@ sealed interface CallOp {
     data class Accept(val video: Boolean) : CallOp
     data class Join(val appointmentId: String) : CallOp
     data object Camera : CallOp
+    /** "ভিডিও চালু করতে অনুরোধ" (ক্যামেরা লাগে) */
+    data object Upgrade : CallOp
+    /** অন্যজনের অনুরোধে রাজি */
+    data object UpgradeAccept : CallOp
 }
 
 internal object CallColors {
@@ -176,6 +180,15 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
     var waitingFor by remember { mutableStateOf<CallOp?>(null) }
 
     LaunchedEffect(s.phase, s.video, s.camOn, s.remoteVideoOn, s.speakerOn, s.audioRoute) { onWindow(s) }
+    // লক স্ক্রিনে: শুধু প্রথম নাম, "লাইফলো কল" — কোন রিকোয়েস্ট/অ্যাপয়েন্টমেন্ট নয় (খোলার পরে পুরো)
+    val keyguard = remember { context.getSystemService(android.app.KeyguardManager::class.java) }
+    var locked by remember { mutableStateOf(keyguard?.isKeyguardLocked == true) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            locked = keyguard?.isKeyguardLocked == true
+            delay(1000)
+        }
+    }
 
     fun perform(op: CallOp) {
         val mic = CallPermissions.granted(context, Manifest.permission.RECORD_AUDIO)
@@ -184,6 +197,9 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
             is CallOp.Accept -> if (mic) CallManager.accept(op.video && cam) else deniedOp = op
             is CallOp.Join -> if (mic) CallManager.joinAppointment(context, op.appointmentId, cam) else deniedOp = op
             CallOp.Camera -> if (cam) CallManager.setCamera(true) else deniedOp = op
+            CallOp.Upgrade -> if (cam) CallManager.requestUpgrade() else deniedOp = op
+            // ক্যামেরা না দিলেও রাজি — অন্যজনকে দেখা যাবে, নিজের ক্যামেরা বন্ধ
+            CallOp.UpgradeAccept -> CallManager.answerUpgrade(true, cam)
         }
     }
 
@@ -193,8 +209,9 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
     }
 
     fun request(op: CallOp) {
-        val video = when (op) { is CallOp.Accept -> op.video; is CallOp.Join -> true; CallOp.Camera -> true }
-        val need = if (op == CallOp.Camera) listOf(Manifest.permission.CAMERA).filter { !CallPermissions.granted(context, it) } else CallPermissions.missing(context, video)
+        val video = when (op) { is CallOp.Accept -> op.video; is CallOp.Join -> true; else -> true }
+        val camOnly = op == CallOp.Camera || op == CallOp.Upgrade || op == CallOp.UpgradeAccept
+        val need = if (camOnly) listOf(Manifest.permission.CAMERA).filter { !CallPermissions.granted(context, it) } else CallPermissions.missing(context, video)
         if (need.isEmpty()) perform(op) else asking = op to need
     }
 
@@ -216,20 +233,27 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
         when (s.phase) {
             CallPhase.IDLE -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = CallColors.text) }
             CallPhase.INCOMING -> IncomingCall(
-                s,
+                s, locked,
                 onAccept = { request(CallOp.Accept(s.video)) },
                 onAcceptAudio = { request(CallOp.Accept(false)) },
                 onDecline = { CallManager.decline() },
             )
             CallPhase.ENDED -> {
-                EndedCall(s)
-                LaunchedEffect(s.callId, s.endReason) {
-                    delay(if (s.endReason == EndReason.HANGUP) 1200 else 2600)
+                var stay by remember(s.callId) { mutableStateOf(false) }
+                EndedCall(s, locked, onStay = { stay = true }, onClose = { CallManager.reset(); onClose() })
+                LaunchedEffect(s.callId, s.endReason, stay) {
+                    if (stay) return@LaunchedEffect
+                    // কথা হয়ে থাকলে ব্লক/রিপোর্টের সুযোগ — একটু বেশি সময়
+                    delay(if (s.connectedAt != null) 6000 else if (s.endReason == EndReason.HANGUP) 1200 else 2600)
                     CallManager.reset()
                     onClose()
                 }
             }
-            else -> InCall(s, onCamera = { on -> if (on) request(CallOp.Camera) else CallManager.setCamera(false) })
+            else -> InCall(
+                s, locked,
+                onCamera = { on -> if (on) request(CallOp.Camera) else CallManager.setCamera(false) },
+                onUpgrade = { request(CallOp.Upgrade) },
+            )
         }
     }
 
@@ -241,7 +265,7 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
             confirmButton = {
                 TextButton(onClick = {
                     asking = null
-                    if (op != CallOp.Camera && Manifest.permission.RECORD_AUDIO in need && wasAsked(context) && CallPermissions.blockedForever(context, Manifest.permission.RECORD_AUDIO)) {
+                    if (Manifest.permission.RECORD_AUDIO in need && wasAsked(context) && CallPermissions.blockedForever(context, Manifest.permission.RECORD_AUDIO)) {
                         deniedOp = op
                     } else {
                         markAsked(context)
@@ -259,8 +283,18 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
             },
         )
     }
+    // অন্যজন ভিডিও চালু করতে চাইছেন
+    if (s.upgradeAsked && s.live) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(tr("Turn on video?", "ভিডিও চালু করবেন?")) },
+            text = { Text(tr("${displayName(s, locked)} wants to switch this call to video.", "${displayName(s, locked)} কলটা ভিডিওতে নিতে চান।")) },
+            confirmButton = { TextButton(onClick = { request(CallOp.UpgradeAccept) }, modifier = Modifier.testTag("call_upgrade_accept")) { Text(tr("Turn on video", "ভিডিও চালু করুন")) } },
+            dismissButton = { TextButton(onClick = { CallManager.answerUpgrade(false, false) }, modifier = Modifier.testTag("call_upgrade_decline")) { Text(tr("Not now", "এখন না")) } },
+        )
+    }
     deniedOp?.let { op ->
-        val camOnly = op == CallOp.Camera
+        val camOnly = op == CallOp.Camera || op == CallOp.Upgrade || op == CallOp.UpgradeAccept
         AlertDialog(
             onDismissRequest = { deniedOp = null },
             title = { Text(if (camOnly) tr("Camera permission needed", "ক্যামেরার অনুমতি লাগবে") else tr("Microphone permission needed", "মাইক্রোফোনের অনুমতি লাগবে")) },
@@ -296,15 +330,22 @@ private fun Avatar(name: String, photo: String, size: Int) {
     }
 }
 
+/** দেখানোর নাম: লক স্ক্রিনে শুধু প্রথম নাম */
+internal fun displayName(s: CallState, locked: Boolean): String {
+    val n = if (locked) CallMachine.firstName(s.peerName) else s.peerName
+    return n.ifBlank { tr("Lifolo user", "Lifolo ব্যবহারকারী") }
+}
+
 @Composable
-private fun PeerHeader(s: CallState, status: String, avatar: Boolean) {
+private fun PeerHeader(s: CallState, status: String, avatar: Boolean, locked: Boolean = false) {
     Column(Modifier.fillMaxWidth().padding(top = 48.dp, start = 24.dp, end = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (avatar) {
-            Avatar(s.peerName, s.peerPhoto, 112)
+            // লক স্ক্রিনে ছবিও নয়
+            Avatar(displayName(s, locked), if (locked) "" else s.peerPhoto, 112)
             Spacer(Modifier.height(18.dp))
         }
         Text(
-            s.peerName.ifBlank { tr("Lifolo user", "Lifolo ব্যবহারকারী") },
+            displayName(s, locked),
             style = MaterialTheme.typography.headlineSmall, color = CallColors.text, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(6.dp))
@@ -331,13 +372,15 @@ private fun RoundButton(icon: Int, label: String, bg: Color, onClick: () -> Unit
 }
 
 @Composable
-private fun IncomingCall(s: CallState, onAccept: () -> Unit, onAcceptAudio: () -> Unit, onDecline: () -> Unit) {
+private fun IncomingCall(s: CallState, locked: Boolean, onAccept: () -> Unit, onAcceptAudio: () -> Unit, onDecline: () -> Unit) {
     Column(Modifier.fillMaxSize().safeDrawingPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
         PeerHeader(
             s,
-            (if (s.video) tr("Video call in Lifolo", "Lifolo-তে ভিডিও কল") else tr("Audio call in Lifolo", "Lifolo-তে অডিও কল")) +
+            if (locked) CallNotifications.lockText()
+            else (if (s.video) tr("Video call in Lifolo", "Lifolo-তে ভিডিও কল") else tr("Audio call in Lifolo", "Lifolo-তে অডিও কল")) +
                 CallCtx.label(s.ctx).takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty(),
             avatar = true,
+            locked = locked,
         )
         Spacer(Modifier.weight(1f))
         Row(Modifier.fillMaxWidth().padding(bottom = 56.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
@@ -349,19 +392,47 @@ private fun IncomingCall(s: CallState, onAccept: () -> Unit, onAcceptAudio: () -
 }
 
 @Composable
-private fun EndedCall(s: CallState) {
+private fun EndedCall(s: CallState, locked: Boolean, onStay: () -> Unit, onClose: () -> Unit) {
+    var blocking by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
+    var done by remember { mutableStateOf<String?>(null) }
+    val endedAt = remember(s.callId) { System.currentTimeMillis() }
     Column(Modifier.fillMaxSize().safeDrawingPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
-        PeerHeader(s, CallMachine.endText(s), avatar = true)
-        val dur = s.connectedAt?.let { (System.currentTimeMillis() - it) / 1000 }
+        PeerHeader(s, CallMachine.endText(s), avatar = true, locked = locked)
+        val dur = s.connectedAt?.let { (endedAt - it) / 1000 }
         if (dur != null && s.endReason in setOf(EndReason.HANGUP, EndReason.REMOTE_ENDED)) {
             Spacer(Modifier.height(8.dp))
             Text(CallMachine.duration(dur), color = CallColors.dim, style = MaterialTheme.typography.bodyMedium)
         }
+        Spacer(Modifier.weight(1f))
+        done?.let {
+            Text(it, color = CallColors.text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+            Spacer(Modifier.height(16.dp))
+        }
+        // কলকারী/কল ধরা মানুষ পরিচিত (ভুল মানুষ, হয়রানি): ব্লক/রিপোর্ট — লক স্ক্রিনে নয়
+        if (!locked && s.callId.isNotBlank() && done == null) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                RoundButton(R.drawable.ic_close, tr("Block", "ব্লক করুন"), CallColors.panel, { onStay(); blocking = true }, "call_block")
+                RoundButton(R.drawable.ic_flag, tr("Report", "রিপোর্ট করুন"), CallColors.panel, { onStay(); reporting = true }, "call_report")
+                RoundButton(R.drawable.ic_check_circle, tr("Close", "বন্ধ"), CallColors.panel, onClose, "call_close")
+            }
+        } else if (done != null) {
+            RoundButton(R.drawable.ic_check_circle, tr("Close", "বন্ধ"), CallColors.panel, onClose, "call_close")
+        }
+        Spacer(Modifier.height(40.dp))
+    }
+    if (blocking) CallBlockDialog(s.peerUid, s.peerName, s.callId, onDismiss = { blocking = false }) {
+        blocking = false
+        done = tr("Blocked. They can't call you in the app.", "ব্লক করা হয়েছে। উনি আর অ্যাপে কল করতে পারবেন না।")
+    }
+    if (reporting) CallReportDialog(s.callId, onDismiss = { reporting = false }) {
+        reporting = false
+        done = tr("Reported. The team will look into it.", "রিপোর্ট পাঠানো হয়েছে। টিম দেখবে।")
     }
 }
 
 @Composable
-private fun InCall(s: CallState, onCamera: (Boolean) -> Unit) {
+private fun InCall(s: CallState, locked: Boolean, onCamera: (Boolean) -> Unit, onUpgrade: () -> Unit) {
     val remote by CallManager.remoteVideo.collectAsState()
     val local by CallManager.localVideo.collectAsState()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -403,7 +474,7 @@ private fun InCall(s: CallState, onCamera: (Boolean) -> Unit) {
             else -> s.connectedAt?.let { CallMachine.duration((now - it).coerceAtLeast(0) / 1000) } ?: ""
         }
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            PeerHeader(s, status, avatar = !bigRemote && !bigLocal)
+            PeerHeader(s, status, avatar = !bigRemote && !bigLocal, locked = locked)
             if (s.phase == CallPhase.WAITING) {
                 Spacer(Modifier.height(16.dp))
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = CallColors.text, strokeWidth = 3.dp, modifier = Modifier.size(32.dp)) }
@@ -413,8 +484,19 @@ private fun InCall(s: CallState, onCamera: (Boolean) -> Unit) {
                 }
             }
             // দুর্বল নেটওয়ার্ক / শুধু অডিও / আবার যুক্ত হচ্ছে
+            val upErr by CallManager.upgradeError.collectAsState()
+            LaunchedEffect(s.upgradeDeclined, upErr) {
+                if (s.upgradeDeclined || upErr != null) {
+                    delay(5000)
+                    CallManager.upgradeError.value = null
+                    if (CallManager.state.value.upgradeDeclined) CallManager.dismissUpgradeNote()
+                }
+            }
             val banner = when {
                 s.phase == CallPhase.RECONNECTING -> tr("Connection lost — reconnecting…", "সংযোগ কেটে গেছে — আবার যুক্ত হচ্ছে…")
+                upErr != null -> upErr
+                s.upgradeDeclined -> tr("They didn't turn on video", "উনি ভিডিও চালু করেননি")
+                s.upgradePending -> tr("Asked to turn on video — waiting", "ভিডিও চালু করতে অনুরোধ পাঠানো হয়েছে — অপেক্ষা")
                 s.audioFallback -> tr("Weak network — video turned off, audio only", "দুর্বল নেটওয়ার্ক — ভিডিও বন্ধ, শুধু অডিও")
                 s.poorNetwork -> tr("Weak network", "দুর্বল নেটওয়ার্ক")
                 else -> null
@@ -426,7 +508,7 @@ private fun InCall(s: CallState, onCamera: (Boolean) -> Unit) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            Controls(s, onCamera)
+            Controls(s, onCamera, onUpgrade)
         }
         // ছোট ছবি: নিজের ক্যামেরা (অন্যজনের ভিডিও বড় দেখালে)
         if (bigRemote && local != null && s.camOn && room != null) {
@@ -441,7 +523,7 @@ private fun InCall(s: CallState, onCamera: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun Controls(s: CallState, onCamera: (Boolean) -> Unit) {
+private fun Controls(s: CallState, onCamera: (Boolean) -> Unit, onUpgrade: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             RoundButton(
@@ -456,11 +538,20 @@ private fun Controls(s: CallState, onCamera: (Boolean) -> Unit) {
                 else -> tr("Speaker", "স্পিকার")
             }
             RoundButton(routeIcon, routeLabel, CallColors.panel, { CallManager.setSpeaker(!s.speakerOn) }, "call_speaker", active = s.speakerOn)
-            RoundButton(
-                if (s.camOn) R.drawable.ic_videocam else R.drawable.ic_videocam_off,
-                if (s.camOn) tr("Camera off", "ক্যামেরা বন্ধ") else tr("Camera", "ক্যামেরা"),
-                CallColors.panel, { onCamera(!s.camOn) }, "call_camera", active = s.camOn,
-            )
+            if (s.video) {
+                RoundButton(
+                    if (s.camOn) R.drawable.ic_videocam else R.drawable.ic_videocam_off,
+                    if (s.camOn) tr("Camera off", "ক্যামেরা বন্ধ") else tr("Camera", "ক্যামেরা"),
+                    CallColors.panel, { onCamera(!s.camOn) }, "call_camera", active = s.camOn,
+                )
+            } else if (s.phase == CallPhase.ACTIVE) {
+                // অডিও কল: ভিডিও শুধু দুজনের সম্মতিতে (অন্যজন রাজি হলে দুজনেরই নতুন টোকেন)
+                RoundButton(
+                    R.drawable.ic_videocam,
+                    if (s.upgradePending) tr("Video asked", "অনুরোধ গেছে") else tr("Ask for video", "ভিডিও চালু করতে অনুরোধ"),
+                    CallColors.panel, { if (!s.upgradePending) onUpgrade() }, "call_upgrade", active = s.upgradePending,
+                )
+            }
             if (s.camOn) RoundButton(R.drawable.ic_sync, tr("Flip", "ক্যামেরা ঘোরান"), CallColors.panel, { CallManager.switchCamera() }, "call_flip")
         }
         Spacer(Modifier.height(22.dp))

@@ -165,26 +165,28 @@ fun AppCallButtons(
 
     val audioLabel = tr("App call", "অ্যাপে কল")
     val videoLabel = tr("Video call", "ভিডিও কল")
+    // ভিডিও দিয়ে শুরু শুধু অ্যাপয়েন্টমেন্টে; বাকি কল অডিওতে শুরু হয়, কলের ভেতরে "ভিডিও চালু করতে অনুরোধ"
+    val withVideo = CallCtx.videoFirst(ctx)
     when (emphasis) {
         CallEmphasis.ICONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
                 if (busy == false) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else AppIcon(R.drawable.ic_phone_in_talk, audioLabel, tint = MaterialTheme.colorScheme.primary)
             }
-            IconButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
+            if (withVideo) IconButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
                 if (busy == true) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else AppIcon(R.drawable.ic_videocam, videoLabel, tint = MaterialTheme.colorScheme.primary)
             }
         }
         CallEmphasis.SECONDARY -> Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             SmallAction(audioLabel, R.drawable.ic_phone_in_talk, { tap(false) }, Modifier.testTag("app_call_audio"), busy = busy == false, enabled = busy == null)
-            SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
+            if (withVideo) SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
         }
         CallEmphasis.EQUAL -> Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
                 ButtonContent(busy == false, audioLabel, R.drawable.ic_phone_in_talk)
             }
-            OutlinedButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
+            if (withVideo) OutlinedButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
                 ButtonContent(busy == true, videoLabel, R.drawable.ic_videocam)
             }
         }
@@ -227,7 +229,7 @@ fun AppCallButtons(
     failure?.let { (f, msg) ->
         AlertDialog(
             onDismissRequest = { failure = null },
-            title = { Text(if (f == CallFailure.OFF) tr("App calls are off", "অ্যাপে কল বন্ধ") else tr("Call not placed", "কল হয়নি")) },
+            title = { Text(if (f == CallFailure.OFF) tr("App calls are off", "অ্যাপে কল বন্ধ") else if (f == CallFailure.RATE_LIMIT) tr("Too many calls", "অনেক বেশি কল") else tr("Call not placed", "কল হয়নি")) },
             text = { Text(msg) },
             confirmButton = {
                 if (!phone.isNullOrBlank() && CallErrors.offersPhone(f)) {
@@ -256,6 +258,7 @@ fun CallsFullScreenRow() {
     val context = LocalContext.current
     var allowed by remember { mutableStateOf(CallNotifications.canFullScreen(context)) }
     // সেটিংস থেকে ফিরলে আবার দেখা
+    @Suppress("DEPRECATION")
     val owner = LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(owner) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
