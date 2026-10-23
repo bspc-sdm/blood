@@ -64,7 +64,7 @@ class OnlineChamberSwitchIT : P2TestBase() {
         features.allOn = false
         assertOff(call(pat, "book", bookBody(today() + 2 * day)))
         assertOff(call(pat, "appt_pay_claim", mapOf("appointmentId" to id, "payRef" to "AB12CD34EF")))
-        assertOff(call(doc, "appt_pay_confirm", mapOf("appointmentId" to id)))
+        assertOff(call(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id)))
         assertOff(call(doc, "appt_pay_reject", mapOf("appointmentId" to id)))
         assertOff(call(pat, "appt_report", mapOf("appointmentId" to id, "reason" to "x")))
         assertEquals("This feature is not available yet", call(pat, "appt_pay_claim", mapOf("appointmentId" to id), lang = "en").error)
@@ -86,7 +86,7 @@ class OnlineChamberSwitchIT : P2TestBase() {
         features.allOn = false
         setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc, pat))
         assertEquals(200, call(pat, "appt_pay_claim", mapOf("appointmentId" to id, "payRef" to "AB12CD34EF")).status)
-        assertEquals(200, call(doc, "appt_pay_confirm", mapOf("appointmentId" to id)).status)
+        assertEquals(200, call(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id)).status)
         assertEquals(1, ok(pat, "providers", mapOf("type" to "doctor", "online" to true, "homeVisit" to false))["items"].size())
         assertEquals(200, call(pat, "book", bookBody(today() + 2 * day)).status)
         // a patient outside the pilot: not even the list
@@ -102,7 +102,7 @@ class OnlineChamberSwitchIT : P2TestBase() {
     fun `off - no online reminder, no confirm push, the never-joined job waits`() {
         val id = seed(date = dhaka("2026-10-19 10:00").let { today(it) })
         ok(pat, "appt_pay_claim", mapOf("appointmentId" to id, "payRef" to "AB12CD34EF"))
-        ok(doc, "appt_pay_confirm", mapOf("appointmentId" to id))
+        ok(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id))
         features.allOn = false
         jdbc.execute("DELETE FROM inbox_items")
         reminders.dailyReminders(clock.now())

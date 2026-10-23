@@ -46,6 +46,8 @@ data class LabOrder(
     val id: String,
     /** the live receipt of this order (docs/INVOICES.md) */
     val invoiceId: String? = null,
+    val payRequestId: String? = null,
+    val payStatus: String? = null,
     val rxId: String?,
     val code: String?,
     val labId: String,
@@ -194,6 +196,8 @@ class LabStore(private val jdbc: JdbcTemplate, private val files: StoredFiles) {
         return LabOrder(
             id = rs.getString("id"),
             invoiceId = rs.getString("invoice_id"),
+            payRequestId = rs.getString("pay_request_id"),
+            payStatus = rs.getString("pay_status"),
             rxId = rs.getString("rx_id"),
             code = rs.getString("code"),
             labId = rs.getString("lab_uid"),
@@ -221,7 +225,7 @@ class LabStore(private val jdbc: JdbcTemplate, private val files: StoredFiles) {
 
     /** lab orders for a WHERE clause, without their child rows (cheap lists) */
     fun ordersBare(where: String, vararg args: Any?): List<LabOrder> =
-        jdbc.rows("SELECT lab_orders.*, ${com.lifolo.invoices.InvoiceLinks.sql("lab_order", "lab_orders.id")} AS invoice_id FROM lab_orders WHERE $where", *args) { baseRow(it) }
+        jdbc.rows("SELECT lab_orders.*, ${com.lifolo.invoices.InvoiceLinks.sql("lab_order", "lab_orders.id")} AS invoice_id, ${com.lifolo.payments.PayLinks.sql("lab_order", "lab_orders.id", com.lifolo.payments.PayLinks.LAB_ORDER, "id")} AS pay_request_id, ${com.lifolo.payments.PayLinks.sql("lab_order", "lab_orders.id", com.lifolo.payments.PayLinks.LAB_ORDER, "status")} AS pay_status FROM lab_orders WHERE $where", *args) { baseRow(it) }
 
     /** lab orders for a WHERE clause, with price items, report items (+ photos when [photos]) */
     fun orders(where: String, vararg args: Any?, photos: Boolean = false): List<LabOrder> = withChildren(ordersBare(where, *args), photos)

@@ -603,6 +603,7 @@ class AppointmentActions(
         toMe.forEach { if (it.status == "confirmed") need.add(it.patientUid) }
         val phones = users.profiles(need).mapValues { it.value.phone }
         val receipts = com.lifolo.invoices.InvoiceLinks.live(jdbc, "appointment", (mine + toMe).map { it.id })
+        val pays = com.lifolo.payments.PayLinks.latest(jdbc, "appointment", (mine + toMe).map { it.id }, com.lifolo.payments.PayLinks.APPOINTMENT)
         val arrived = HashMap<String, Long>()
         if (toMe.isNotEmpty()) {
             for (chunk in toMe.map { it.id }.chunked(500)) {
@@ -635,6 +636,8 @@ class AppointmentActions(
                 "otherKey" to (if (role == "provider") Ids.sha256Hex("pat:$uid:$other").take(12) else ""),
                 "createdAt" to a.createdAt,
                 "invoiceId" to receipts[a.id],
+                "payRequestId" to pays[a.id]?.id,
+                "payStatus" to pays[a.id]?.status,
                 // the chamber desk (chamber_checkin): the doctor's side only
                 "arrivedAt" to (if (role == "provider") arrived[a.id] else null),
             ).apply {

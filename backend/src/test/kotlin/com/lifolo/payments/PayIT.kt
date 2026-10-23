@@ -545,7 +545,7 @@ class PayIT : PayTestBase() {
         ok(DOC, "appt_pay_reject", mapOf("appointmentId" to "on2", "reason" to "পাইনি"))
         assertEquals(listOf("rejected", "পাইনি"), req(r2["id"].textValue()).let { listOf(it["status"], it["reject_note"]) })
         ok(PAT, "appt_pay_claim", mapOf("appointmentId" to "on2", "payRef" to "OL12345678"))
-        val legacy = ok(DOC, "appt_pay_confirm", mapOf("appointmentId" to "on2"))
+        val legacy = ok(DOC, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to "on2"))
         assertEquals("paid", legacy["payState"].textValue())
         assertNotNull(legacy["invoice"]["id"].textValue())
         assertEquals(listOf("confirmed", legacy["invoice"]["id"].textValue()), req(r2["id"].textValue()).let { listOf(it["status"], it["invoice_id"]) })

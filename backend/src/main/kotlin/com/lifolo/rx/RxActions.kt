@@ -257,15 +257,18 @@ class RxActions(
         val ps = jdbc.rows("$RXP_SQL WHERE r.doctor_uid = ? ORDER BY r.id COLLATE \"C\" LIMIT 1000", doctorUid) { rxPatient(it) }
         val patients = ps.sortedByDescending { if (it.lastRxAt != 0L) it.lastRxAt else it.createdAt }.take(300).map { it.view() }
         val appts = jdbc.rows("$APPT_SQL WHERE a.provider_uid = ? ORDER BY a.id COLLATE \"C\"", doctorUid) { appt(it) }
-        val appointments = appts
+        val shownAppts = appts
             .filter { it.status in setOf("pending", "confirmed", "completed") && it.date >= today - 2 * RxRules.DAY_MS && it.date <= today + RxRules.DAY_MS }
             .sortedWith(compareBy<Appt> { it.date }.thenBy { it.serial?.takeIf { s -> s != 0 } ?: 999 })
+        val pays = com.lifolo.payments.PayLinks.latest(jdbc, "appointment", shownAppts.map { it.id }, com.lifolo.payments.PayLinks.APPOINTMENT)
+        val appointments = shownAppts
             .map {
                 linkedMapOf(
                     "id" to it.id, "name" to it.patientName, "date" to it.date, "serial" to it.serial?.takeIf { s -> s != 0 }, "status" to it.status,
                     "chamber" to it.chamberBn.ifEmpty { it.chamber },
                     "online" to it.online, "payState" to it.payState, "payRef" to it.payRef, "start" to it.start,
                     "doctorJoined" to (it.online && it.doctorJoined),
+                    "payRequestId" to pays[it.id]?.id, "payStatus" to pays[it.id]?.status,
                 )
             }
         // patients who came through the app (confirmed/completed): one row per patient, the last appointment to write with
@@ -551,7 +554,7 @@ class RxActions(
         if (privacy.hidden(ctx.user, s.doctorType)) throw notFound(ctx)
         val isPatient = s.patientUid == uid
         val orders = jdbc.rows(
-            "SELECT id, pharmacy_uid, pharmacy_name, status, reason, created_at, mode, price, eta, delivery_fee, missed, ${com.lifolo.invoices.InvoiceLinks.sql("rx_order", "rx_orders.id")} AS invoice_id FROM rx_orders WHERE rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50",
+            "SELECT id, pharmacy_uid, pharmacy_name, status, reason, created_at, mode, price, eta, delivery_fee, missed, ${com.lifolo.invoices.InvoiceLinks.sql("rx_order", "rx_orders.id")} AS invoice_id, ${com.lifolo.payments.PayLinks.sql("rx_order", "rx_orders.id", com.lifolo.payments.PayLinks.RX_ORDER, "id")} AS pay_request_id, ${com.lifolo.payments.PayLinks.sql("rx_order", "rx_orders.id", com.lifolo.payments.PayLinks.RX_ORDER, "status")} AS pay_status FROM rx_orders WHERE rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50",
             rxId,
         ) { rs ->
             linkedMapOf<String, Any?>(
@@ -560,6 +563,7 @@ class RxActions(
                 "mode" to (rs.getString("mode") ?: "shop"), "price" to (rs.getString("price") ?: ""), "eta" to (rs.getString("eta") ?: ""),
                 "deliveryFee" to (rs.getString("delivery_fee") ?: ""), "missed" to (rs.stringArray("missed") ?: emptyList()),
                 "invoiceId" to rs.getString("invoice_id"),
+                "payRequestId" to rs.getString("pay_request_id"), "payStatus" to rs.getString("pay_status"),
             )
         }
         val labOrders = labStore.orders("rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50", rxId)

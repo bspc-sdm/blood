@@ -197,7 +197,7 @@ class OnlineChambersIT : P2TestBase() {
         val nf = call(pat, "appt_pay_claim", mapOf("appointmentId" to freeId))
         assertEquals(409, nf.status)
         assertEquals("no_fee", nf.code)
-        assertEquals("no_fee", call(doc, "appt_pay_confirm", mapOf("appointmentId" to freeId)).code)
+        assertEquals("no_fee", call(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to freeId)).code)
     }
 
     @Test
@@ -242,11 +242,11 @@ class OnlineChambersIT : P2TestBase() {
         assertEquals("claimed", myItem(doc, id)["payState"].textValue())
 
         // who may confirm/reject: the doctor or the assistant; not the patient, a caregiver or a stranger
-        assertEquals(404, call(pat, "appt_pay_confirm", mapOf("appointmentId" to id)).status)
-        assertEquals(404, call(x, "appt_pay_confirm", mapOf("appointmentId" to id)).status)
-        assertEquals(403, call(cg, "appt_pay_confirm", mapOf("asUid" to pat, "appointmentId" to id)).status, "not a care action")
+        assertEquals(404, call(pat, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id)).status)
+        assertEquals(404, call(x, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id)).status)
+        assertEquals(403, call(cg, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "asUid" to pat, "appointmentId" to id)).status, "not a care action")
         assertEquals(404, call(x, "appt_pay_reject", mapOf("appointmentId" to id)).status)
-        assertEquals("not_online", call(doc, "appt_pay_confirm", mapOf("appointmentId" to inp)).code)
+        assertEquals("not_online", call(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to inp)).code)
 
         // "পাইনি": back to unpaid with the reason; the patient is told
         val rj = ok(doc, "appt_pay_reject", mapOf("appointmentId" to id, "reason" to " এই TrxID-তে টাকা আসেনি "))
@@ -261,14 +261,14 @@ class OnlineChambersIT : P2TestBase() {
         // claimed again (the note goes), then the assistant confirms; the patient (and the caregiver) are told
         ok(pat, "appt_pay_claim", mapOf("appointmentId" to id, "payRef" to "AB12CD34EF"))
         assertNull(appt(id)["pay_note"])
-        val pc = ok(asst, "appt_pay_confirm", mapOf("appointmentId" to id))
+        val pc = ok(asst, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id))
         assertEquals(listOf("true", "paid"), listOf(pc["ok"].asText(), pc["payState"].asText()))
         assertEquals(listOf("paid", asst), appt(id).let { listOf(it["pay_state"], it["pay_paid_by"]) })
         assertEquals(1, pushesTo(pat, "ডাক্তার ফি পেয়েছেন").size)
         assertEquals("appointments", pushed(pat, "ডাক্তার ফি পেয়েছেন").single().data["cat"])
         assertEquals(1, pushesTo(cg, "ডাক্তার ফি পেয়েছেন").size, "the caregiver's copy")
         // paid: confirming again changes nothing (no second push); no claim or reject any more
-        assertEquals("paid", ok(doc, "appt_pay_confirm", mapOf("appointmentId" to id))["payState"].textValue())
+        assertEquals("paid", ok(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id))["payState"].textValue())
         assertEquals(1, pushesTo(pat, "ডাক্তার ফি পেয়েছেন").size)
         assertEquals(409, claim(pat).status)
         assertEquals(409, call(doc, "appt_pay_reject", mapOf("appointmentId" to id)).status)
@@ -277,17 +277,17 @@ class OnlineChambersIT : P2TestBase() {
         // the doctor may mark an unpaid one paid directly (money came without a claim)
         val id2 = book(date = today() + 3 * day)
         ok(doc, "appointment_update", mapOf("id" to id2, "op" to "confirm"))
-        assertEquals("paid", ok(doc, "appt_pay_confirm", mapOf("appointmentId" to id2))["payState"].textValue())
+        assertEquals("paid", ok(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id2))["payState"].textValue())
         // a cancelled appointment: no claim
         val id3 = book(date = today() + 4 * day)
         ok(pat, "appointment_update", mapOf("id" to id3, "op" to "cancel"))
         assertEquals("state", claim(pat, appt = id3).code)
-        assertEquals("state", call(doc, "appt_pay_confirm", mapOf("appointmentId" to id3)).code)
+        assertEquals("state", call(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id3)).code)
 
         // an assistant of a doctor whose badge is gone
         val id4 = book(date = today() + 5 * day)
         badge(doc, "doctor", "ডা. অনলাইন", status = "rejected")
-        assertEquals(403, call(asst, "appt_pay_confirm", mapOf("appointmentId" to id4)).status)
+        assertEquals(403, call(asst, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id4)).status)
     }
 
     @Test
@@ -303,7 +303,7 @@ class OnlineChambersIT : P2TestBase() {
         assertEquals("unpaid", appt(id)["pay_state"])
         // the doctor deactivated: 423 for confirm / reject
         assertEquals(200, call(doc, "account_deactivate").status)
-        assertEquals(423, call(doc, "appt_pay_confirm", mapOf("appointmentId" to id2)).status)
+        assertEquals(423, call(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id2)).status)
         assertEquals(423, call(doc, "appt_pay_reject", mapOf("appointmentId" to id2)).status)
         assertEquals(423, call(doc, "provider_save", mapOf("chambers" to listOf(online()))).status)
 
@@ -312,7 +312,7 @@ class OnlineChambersIT : P2TestBase() {
         assertEquals(200, call(doc, "account_reactivate").status)
         assertEquals(404, call("demo-olpat", "book", mapOf("providerUid" to doc, "date" to today() + 3 * day, "chamberIndex" to 1, "note" to "x")).status)
         assertEquals(404, call("demo-olpat", "appt_pay_claim", mapOf("appointmentId" to id)).status)
-        assertEquals(404, call("demo-olpat", "appt_pay_confirm", mapOf("appointmentId" to id)).status)
+        assertEquals(404, call("demo-olpat", "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id)).status)
         // a demo doctor with an online chamber: demo patients book it (pay flow works inside the demo world)
         person("demo-oldoc", "ডা. ডেমো অনলাইন")
         badge("demo-oldoc", "doctor", "ডা. ডেমো অনলাইন")
@@ -320,8 +320,8 @@ class OnlineChambersIT : P2TestBase() {
         assertEquals("demo_number", call("demo-oldoc", "provider_save", mapOf("chambers" to listOf(online()), "specialties" to listOf("medicine"), "appointments" to true)).code)
         ok("demo-oldoc", "provider_save", mapOf("chambers" to listOf(online(mapOf("bkashNumber" to "01200000999"))), "specialties" to listOf("medicine"), "appointments" to true))
         val did = ok("demo-olpat", "book", mapOf("providerUid" to "demo-oldoc", "date" to today() + day, "chamberIndex" to 0, "note" to "x"))["id"].textValue()
-        assertEquals(404, call(x, "appt_pay_confirm", mapOf("appointmentId" to did)).status)
+        assertEquals(404, call(x, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to did)).status)
         assertEquals("claimed", ok("demo-olpat", "appt_pay_claim", mapOf("appointmentId" to did))["payState"].textValue())
-        assertEquals("paid", ok("demo-oldoc", "appt_pay_confirm", mapOf("appointmentId" to did))["payState"].textValue())
+        assertEquals("paid", ok("demo-oldoc", "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to did))["payState"].textValue())
     }
 }
