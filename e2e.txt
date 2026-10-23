@@ -1,0 +1,400 @@
+    [mobile] › e2e/calls.spec.ts:179:1 › আবার সংযোগ: "আবার সংযোগ হচ্ছে…" দেখায়, ফিরে এলে সময় ─────
+    [mobile] › e2e/calls.spec.ts:193:1 › কল আসছে (SSE call_incoming): ব্যানার → ধরুন → কথা → কল কাটুন 
+    [mobile] › e2e/calls.spec.ts:216:1 › কল আসছে: কেটে দিন → call_decline; ওপাশ রেখে দিলে ব্যানার চলে যায় 
+    [mobile] › e2e/calls.spec.ts:238:1 › SSE না চললে: কলের তালিকা দেখে কল আসা ধরা পড়ে ─────────────
+    [mobile] › e2e/calls.spec.ts:246:1 › কলের তালিকা: দুই দিকের কল, মিস হওয়া, আরও দেখুন; প্রোফাইল থেকে খোলে 
+    [mobile] › e2e/calls.spec.ts:267:1 › অনলাইন অ্যাপয়েন্টমেন্ট: ভিডিও কলে যুক্ত হোন → অপেক্ষার ঘর → ডাক্তার এলে কথা 
+    [mobile] › e2e/calls.spec.ts:290:1 › অনলাইন অ্যাপয়েন্টমেন্ট: সময়ের আগে সার্ভার "না" বললে তার লেখা 
+    [mobile] › e2e/calls.spec.ts:297:1 › ডাক্তার কলে এলেন (SSE appt_call_ready): ব্যানার থেকে যুক্ত হওয়া 
+    [mobile] › e2e/calls.spec.ts:308:1 › সার্ভারে contact_can না থাকলে আর call_config enabled=false: বোতাম নেই 
+    [mobile] › e2e/calls.spec.ts:315:1 › ব্যানার মোবাইল ব্রাউজারের মাপে: পাশে স্ক্রল নেই, শুধু নাম (লেখা) দিলেও চলে 
+    [mobile] › e2e/calls.spec.ts:331:1 › অ্যাপয়েন্টমেন্ট (রোগী, contact_can ছাড়া): নিশ্চিত আর সময়ের মধ্যে হলে কলের বোতাম, সময় অনেক দূরে হলে নেই 
+    [mobile] › e2e/calls.spec.ts:351:1 › অ্যাপয়েন্টমেন্ট (ডাক্তার): আজকের বুকিংয়ে রোগীকে অ্যাপে কল 
+    [mobile] › e2e/calls.spec.ts:364:1 › অডিও কল থেকে ভিডিও: "ভিডিও চালু করতে অনুরোধ" → ওপাশ রাজি → নতুন টোকেনে ভিডিওসহ আবার যুক্ত 
+    [mobile] › e2e/calls.spec.ts:383:1 › ওপাশ ভিডিও চাইছেন (call_status upgradeBy): রাজি → call_upgrade_accept-এর টোকেনে ভিডিও; এখন না → call_upgrade_decline 
+    [mobile] › e2e/calls.spec.ts:403:1 › সংযোগ পুরো কেটে গেলে: call_status-এর নতুন টোকেনে আবার যুক্ত 
+    [mobile] › e2e/calls.spec.ts:413:1 › কল শেষে ব্লক আর রিপোর্ট ───────────────────────────────────
+    [mobile] › e2e/calls.spec.ts:437:1 › 403 call_blocked আর 429 call_rate: বাংলা লেখা ─────────────
+    [mobile] › e2e/calls.spec.ts:450:1 › সেটিংস: অ্যাপে কল সুইচ আর ব্লক করা তালিকা (আনব্লক) ────────
+    [mobile] › e2e/calls.spec.ts:461:1 › ডোনার → রক্তপ্রার্থী: নিশ্চিত হলে বোতাম; না হলে শুধু রক্তপ্রার্থী আগে কল করে থাকলে (সার্ভারের canCall না থাকলে) 
+    [mobile] › e2e/calls.spec.ts:479:1 › contact_can: canCall/canVideo না হলে সেই বোতাম নেই; নিজে ব্লক করে থাকলে "আনব্লক" 
+    [mobile] › e2e/calls.spec.ts:498:1 › রক্তের ভিডিও কল এলে: "অডিওতে ধরুন" (call_accept video:false → অডিও কল, পরে ভিডিওর অনুরোধ) আর "ভিডিওতে ধরুন" 
+    [mobile] › e2e/calls.spec.ts:515:1 › ফিচার সুইচ: calls_audio বন্ধ — কলের বোতাম, কলের তালিকা, নোটিফিকেশনের সুইচ নেই; appt_video বন্ধ — "শিগগির আসছে" 
+    [mobile] › e2e/calls.spec.ts:532:1 › ফিচার সুইচ: calls_video বন্ধ — শুধু অডিও কল; ভিডিও কল এলেও একটাই "ধরুন" (অডিওতে), ভিডিওর অনুরোধ নেই 
+    [mobile] › e2e/chat.spec.ts:119:1 › তালিকা: না পড়া ব্যাজ → খোলা → পড়া জানানো → লেখা পাঠানো (✓, clientId) 
+    [mobile] › e2e/chat.spec.ts:157:1 › SSE: নতুন মেসেজ (chat_message) আর ✓✓ (chat_read) — পাতা না বদলেই 
+    [mobile] › e2e/chat.spec.ts:185:1 › SSE না চললে: খোলা কথোপকথন নিজে থেকে নতুন মেসেজ আনে, ব্যাজও বদলায় 
+    [mobile] › e2e/chat.spec.ts:196:1 › না গেলে: বাংলা কারণ, "আবার চেষ্টা" একই clientId; বন্ধ হয়ে গেলে শুধু পড়া যায় 
+    [mobile] › e2e/chat.spec.ts:220:1 › বন্ধ কথোপকথন (canSend=false): লেখার জায়গা নেই, কারণ দেখায় 
+    [mobile] › e2e/chat.spec.ts:229:1 › মোছা (১০ মিনিটের মধ্যে), রিপোর্ট আর ব্লক ───────────────────
+    [mobile] › e2e/chat.spec.ts:262:1 › ছবি (এখানেই ছোট করা JPEG, ১ MB-র নিচে) আর লোকেশন (জিজ্ঞেস করে) 
+    [mobile] › e2e/chat.spec.ts:298:1 › যোগাযোগের সারির "মেসেজ" → chat_open (ctx, refId, peerUid) → সেই কথোপকথন; মানা করলে বাংলায় কারণ 
+    [mobile] › e2e/chat.spec.ts:322:1 › ফিচার সুইচ: chat বন্ধ — মেসেজের পাতা "শিগগির আসছে", উপরের বোতাম আর যোগাযোগের "মেসেজ" নেই; chat_media বন্ধ — ছবি/লোকেশন নেই 
+    [mobile] › e2e/chat.spec.ts:336:1 › ফিচার সুইচ: chat চালু, chat_media বন্ধ — লেখা যায়, ছবি/লোকেশনের বোতাম নেই 
+    [mobile] › e2e/chat.spec.ts:345:1 › @desktop বড় পর্দা: বাঁয়ে তালিকা, ডানে কথোপকথন; অন্যটা চাপলে ডান পাশ বদলায়, পাশের মেনুতে ব্যাজ 
+    [mobile] › e2e/delete-account.spec.ts:38:1 › অতিথি: সাময়িক বন্ধের বিকল্প ওপরে, কী মুছবে/কী থাকে, ৩০ দিন আর আসল তারিখ, "লগইন করে মুছুন" লগইন খোলে 
+    [mobile] › e2e/delete-account.spec.ts:72:1 › ইংরেজিতে: শিরোনাম, বিকল্প আর বোতাম ────────────────
+    [mobile] › e2e/delete-account.spec.ts:80:1 › "মুছে না ফেলে সাময়িক বন্ধ রাখুন" সাময়িক বন্ধের পাতায় নিয়ে যায় 
+    [mobile] › e2e/delete-account.spec.ts:87:1 › লগইন করা: টিক না দিলে লাল বোতাম বন্ধ; টিক দিয়ে মুছলে ack:true, এরপর কী হবে, ইমেইল গেছে, লগআউট @desktop 
+    [mobile] › e2e/delete-account.spec.ts:123:1 › লগইন করা: মোছা না হলে ভুল দেখায়, লগইন থাকে ──────
+    [mobile] › e2e/delete-account.spec.ts:137:1 › লগইন করা, ?confirm=1: নিশ্চিত করার টিক-ঘরে নিয়ে যায় 
+    [mobile] › e2e/delete-account.spec.ts:142:1 › সেটিংস → "অ্যাকাউন্ট মুছুন" মোছার পাতায় নিয়ে যায় (অতিথিতেও) 
+    [mobile] › e2e/delete-account.spec.ts:150:1 › প্রোফাইল → "অ্যাকাউন্ট মুছুন": ছোট ডায়ালগ নয়, পুরো পাতা 
+    [mobile] › e2e/invoices.spec.ts:59:3 › যাচাই পাতা (লগইন ছাড়া) › বৈধ: নম্বর, তারিখ, মোট বড় করে, লাইনের সংখ্যা, "মিলিয়ে নিন"; ক্রেতার কিছু নয় 
+    [mobile] › e2e/invoices.spec.ts:75:3 › যাচাই পাতা (লগইন ছাড়া) › বাতিল, ডেমো ("ডেমো — আসল রসিদ নয়", কখনো "বৈধ" নয়), না পাওয়া, কোড ছাড়া 
+    [mobile] › e2e/invoices.spec.ts:95:3 › রোগী › আমার রসিদ → একটা রসিদ: কাগজ, অঙ্ক বদল, প্রিন্ট / PDF; কেয়ারগিভার বদলালে asUid 
+    [mobile] › e2e/invoices.spec.ts:125:3 › রোগী › আমার খরচ: মাসের মোট আর ধরন অনুযায়ী; আগের মাসে খালি 
+    [mobile] › e2e/invoices.spec.ts:132:3 › রোগী › অ্যাপয়েন্টমেন্ট থেকে রসিদ, অ্যাম্বুলেন্সের রসিদে "রসিদের চেয়ে বেশি নিয়েছে" (invoice_report) 
+    [mobile] › e2e/invoices.spec.ts:149:3 › ফার্মেসি › বিক্রি (POS): Enter-এ যোগ, ক্রেতা, কত পেলেন → ফেরত, বিক্রি লিখলে রসিদ আর সাথে সাথে প্রিন্ট 
+    [mobile] › e2e/invoices.spec.ts:172:3 › ফার্মেসি › রসিদের তালিকা: আদায়/বাকির যোগফল, বাকি আদায়, বাতিল (কারণ + লেখা), দিনের শেষ, CSV 
+    [mobile] › e2e/invoices.spec.ts:207:3 › ফার্মেসি › অনলাইন অর্ডার "পৌঁছে দিয়েছি": লাইন, ডেলিভারি চার্জ → rx_order_update delivered, রসিদ 
+    [mobile] › e2e/invoices.spec.ts:227:3 › প্যাথলজি › অনুরোধ থেকে বিল: পরীক্ষা আর দাম আগে বসানো, ছাড় ১০%, বাসা থেকে নমুনা; আংশিক পরিশোধে বাকি 
+    [mobile] › e2e/invoices.spec.ts:246:3 › প্যাথলজি › সরাসরি আসা রোগী: দামের তালিকা থেকে পরীক্ষা খুঁজে বিল 
+    [mobile] › e2e/invoices.spec.ts:259:3 › চেম্বারের ডেস্ক › ডাক্তার: চেক-ইন, সিরিয়ালের ফি (চেম্বারের ফি আগে বসানো), সরাসরি আসা রোগী, আজকের আদায় 
+    [mobile] › e2e/invoices.spec.ts:286:3 › চেম্বারের ডেস্ক › সহকারী: শুধু নিজের ২ ঘণ্টার মধ্যের রসিদ বাতিল করা যায়; দিনের শেষ আর CSV নেই; doctorUid যায় 
+    [mobile] › e2e/invoices.spec.ts:300:1 › অ্যাম্বুলেন্সের মালিক: ট্রিপের রসিদ (শুধু দেখা) ────────
+    [mobile] › e2e/invoices.spec.ts:306:1 › ডেস্কটপ (নকল OfflineStore): বিক্রি সার্ভারে নয় — record(op), রসিদ অফলাইন, ছাপা অ্যাপের প্রিন্টারে 
+    [mobile] › e2e/invoices.spec.ts:368:1 › ফিচার সুইচ বন্ধ: আগের মতো — রসিদ নেই, ডেস্ক নেই, "আমার রসিদ" নেই, /invoices "শিগগির আসছে"; যাচাই পাতা খোলা 
+    [mobile] › e2e/invoices.spec.ts:448:3 › অনলাইন চেম্বারের ফি → রসিদ (appt_pay_confirm) › ডাক্তার: "ফি পেয়েছি" → সার্ভারের রসিদ সাথে সাথে; পরিশোধিত হলে "রসিদ দেখুন" 
+    [mobile] › e2e/invoices.spec.ts:469:3 › অনলাইন চেম্বারের ফি → রসিদ (appt_pay_confirm) › রোগী: ফি পরিশোধিত হলে "রসিদ দেখুন" → রসিদের পাতা 
+    [mobile] › e2e/notify-settings.spec.ts:40:1 › নোটিফিকেশন: সব ধরনের সুইচ, অ্যাকাউন্ট সবসময় চালু, একটা বন্ধ করলে শুধু সেটাই পাঠানো হয় 
+    [mobile] › e2e/notify-settings.spec.ts:71:1 › নোটিফিকেশন: জরুরি রক্ত আর অ্যাম্বুলেন্স বন্ধের আগে পাতার ভেতরে "নিশ্চিত?" — বাতিল করলে চালুই থাকে 
+    [mobile] › e2e/notify-settings.spec.ts:100:1 › নোটিফিকেশন: "সব নোটিফিকেশন" বন্ধ — ধরনগুলো নিষ্ক্রিয়, অ্যাকাউন্ট চালুই 
+    [mobile] › e2e/notify-settings.spec.ts:114:1 › নোটিফিকেশন: "আমার কাজ" না থাকলে "আমার ব্যবসা" দেখায় না; সেভ না হলে আগের অবস্থায় ফেরে 
+    [mobile] › e2e/online-chamber.spec.ts:48:1 › তালিকা: "অনলাইন" ব্যাজ, ছাঁকনিতে online:true (এলাকা ছাড়া), অনলাইন বুকিং 
+    [mobile] › e2e/online-chamber.spec.ts:81:1 › রোগী: ফি bKash-এ — নম্বর কপি, TrxID দিয়ে "টাকা পাঠিয়েছি" → যাচাই হচ্ছে; সময় হলে কলে যুক্ত হওয়ার লিংক 
+    [mobile] › e2e/online-chamber.spec.ts:123:1 › রোগী: ডাক্তার পাননি — কারণ আর আবার জানানো; ফি পরিশোধিত 
+    [mobile] › e2e/online-chamber.spec.ts:150:1 › ডাক্তার: সেটআপে "অনলাইন (ভিডিও)" — ঠিকানা/রুম নেই, bKash নম্বর যাচাই, সেভে mode/bkashNumber/note 
+    [mobile] › e2e/online-chamber.spec.ts:223:3 › ডাক্তার: বুকিংয়ে ফির অবস্থা, TrxID, "ফি পেয়েছি" নিশ্চিত ধাপসহ, কলের লিংক (mobile) 
+    [mobile] › e2e/online-chamber.spec.ts:223:3 › ডাক্তার: বুকিংয়ে ফির অবস্থা, TrxID, "ফি পেয়েছি" নিশ্চিত ধাপসহ, কলের লিংক (desktop @desktop) 
+    [mobile] › e2e/online-chamber.spec.ts:250:1 › ডাক্তার: তালিকার payRequestId/payStatus — অবস্থা সরাসরি, "ফি পেয়েছি" খুললে অনুরোধ এনে pay_confirm তিন টিকসহ 
+    [mobile] › e2e/online-chamber.spec.ts:287:1 › ডাক্তার: চেম্বারের বুকিংয়ে "অগ্রিম বাকি" (payStatus open) 
+    [mobile] › e2e/online-chamber.spec.ts:301:1 › ডাক্তার: "পাইনি" — কারণসহ appt_pay_reject ────────
+    [mobile] › e2e/online-chamber.spec.ts:313:1 › সহকারী: রোগীর তালিকায় অনলাইন অ্যাপয়েন্টমেন্টের ফি — "ফি পেয়েছি" ডাক্তারের uid সাথে 
+    [mobile] › e2e/online-chamber.spec.ts:339:1 › রোগী: একই TrxID আবার (409) বাংলায়; ফি দিয়েছেন কিন্তু ডাক্তার আসেননি → "রিপোর্ট করুন" (appt_report) 
+    [mobile] › e2e/online-chamber.spec.ts:381:1 › ফিচার সুইচ বন্ধ: তালিকা, সেটআপ, অ্যাপয়েন্টমেন্ট — আগের মতোই (অনলাইনের কিছু নেই) 
+    [mobile] › e2e/online-chamber.spec.ts:412:1 › ডাক্তার: ফি দেওয়া অনলাইন অ্যাপয়েন্টমেন্ট বাতিলে কারণ চাই (reason_required), providerNote যায় 
+    [mobile] › e2e/online-chamber.spec.ts:428:1 › অ্যাডমিন: "অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট" — মেনু (সুইচ চালু হলে), তালিকা, সমাধান 
+    [mobile] › e2e/pages.spec.ts:9:7 › account › guest-profile ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › guest-settings ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › guest-help ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › login ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › profile-donor-biz ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › profile-nobiz ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › profile-dark ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › profile-edit ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › settings ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › inbox ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › inbox-detail ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › help ──────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › help-ticket ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › help-new ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › care ──────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › care-member ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › dlg-delete ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › dlg-donation-date ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › dlg-photo ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › account › dlg-phone ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › list-guest ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › list ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › list-en ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › list-dark ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › nutritionist ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › filter ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › area ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › detail ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › detail-guest ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › detail-dark ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › book ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › book-filled ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › book-validate ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › home-care-guest ───────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › home-care-nurse ───────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › home-care-detail ──────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › home-care-rate ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › home-care-filter ──────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › my-guest ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › my ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › my-detail ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › my-queue ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › my-late ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › my-cancel ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-bookings ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-waiting ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-confirm ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-patients ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-setup ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-preview ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-home ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › appointment › pro-en ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-guest ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-guest-detail ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-guest-donor-login ──────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-member ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-member-en ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-nodonor ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › home-empty ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › request-detail ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › request-checklist ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › request-share ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › request-accepted ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › my-requests ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › my-request-detail ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › my-request-close ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › my-request-closed ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › edit-request ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › new-request ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › new-request-errors ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › new-request-hospital ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › new-request-guest ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › blood › my-requests-guest ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › chat › messages ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › chat › messages-thread ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › chat › messages-readonly ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › disc-guest ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › disc-user ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › question-guest ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › question-doctor ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › question-mine ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › question-report ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › question-edit ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › question-delete-answer-admin ───────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › ask ────────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › ask-guest ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › tips-guest ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › tips-doctor ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › tip-detail ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › tip-mine ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › tip-edit ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › post-tip ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › post-tip-nobadge ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › badge-new ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › badge-pending ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › badge-approved ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › badge-rejected ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › badge-guest ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-guest ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-list ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-detail ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-detail-dark ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-detail-en ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-claim ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-shop ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-online-order ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-withdraw ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-lab ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-report ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-pay ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-lab-home ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-home-expired ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-home-change ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-home-cancel ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › health › rx-home-expired-en ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › verify-valid ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › verify-void ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › verify-demo ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › verify-none ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › verify-empty ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › verify-en ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-receipts ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-receipts-guest ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-receipt ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-receipt-amb ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-receipt-void ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-receipt-dark ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › my-expenses ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › ph-receipts ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › ph-sales ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › chamber-desk ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › chamber-desk-assistant ───────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › amb-owner ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › invoices › work-overview ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payments ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payment-open ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payment-claimed ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payment-rejected ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payment-refund ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payment-en ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payment-dark ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › my-payments-off ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › biz-inbox ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › biz-all ───────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › biz-settings ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › biz-settings-chamber ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › biz-inbox-dark ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › biz-off ───────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › pay › pgw-result ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › patients ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › patients-history ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › patients-search ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › patient-add ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › write ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › write-drug ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › write-confirm ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › write-pick ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › list ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › view ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › view-cancel ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › team ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › reviews ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › review-read ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › review-settings ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › assistant ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › assistant-payments ───────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › assistant-write ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › write-dark ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › patients-en ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxdoctor › guest ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-dispense ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-dispense-open ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-dispense-filled ──────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-dispense-cancelled ───────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-online ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-online-accept ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-online-past ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-stock ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-stock-search ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-dark ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › ph-en ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-list ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-entry ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-entry-filled ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-report ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-ranges ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-entry-en ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-prices ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-prices-add ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-prices-dark ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-prices-en ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-home ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-home-confirm ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-home-decline ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › rxpartner › lab-home-expired ────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › redirect-noarea ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-guest ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-detail-guest ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-filter ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-user-detail ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-rate ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-menu ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-busy-detail ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-nearest-gps ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-nearest-icu-area ─────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-empty ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › pharm-user ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › pharm-detail ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › pharm-report ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › pharm-area ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › bb-guest ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › bb-detail ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › lab-guest ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › lab-detail ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › med-guest ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › med-chosen ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › med-user ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › amb-en ───────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › pharm-dark ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › services › notfound ─────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-items ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-items-low ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-items-search ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-item-edit ────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-item-adjust ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-buy ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-buy-search ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-sales ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-sales-search ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-sales-week ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-books ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-books-30 ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-books-today ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-books-dark ───────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-books-en ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › shopbooks › bk-rx-offer ─────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › overview ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › overview-dark ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › overview-en ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › overview-docs-dialog ─────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › add-chooser ──────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › ambulance ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › ambulance-stats ──────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › ambulance-new ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › ambulance-new-error ──────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › ambulance-edit ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › pharmacy ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › pharmacy-pause ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › pharmacy-edit ────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › bloodbank ────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › bloodbank-edit ───────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › lab ──────────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › lab-edit ─────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › pro ──────────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › guest ────────────────────────────────────────────────
+    [mobile] › e2e/pages.spec.ts:9:7 › work › guest-add ────────────────────────────────────────────
+    [mobile] › e2e/pay.spec.ts:52:3 › রোগী: "আমার রসিদ ও খরচ"-এর পেমেন্ট › তালিকা → শিট: সতর্কতা, নম্বর কপি, ফেরতের নিয়ম, TrxID + শেষ ৪ → pay_claim; SSE pay_confirmed এলে নিজে "পরিশোধিত" 
+    [mobile] › e2e/pay.spec.ts:118:3 › রোগী: "আমার রসিদ ও খরচ"-এর পেমেন্ট › দোকান "পাইনি": আলাদা বার্তা, আপত্তি (pay_report); 409 — আবার পাঠাবেন না; কেয়ারগিভার মোডে asUid 
+    [mobile] › e2e/pay.spec.ts:148:3 › রোগী: "আমার রসিদ ও খরচ"-এর পেমেন্ট › ফেরত পাঠিয়েছে বলছে → "পেয়েছি" (pay_refund_ack); ডেমোতে "আসল টাকা পাঠাবেন না" 
+    [mobile] › e2e/pay.spec.ts:170:1 › ফেরত পাওনা (refundDue): রোগী "ফেরত পাওনা — …" দেখেন; সার্ভারের ফেরতের নিয়ম (policy) দেখায় 
+    [mobile] › e2e/pay.spec.ts:188:3 › প্রবেশপথ › রসিদের বাকি: "বাকি পরিশোধ করুন" → pay_due_start → শিট 
+    [mobile] › e2e/pay.spec.ts:202:3 › প্রবেশপথ › ট্রিপ শেষে ভাড়া (ঐচ্ছিক, নগদেও চলে); শেষ না হলে কিছুই নয় 
+    [mobile] › e2e/pay.spec.ts:221:3 › প্রবেশপথ › প্রেসক্রিপশনের অনলাইন অর্ডার আর পরীক্ষা: দোকান/প্যাথলজি চাইলে "এখনই দিন" 
+    [mobile] › e2e/pay.spec.ts:243:3 › প্রবেশপথ › চেম্বারের অগ্রিম: বুকিংয়ের আগে নিয়ম, পরে সাথে সাথে শিট; তালিকায় "অগ্রিম বাকি" 
+    [mobile] › e2e/pay.spec.ts:283:3 › প্রবেশপথ › অনলাইন চেম্বারের ফি নতুন পথে: অ্যাপয়েন্টমেন্টে পেমেন্ট থাকলে একই শিট (TrxID + শেষ ৪) 
+    [mobile] › e2e/pay.spec.ts:311:5 › ব্যবসা: "পেমেন্ট" › মেলানো বাকি: আজকের হিসাব, তিন টিক ছাড়া "পেয়েছি" বন্ধ → pay_confirm {checks} → রসিদ (mobile) 
+    [mobile] › e2e/pay.spec.ts:311:5 › ব্যবসা: "পেমেন্ট" › মেলানো বাকি: আজকের হিসাব, তিন টিক ছাড়া "পেয়েছি" বন্ধ → pay_confirm {checks} → রসিদ (desktop @desktop) 
+    [mobile] › e2e/pay.spec.ts:350:3 › ব্যবসা: "পেমেন্ট" › সব পেমেন্ট: ছাঁকনি, ফেরত (যে নম্বর থেকে এসেছিল সেখানেই), CSV 
+    [mobile] › e2e/pay.spec.ts:371:3 › ব্যবসা: "পেমেন্ট" › নম্বর: ২৪ ঘণ্টার নোটিশ, পুরোনো লগইনে "আবার লগইন করুন" (401 reauth_required), "আমি করিনি" → pay_methods_freeze; ডাক্তারের অগ্রিম 
+    [mobile] › e2e/pay.spec.ts:415:3 › ব্যবসা: "পেমেন্ট" › ব্যবসার দিক থেকে পেমেন্ট চাওয়া: অনলাইন অর্ডারে "পেমেন্ট চান" → pay_request_create; "আমার কাজ"-এ পেমেন্টের কার্ড 
+    [mobile] › e2e/pay.spec.ts:438:1 › অনলাইন চেম্বারের bKash নম্বর বদল (provider_save): পুরোনো লগইনে 401 reauth_required → "আবার লগইন করুন" 
+    [mobile] › e2e/pay.spec.ts:450:1 › ফিচার সুইচ বন্ধ: পেমেন্টের ট্যাব/কার্ড/বোতাম কিছুই নেই, সরাসরি লিংকে "শিগগির আসছে" 
+    [mobile] › e2e/pay.spec.ts:472:1 › রক্তের অংশে কোনো পেমেন্ট নেই (সব সুইচ চালু থাকলেও) ──────────
+    [mobile] › e2e/pay.spec.ts:481:1 › bKash গেটওয়ের ফল: অবস্থা সার্ভার থেকে (ঠিকানার status নয়); সুইচ বন্ধ হলে "শিগগির আসছে" 
+    [mobile] › e2e/pay.spec.ts:498:1 › অ্যাডমিন: রিপোর্টের পাতায় "পেমেন্ট" ট্যাব (TrxID ঢাকা) আর "সতর্কতা" (আটকানো নম্বর, ফেরত পাওনা) 
+    [mobile] › e2e/practice.spec.ts:43:3 › সুইচ বন্ধ: সাইট আগের মতো › ডাক্তারের তালিকা: পদ্ধতির চিপ, লেবেল, নতুন ট্যাব নেই; সার্ভারে system যায় না @desktop 
+    [mobile] › e2e/practice.spec.ts:63:3 › সুইচ বন্ধ: সাইট আগের মতো › ব্যাজের আবেদন: পদ্ধতির বাছাই আর নতুন পেশা নেই, system পাঠানো হয় না 
+    [mobile] › e2e/practice.spec.ts:76:3 › সুইচ বন্ধ: সাইট আগের মতো › প্রেসক্রিপশন লেখা আগের মতো: ওষুধের তালিকা থেকে খোঁজা, পরীক্ষা 
+    [mobile] › e2e/practice.spec.ts:84:3 › সুইচ বন্ধ: সাইট আগের মতো › কেয়ারগিভার: সাইকোলজিস্টের সুইচ নেই 
+    [mobile] › e2e/practice.spec.ts:93:3 › সুইচ চালু › তালিকা: সব / এলোপ্যাথি / … চিপ, নামের পাশে পদ্ধতি, ছাঁকনিতে system; নতুন ট্যাব @desktop 
+    [mobile] › e2e/practice.spec.ts:129:3 › সুইচ চালু › ব্যাজ: ডাক্তারের পদ্ধতি, নিবন্ধনের প্রতিষ্ঠান আর ডিগ্রির ইঙ্গিত; অ-এলোপ্যাথির সনদ লাগবেই; ফিজিওর কাগজ 
+    [mobile] › e2e/practice.spec.ts:150:3 › সুইচ চালু › ব্যাজ: ফিজিওথেরাপিস্ট আর সাইকোলজিস্ট — পেশা বাছাই, কাগজের ইঙ্গিত, পদ্ধতি নেই 
+    [mobile] › e2e/practice.spec.ts:162:3 › সুইচ চালু › ব্যাজ সংশোধন: পদ্ধতি বদলালে আবার যাচাইয়ের কথা 
+    [mobile] › e2e/practice.spec.ts:171:3 › সুইচ চালু › প্রেসক্রিপশন: হোমিওপ্যাথ — ওষুধ নিজে লেখা (তালিকা/ধরন/মাত্রা নেই), পরীক্ষা চলে, কাগজে পদ্ধতি @desktop 
+    [mobile] › e2e/practice.spec.ts:192:3 › সুইচ চালু › প্রেসক্রিপশন: ফিজিওথেরাপিস্ট — ওষুধ/পরীক্ষা নেই, "পরামর্শ ও ব্যায়াম"; রিপোর্ট ট্যাব নেই 
+    [mobile] › e2e/practice.spec.ts:214:3 › সুইচ চালু › প্রেসক্রিপশন: সাইকোলজিস্ট — শুধু সেশন নোট, সাইকিয়াট্রিস্টের কথা 
+    [mobile] › e2e/practice.spec.ts:226:3 › সুইচ চালু › রোগীর প্রেসক্রিপশন (হোমিওপ্যাথি): কাগজে পদ্ধতি আর বোর্ড, "ফার্মেসিতে পাঠান" নেই 
+    [mobile] › e2e/practice.spec.ts:240:3 › সুইচ চালু › কেয়ারগিভার: সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট দেখানোর সুইচ (চালু কেয়ারগিভারে, শুরুতে বন্ধ) 
+    [mobile] › e2e/practice.spec.ts:251:3 › সুইচ চালু › আমার অ্যাপয়েন্টমেন্ট: সাইকোলজিস্টের — কেয়ারগিভার দেখেন না লেখা; ডাক্তারের পাশে পদ্ধতি 
+    [mobile] › e2e/practice.spec.ts:271:3 › সুইচ চালু › চেম্বার সেটআপ: পদ্ধতি দেখানো (বদলাতে ব্যাজ), পদ্ধতির বিশেষজ্ঞতা 
+    [mobile] › e2e/practice.spec.ts:287:1 › অ্যাডমিন যাচাই: হোমিওপ্যাথ ডাক্তারের ব্যাজে পদ্ধতি, বোর্ড আর আগের পদ্ধতি 
+    [mobile] › e2e/title-guard.spec.ts:44:3 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › হোমিওপ্যাথ: "ডা." থাকলে সাথে সাথে ভুল, সেভ যায় না; ঠিক করলে নিচে ছোট লেখা, সেভ যায় 
+    [mobile] › e2e/title-guard.spec.ts:70:5 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › নার্স: "Dr." লেখা যায় না 
+    [mobile] › e2e/title-guard.spec.ts:70:5 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › ফিজিওথেরাপিস্ট: "Dr." লেখা যায় না 
+    [mobile] › e2e/title-guard.spec.ts:70:5 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › সাইকোলজিস্ট: "Dr." লেখা যায় না 
+    [mobile] › e2e/title-guard.spec.ts:70:5 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › ইউনানি: "Dr." লেখা যায় না 
+    [mobile] › e2e/title-guard.spec.ts:79:3 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › এলোপ্যাথি ডাক্তার (MBBS/BDS) আর সাধারণ ব্যবহারকারী: কিছু নয়, "ডা." দিয়ে সেভ হয় 
+    [mobile] › e2e/title-guard.spec.ts:88:3 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › সুইচ বন্ধ: হোমিওপ্যাথও আগের মতো — ছোট লেখা বা ভুল নেই 
+    [mobile] › e2e/title-guard.spec.ts:97:3 › প্রোফাইল এডিট: পেশাজীবীর নামের ঘর › সার্ভার আটকালে (title_not_allowed) তার বার্তা দেখায় 
+    [mobile] › e2e/title-guard.spec.ts:110:3 › ব্যাজের আবেদন: প্রোফাইলের নাম › নার্স বাছলে "Dr." নামে ভুল আর প্রোফাইল এডিটের বোতাম, আবেদন যায় না; ডাক্তার (এলোপ্যাথি) বাছলে যায় 
+    [mobile] › e2e/title-guard.spec.ts:130:3 › ব্যাজের আবেদন: প্রোফাইলের নাম › হোমিওপ্যাথি বাছলে নামের নিচে ছোট লেখা (নাম ঠিক থাকলে ভুল নেই) 
+    [mobile] › e2e/title-guard.spec.ts:141:3 › পেশার নাম › প্রেসক্রিপশনের মাথায় সার্ভারের পেশা ("হোমিওপ্যাথিক চিকিৎসক"), "ডাক্তার" নয় 
+    [mobile] › e2e/title-guard.spec.ts:152:3 › পেশার নাম › খোঁজা: হোমিওপ্যাথি বাছলে কেউ না থাকলে "কোনো হোমিওপ্যাথিক চিকিৎসক পাওয়া যায়নি"; ট্যাব "ডাক্তার ও চিকিৎসক" 
+    [mobile] › e2e/ux.spec.ts:5:1 › ডাক্তারের তালিকা: চেম্বার আগে, আজ/আগামীকাল/বিশেষজ্ঞতার ফিল্টার ─
+    [mobile] › e2e/ux.spec.ts:20:1 › আমার প্রেসক্রিপশন: তালিকা, কোড দিয়ে যোগ, জনের ভাগ ────────────
+    [mobile] › e2e/ux.spec.ts:27:1 › আমার প্রেসক্রিপশন থাকে সেবা → ফার্মেসিতে (স্বাস্থ্যে নয়); পুরোনো /prescriptions সেখানে যায় 
+    [mobile] › e2e/ux.spec.ts:47:1 › ফার্মেসির খুঁটিনাটি: নিচে আটকানো "প্রেসক্রিপশন পাঠান", পাশে ছোট ফোন বোতাম 
+    [mobile] › e2e/ux.spec.ts:68:1 › ফোন + আরেকটা কাজ পাশাপাশি: প্যাথলজি আর ডাক্তারেও ফোন ছোট; অ্যাম্বুলেন্সে দুটো সমান (ফোনই মূল) 
+    [mobile] › e2e/ux.spec.ts:91:1 › ফার্মেসির ট্যাব: অর্ডার / ওষুধ খোঁজা / দোকান (তথ্য · বিক্রি · স্টক · এনালাইটিক্স) 
+    [mobile] › e2e/ux.spec.ts:104:1 › অ্যাম্বুলেন্স: "অ্যাম্বুলেন্স ডাকুন" — গাড়ির ধরন, কোথায় যাবেন, ভাড়ার সীমা 
+    [mobile] › e2e/ux.spec.ts:120:1 › বাইরের history.pushState-এর পরেও কার্ড চাপলে খোলে (কেয়ারগিভার মোডের "নরম" যাওয়া) 
+    [desktop] › e2e/account-pause.spec.ts:88:1 › বন্ধ অ্যাকাউন্টে লগইন: পুরো ওয়েব আটকানো; "আবার চালু করুন" → account_reactivate, ওয়েব ফেরে @desktop 
+    [desktop] › e2e/admin.spec.ts:45:1 › প্রতিটা পাতা খোলে, শিরোনাম ঠিক, CSP-তে কিছু আটকায় না @desktop 
+    [desktop] › e2e/chat.spec.ts:345:1 › @desktop বড় পর্দা: বাঁয়ে তালিকা, ডানে কথোপকথন; অন্যটা চাপলে ডান পাশ বদলায়, পাশের মেনুতে ব্যাজ 
+    [desktop] › e2e/delete-account.spec.ts:87:1 › লগইন করা: টিক না দিলে লাল বোতাম বন্ধ; টিক দিয়ে মুছলে ack:true, এরপর কী হবে, ইমেইল গেছে, লগআউট @desktop 
+    [desktop] › e2e/invoices.spec.ts:394:1 › বড় পর্দায় (১৪৪০) সারির আইকন ছোট — রসিদ, খরচ, যাচাই, ডেস্ক @desktop 
+    [desktop] › e2e/online-chamber.spec.ts:223:3 › ডাক্তার: বুকিংয়ে ফির অবস্থা, TrxID, "ফি পেয়েছি" নিশ্চিত ধাপসহ, কলের লিংক (desktop @desktop) 
+    [desktop] › e2e/pay.spec.ts:311:5 › ব্যবসা: "পেমেন্ট" › মেলানো বাকি: আজকের হিসাব, তিন টিক ছাড়া "পেয়েছি" বন্ধ → pay_confirm {checks} → রসিদ (desktop @desktop) 
+    [desktop] › e2e/practice.spec.ts:43:3 › সুইচ বন্ধ: সাইট আগের মতো › ডাক্তারের তালিকা: পদ্ধতির চিপ, লেবেল, নতুন ট্যাব নেই; সার্ভারে system যায় না @desktop 
+    [desktop] › e2e/practice.spec.ts:93:3 › সুইচ চালু › তালিকা: সব / এলোপ্যাথি / … চিপ, নামের পাশে পদ্ধতি, ছাঁকনিতে system; নতুন ট্যাব @desktop 
+    [desktop] › e2e/practice.spec.ts:171:3 › সুইচ চালু › প্রেসক্রিপশন: হোমিওপ্যাথ — ওষুধ নিজে লেখা (তালিকা/ধরন/মাত্রা নেই), পরীক্ষা চলে, কাগজে পদ্ধতি @desktop 
+  1 skipped
+  9 passed (8.1m)
