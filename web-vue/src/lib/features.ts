@@ -114,7 +114,7 @@ export function refreshFeatures(opts: boolean | { force?: boolean } = true): Pro
       state.uid = uid;
       state.loaded = true;
       state.at = Date.now();
-      if (!TEST_MODE) store.setJson(STORE_KEY, { uid, keys, v: state.v } satisfies Saved);
+      store.setJson(STORE_KEY, { uid, keys, v: state.v } satisfies Saved);
     } catch {
       // ইন্টারনেট নেই/সার্ভারে সমস্যা: আগের জানা অবস্থা
     } finally {
