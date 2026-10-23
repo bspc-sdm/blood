@@ -22,7 +22,7 @@ fun interface ContactHistory {
 
 /**
  * Person-to-person blocks ("যোগাযোগ বন্ধ"): one block stops calls AND messages between the pair, in every context.
- * Table call_blocks (V609). [isBlocked] (a blocked b) is directional; [eitherWay] is what contact checks use.
+ * Table call_blocks (V622). [isBlocked] (a blocked b) is directional; [eitherWay] is what contact checks use.
  */
 @Service
 class BlockService(private val jdbc: JdbcTemplate) {

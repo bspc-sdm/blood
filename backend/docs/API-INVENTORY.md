@@ -934,7 +934,7 @@ only (no caregiver `asUid`). LiveKit env missing → 503 `calls_unavailable`. Co
 - [x] **`call_report`** — `{callId, reason, note?}` → `call_reports`
 - [x] **`appt_join`** — `{appointmentId}` → `{ok, callId, room, url, token, video:true}`; one live room per appointment; push `appt_call_ready`
 - [x] **`POST /api/livekit/webhook`** (HTTP, from the call server; LiveKit-signed JWT + body sha256) — `room_finished` / `participant_left` end stuck calls; `appt_join` 409 `room_full` (2 per room)
-  - tables: call_sessions, call_blocks, call_reports (V609), notify_prefs.calls · jobs: `call-timeouts` (JobRunr, 15 s: ringing > 45 s → missed + collapsed `call_missed`; live calls re-checked — relation, block, account, 90 s without heartbeats → ended), daily step 15 `callsDeleted` (180 days) · events: `AccountCutOffEvent` (deactivate / admin disable) ends live calls · tests: CallsIT, CallsAuthzIT
+  - tables: call_sessions, call_blocks, call_reports (V622), notify_prefs.calls · jobs: `call-timeouts` (JobRunr, 15 s: ringing > 45 s → missed + collapsed `call_missed`; live calls re-checked — relation, block, account, 90 s without heartbeats → ended), daily step 15 `callsDeleted` (180 days) · events: `AccountCutOffEvent` (deactivate / admin disable) ends live calls · tests: CallsIT, CallsAuthzIT
 
 ## Admin, moderation, verification, support (package `admin`) — 47 actions
 
