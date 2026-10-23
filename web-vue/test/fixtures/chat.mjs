@@ -23,7 +23,7 @@ export const chatThreadsData = [
 ];
 const info = (id) => {
   const t = chatThreadsData.find((x) => x.threadId === id) || chatThreadsData[0];
-  return { threadId: t.threadId, ctx: t.ctx, refId: t.refId, peer: t.peer, canSend: t.canSend };
+  return { threadId: t.threadId, ctx: t.ctx, refId: t.refId, peer: t.peer, canSend: t.canSend, ...(t.canSend ? {} : { closed: true }) };
 };
 
 export default {

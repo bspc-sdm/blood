@@ -39,7 +39,7 @@ async function fakeChat(page: Page): Promise<Server> {
   };
   const info = (id: string) => {
     const t = st.threads.find((x) => x.threadId === id);
-    return { threadId: id, ctx: t.ctx, refId: t.refId, peer: t.peer, canSend: t.canSend };
+    return { threadId: id, ctx: t.ctx, refId: t.refId, peer: t.peer, canSend: t.canSend, ...(t.canSend ? {} : { closed: true }) };
   };
   const last = (id: string) => {
     const m = st.msgs[id].at(-1)!;
@@ -322,7 +322,7 @@ test('যোগাযোগের সারির "মেসেজ" → chat_ope
 test('ফিচার সুইচ: chat বন্ধ — মেসেজের পাতা "শিগগির আসছে", উপরের বোতাম আর যোগাযোগের "মেসেজ" নেই; chat_media বন্ধ — ছবি/লোকেশন নেই', async ({ page }) => {
   const st = await fakeChat(page);
   await sseDown(page);
-  await openLive(page, base(), '/messages/t1', { features: { chat: false } });
+  await openLive(page, def('blood', 'my-request-detail'), '/messages/t1', { features: { chat: false } });
   await expect(page.getByText('এই সুবিধা শিগগির আসছে')).toBeVisible();
   await expect(page.getByTestId('thread-view')).toHaveCount(0);
   await expect(page.getByTestId('top-chat')).toHaveCount(0);
