@@ -295,7 +295,9 @@ Until the Features service (spring-p19) is on main, `desktop/DesktopFeature.kt` 
     (open stock flags). No customer data.
   - lab: `prices` (= `lab_prices_get`: items `{code, name, price, tat, on}`, discountPct, homeFee, updatedAt, homeCollection),
     `fees` (`[{label:"home", amount}]` when a home-collection fee is set).
-  - chamber: `chambers [{key, name, nameBn, fee, noFee}]`, `appointments` (today … today+7, pending/confirmed/completed:
+  - chamber: `chambers` = spring-p16 `assistant_chambers` (`{chamberKey, name, nameBn, fee, noFee}`, in-person chambers) +
+    `key` (= chamberKey) + `fees {new?, followup?, report?}` (taka; `new` = the chamber's fee, all 0 for a no-fee chamber;
+    follow-up/report have no fee chart yet, so they are left out), `appointments` (today … today+7, pending/confirmed/completed:
     `{id, name, date (UTC-midnight ms), day ("YYYY-MM-DD"), chamberKey, chamber, start, serial, status}`), `walkins`
     (`{id, name, date, day, chamberKey, serial, createdAt}` — **no phone numbers on the desk**), `visitTypes`, `from`, `days: 8`.
 - `offline_sync {deviceId, ops:[{opId, type, at, data}], asOf?}` (signed) → `{results:[…], delta, asOf}`; 30 calls per device per
@@ -319,7 +321,7 @@ returned to the device that sent them). `at` = epoch ms when the desk recorded i
 | `fee` | chamber | `chamber_fee_collect` body (`doctorUid` = the device's doctor) | `InvoiceCreators.chamberFee` | `id, no, deviceNo?, invoice` |
 | `pay` | all | `{invoice:{id?, localId?, opId?, no?}, amount, method, ref?}` | `InvoiceService.pay` (time = op `at`) | `id, no, invoice` |
 | `void` | all | `{invoice:{…}, reason, note?}` — `reason` a code of the void list (`wrong_item`, `returned`, `wrong_price`, `duplicate`, `other`); free text counts as `other` with that text as the note | `InvoiceService.void` (pharmacy: stock back; an assistant only their own receipts within 2 h) | `id, no, invoice` |
-| `checkin` | chamber | `{appointmentId, serial?}` | `appointment_update` confirm as the doctor: a pending appointment gets the next serial (or the given register number); a confirmed one keeps it | `id, serial, status` |
+| `checkin` | chamber | `{appointmentId, serial?}` | spring-p16 `chamber_checkin` (arrived; today's or an earlier open appointment; the first time stays); a still pending appointment is first confirmed with the next serial (or the given register number) through `appointment_update` | `id, serial, status:"arrived", arrivedAt` |
 | `walkin` | chamber | `{name, phone?, chamberKey, date:"YYYY-MM-DD", serial?}` | new `chamber_walkins` row; serial from the same counter as confirmed appointments (`SerialCounters`) | `id, serial, date` |
 
 Every result: `{opId, ok, localId?, …extras, warn?, warns?, error?, message?, status?, retry?, suspicious?}`.
@@ -355,5 +357,5 @@ Rules, in this order (each op is its own transaction — a batch is not all-or-n
    in `review` / `items[].review` until a stock count of that item (`books_adjust` kind `count`, online or offline), a
    purchase op of it, or `offline_review_done`.
 9. Any other `ApiException` of the service is the op's stored result: `{ok:false, error:<its code, or invalid|forbidden|not_found|conflict|locked>, message, status}`.
-   429 / 5xx / unexpected errors → `retry:true`, not stored.
+   429 / 5xx / unexpected errors and `feature_off` (a receipt switch `inv_*` is off right now) → `retry:true`, not stored.
 10. `warn` is the most important of `warns` (`stock_short` > `renumbered` > `clock`).

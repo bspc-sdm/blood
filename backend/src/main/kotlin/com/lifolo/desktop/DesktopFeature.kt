@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component
  *
  * TODO(p19): a shim until the Features service (spring-p19) is on main — then [isOn] becomes
  * `features.isOn(uid, "desktop")` and [require] `features.require(...)`; the settings below move to the admin page.
- * Until then: `lifolo.features.all-on` (FEATURES_ALL_ON), or `lifolo.features.desktop.mode` = off | pilot | on with
+ * Until then: `lifolo.features.all-on` (FEATURES_ALL_ON) or `lifolo.feature-shim.keys` containing `desktop` / `*` (the shim
+ * key list shared with the invoices and calls shims; `*` in the test profile), or `lifolo.features.desktop.mode` = off | pilot | on with
  * `…pilot-uids` (comma separated) and `…demo` (demo accounts in pilot). Default: off.
  *
  * Checked against the BUSINESS (bizId: the pharmacy/lab owner, the doctor): pilot = the pilot business owners' desks.
@@ -23,9 +24,12 @@ class DesktopFeature(
     @Value("\${lifolo.features.desktop.mode:off}") mode: String,
     @Value("\${lifolo.features.desktop.pilot-uids:}") pilotUids: String,
     @Value("\${lifolo.features.desktop.demo:false}") demo: Boolean,
+    @Value("\${lifolo.feature-shim.keys:}") shimKeys: String,
 ) {
     @Volatile
-    var mode: String = if (allOn) ON else mode.trim().lowercase()
+    var mode: String = shimKeys.split(',').map { it.trim() }.let { keys ->
+        if (allOn || "*" in keys || KEY in keys) ON else mode.trim().lowercase()
+    }
 
     @Volatile
     var pilotUids: Set<String> = pilotUids.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()

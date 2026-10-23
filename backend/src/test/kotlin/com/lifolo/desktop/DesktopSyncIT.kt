@@ -29,6 +29,8 @@ class DesktopSyncIT : IntegrationTest() {
 
     @Autowired lateinit var feature: DesktopFeature
 
+    @Autowired lateinit var invoiceFeatures: com.lifolo.invoices.InvoiceFeatures
+
     @BeforeEach
     fun switchOn() {
         feature.mode = DesktopFeature.ON
@@ -39,7 +41,8 @@ class DesktopSyncIT : IntegrationTest() {
     @AfterEach
     fun reset() {
         deskClock.fixed = null
-        feature.mode = DesktopFeature.OFF
+        feature.mode = DesktopFeature.ON
+        invoiceFeatures.forced.clear()
     }
 
     private val mym: String get() = Places.DISTRICTS.first { it.en == "Mymensingh" }.bn
@@ -488,7 +491,8 @@ class DesktopSyncIT : IntegrationTest() {
         val b = boot("asst1", id)
         assertEquals("assistant", b["role"].textValue())
         assertEquals(2, b["appointments"].size())
-        assertEquals("hospA1", b["chambers"][0]["key"].textValue())
+        assertEquals("hospA1", b["chambers"][0]["chamberKey"].textValue())
+        assertEquals(500, b["chambers"][0]["fees"]["new"].intValue())
         // walk-in and check-ins share the chamber's serial numbers
         val now = System.currentTimeMillis()
         val r = sync(
@@ -500,6 +504,10 @@ class DesktopSyncIT : IntegrationTest() {
         assertTrue(r.all { it["ok"].booleanValue() }, r.toString())
         assertEquals(listOf(1, 2, 3), r.map { it["serial"].intValue() })
         assertEquals("confirmed", row("SELECT status FROM appointments WHERE id = 'ap1'")["status"])
+        // check-in = chamber_checkin: the patient has arrived
+        assertEquals("arrived", r[0]["status"].textValue())
+        assertTrue(r[0]["arrivedAt"].longValue() > 0)
+        assertTrue(row("SELECT arrived_at FROM appointments WHERE id = 'ap2'")["arrived_at"] != null)
         val delta = sync("asst1", id)["delta"]
         assertEquals("হেঁটে আসা রোগী", delta["walkins"][0]["name"].textValue())
         assertNull(delta["walkins"][0]["phone"], "no phones on the desk")
@@ -523,7 +531,14 @@ class DesktopSyncIT : IntegrationTest() {
             "no" to "D1-000001", "walkIn" to mapOf("name" to "রহিম", "chamberKey" to "hospA1", "date" to today), "visitType" to "new",
             "amount" to 500, "method" to "cash",
         )
-        val r = sync("asst1", id, op("fee", fee))["results"][0]
+        // chamber receipts switched off: not stored, the same op goes through once they are on
+        val feeOp = op("fee", fee)
+        invoiceFeatures.forced["inv_chamber"] = false
+        val off = sync("asst1", id, feeOp)["results"][0]
+        assertEquals("feature_off", off["error"].textValue(), off.toString())
+        assertTrue(off["retry"].booleanValue())
+        invoiceFeatures.forced.clear()
+        val r = sync("asst1", id, feeOp)["results"][0]
         assertTrue(r["ok"].booleanValue(), r.toString())
         assertEquals("D1-000001", r["no"].textValue())
         val r2 = sync("doc1", id, op("fee", fee + mapOf("no" to "D1-000002")))["results"][0]

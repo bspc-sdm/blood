@@ -108,9 +108,7 @@ class ChamberDesk(
             doctorUid, from, to,
         )
         return linkedMapOf(
-            "from" to today, "days" to 8,
-            "chambers" to chambers(doctorUid).map { linkedMapOf("key" to it.key, "name" to it.name, "nameBn" to it.nameBn, "fee" to it.fee, "noFee" to it.noFee) },
-            "appointments" to appts, "walkins" to walkins,
+            "from" to today, "days" to 8, "appointments" to appts, "walkins" to walkins,
         )
     }
 

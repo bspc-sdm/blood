@@ -20,6 +20,7 @@ import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.invoices.DeviceStamp
 import com.lifolo.invoices.Invoice
+import com.lifolo.invoices.InvoiceActions
 import com.lifolo.invoices.InvoiceCreators
 import com.lifolo.invoices.InvoiceMath
 import com.lifolo.invoices.InvoiceService
@@ -55,6 +56,7 @@ class OfflineSync(
     private val creators: InvoiceCreators,
     private val invoices: InvoiceService,
     private val feature: DesktopFeature,
+    private val invoiceActions: InvoiceActions,
     txm: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -107,11 +109,45 @@ class OfflineSync(
             "chamber" -> {
                 // small (8 days of one doctor) — always whole
                 out.putAll(chamber.window(d.bizId, now))
+                out["chambers"] = deskChambers(ctx, d)
                 out["visitTypes"] = listOf("new", "followup", "report")
             }
         }
         out["nextSeq"] = nextSeq(d)
         return out
+    }
+
+    /** the actions of spring-p16 the desk mirrors (same checks, same data) */
+    private fun p16(ctx: ActionContext, action: String, body: ObjectNode, user: AuthUser = ctx.user): Any? =
+        invoiceActions.actions().getValue(action).handle(subCtx(ctx, user, action, body))
+
+    /**
+     * the doctor's in-person chambers as `assistant_chambers` gives them, + `fees` per visit type for the offline fee
+     * screen: the chamber's fee (taka in its text) for a new patient; all 0 when the chamber takes no fee; follow-up and
+     * report have no fee chart yet (left out — the desk asks).
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun deskChambers(ctx: ActionContext, d: Device): List<Map<String, Any?>> {
+        val list = try {
+            (p16(ctx, "assistant_chambers", mapper.createObjectNode().put("doctorUid", d.bizId)) as Map<String, Any?>)["chambers"] as List<Map<String, Any?>>
+        } catch (e: ApiException) {
+            // chamber receipts (inv_chamber) off: the same list from the doctor's profile
+            chamber.chambers(d.bizId).map { linkedMapOf("chamberKey" to it.key, "name" to it.name, "nameBn" to it.nameBn, "fee" to it.fee, "noFee" to it.noFee) }
+        }
+        return list.map { c ->
+            val fees = linkedMapOf<String, Any?>()
+            if (c["noFee"] == true) {
+                fees["new"] = 0
+                fees["followup"] = 0
+                fees["report"] = 0
+            } else {
+                InvoiceMath.takaOf(c["fee"] as String?)?.let { fees["new"] = InvoiceMath.num(it) }
+            }
+            LinkedHashMap(c).apply {
+                put("key", c["chamberKey"])
+                put("fees", fees)
+            }
+        }
     }
 
     /** the device's next own invoice number (after the last one the server has) */
@@ -280,7 +316,8 @@ class OfflineSync(
             val f = failure(ctx, op, e)
             if (e.retry) f else keep(d, op, f, e.suspicious)
         } catch (e: ApiException) {
-            val retry = e.status == 429 || e.status >= 500
+            // feature_off: a receipt switch (inv_*) is off right now — not stored, the desk sends it again later
+            val retry = e.status == 429 || e.status >= 500 || e.code == "feature_off"
             val f = linkedMapOf<String, Any?>("opId" to op.opId, "ok" to false, "error" to (e.code ?: codeOf(e.status)), "message" to e.message, "status" to e.status)
             if (op.localId != null) f["localId"] = op.localId
             if (retry) f.apply { put("retry", true) } else keep(d, op, f)
@@ -601,8 +638,9 @@ class OfflineSync(
     }
 
     /**
-     * checkin {appointmentId, serial?}: the patient is at the chamber — a pending appointment is confirmed with the
-     * next serial (or the given register number) through appointment_update; a confirmed one keeps its serial.
+     * checkin {appointmentId, serial?}: the patient is at the chamber — spring-p16's `chamber_checkin` (arrivedAt; today's or
+     * an earlier open appointment; the first time stays). A still pending appointment is first confirmed with the next
+     * serial (or the given register number) through appointment_update, so the patient has a number in the queue.
      */
     private fun checkin(ctx: ActionContext, d: Device, data: ObjectNode): Map<String, Any?> {
         val id = refOf(data, "appointmentId") ?: throw badRef()
@@ -611,6 +649,7 @@ class OfflineSync(
         } catch (e: ApiException) {
             throw badRef()
         }
+        if (a.status == "completed") return linkedMapOf("id" to a.id, "serial" to a.serial, "status" to "completed")
         if (a.status == "pending") {
             // appointment_update acts as the doctor (an assistant at the desk confirms for the doctor; access was checked)
             val doctor = AuthUser(uid = d.bizId)
@@ -620,11 +659,11 @@ class OfflineSync(
                 data.get("serial")?.takeIf { it.isIntegralNumber }?.let { set<JsonNode>("serial", it) }
             }
             appointments.appointmentUpdate(subCtx(ctx, doctor, "appointment_update", body))
-        } else if (a.status != "confirmed" && a.status != "completed") {
-            throw ctx.err(409, "This appointment was cancelled", "এই অ্যাপয়েন্টমেন্ট বাতিল হয়েছে") // bn-ok
         }
+        @Suppress("UNCHECKED_CAST")
+        val r = p16(ctx, "chamber_checkin", mapper.createObjectNode().put("appointmentId", a.id).put("doctorUid", d.bizId)) as Map<String, Any?>
         val serial = jdbc.queryForList("SELECT serial FROM appointments WHERE id = ?", Int::class.java, a.id).firstOrNull()
-        return linkedMapOf("id" to a.id, "serial" to serial, "status" to if (a.status == "completed") "completed" else "confirmed")
+        return linkedMapOf("id" to a.id, "serial" to serial, "status" to "arrived", "arrivedAt" to r["arrivedAt"])
     }
 }
 
