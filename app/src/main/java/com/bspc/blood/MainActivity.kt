@@ -84,6 +84,8 @@ class MainActivity : ComponentActivity() {
     /** intent থেকে কী খুলতে হবে: Google Maps-এর জায়গা, শেয়ার করা রিকোয়েস্টের লিংক, বা নোটিফিকেশনের data */
     private fun readIntent(intent: Intent?) {
         sharedPlace(intent)
+        // রসিদের QR: https://lifolo.com/v/{কোড} → যাচাইয়ের পাতা (লগইন লাগে না)
+        verifyCode(intent)?.let { openData.value = mapOf(Notifier.EXTRA_TYPE to "invoice_verify", "code" to it); return }
         val shared = sharedRequestId(intent)
         if (shared != null) {
             openData.value = mapOf(Notifier.EXTRA_REQUEST_ID to shared, SHARED_LINK to "1")
@@ -112,6 +114,12 @@ class MainActivity : ComponentActivity() {
 
 /** openData-তে: শেয়ার করা লিংক থেকে (নোটিফিকেশন নয়) — লগইন ছাড়া খুললে আগে লগইন */
 internal const val SHARED_LINK = "sharedLink"
+
+/** রসিদের লিংক থেকে যাচাইয়ের কোড: https://lifolo.com/v/{code} */
+private fun verifyCode(intent: Intent?): String? {
+    val uri = intent?.data ?: return null
+    return InvoiceText.codeFromLink(uri.scheme, uri.host, uri.path, BuildConfig.SERVER_URL.removePrefix("https://").substringBefore(':'))
+}
 
 /** শেয়ার করা লিংক থেকে রিকোয়েস্টের id: https://…/r/{id} বা getblood://r/{id} */
 private fun sharedRequestId(intent: Intent?): String? {
@@ -160,6 +168,8 @@ sealed interface Screen {
     data object DeleteAccount : Screen
     /** "অ্যাকাউন্ট সাময়িক বন্ধ রাখুন" (Account.kt) */
     data object DeactivateAccount : Screen
+    /** "আমার রসিদ ও খরচ" (Receipts.kt); tab ০ রসিদ, ১ খরচ */
+    data class MyReceipts(val tab: Int = 0) : Screen
 }
 
 object Tabs {
@@ -316,7 +326,8 @@ fun App(
     fun openFromData(data: Map<String, String>) {
         when (val r = notifyRoute(data, community?.approvedBadge, MyWork.has)) {
             is NotifyRoute.Open -> {
-                r.workTarget?.let { WorkNav.target.value = it }
+                // "fees": ডাক্তারের "ফি ও রসিদ" (InvoiceForms.kt); বাকি: ব্যবসার পাতার ভাগ
+                r.workTarget?.let { if (it == "fees") InvoiceNav.openFees.value = true else WorkNav.target.value = it }
                 // একই পাতা উপরে খোলাই থাকলে আবার নয়
                 if (stack.last() != r.screen) push(r.screen)
             }
@@ -329,6 +340,8 @@ fun App(
             }
             is NotifyRoute.Rx -> RxNav.openRx(r.id, own = true)
             is NotifyRoute.CareRx -> openCareRx(r.asUid, r.rxId)
+            is NotifyRoute.Invoice -> InvoiceNav.openId(r.id, r.asUid, r.manage)
+            is NotifyRoute.VerifyInvoice -> InvoiceNav.verify.value = r.code
         }
     }
 
@@ -394,6 +407,14 @@ fun App(
             // "আমার প্রেসক্রিপশন" খোলাই থাকলে আবার নয় — সেই পাতাই প্রেসক্রিপশনটা খোলে
             if (stack.last() != next) push(next)
             RxNav.open.value = null
+        }
+    }
+    // প্রোফাইলের "আমার রসিদ ও খরচ"
+    val receiptsOpen = InvoiceNav.list.value
+    LaunchedEffect(receiptsOpen) {
+        if (receiptsOpen != null) {
+            if (stack.last() !is Screen.MyReceipts) push(Screen.MyReceipts(receiptsOpen))
+            InvoiceNav.list.value = null
         }
     }
     // অন্য পাতার "আপিল করুন" / প্রোফাইলের "সাহায্য ও আপিল"
@@ -744,6 +765,7 @@ fun App(
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
             is Screen.AmbulanceRequest -> AmbulanceRequestScreen(current.id, onBack = { back() })
+            is Screen.MyReceipts -> MyReceiptsScreen(null, "", current.tab, onBack = { back() })
 
             // মোছা / সাময়িক বন্ধ: পাতা নিজেই এই ফোন থেকে লগআউট করে (সার্ভার সব লগইন বাতিল করেছে), শেষে অতিথি হিসেবে হোম
             Screen.DeleteAccount -> DeleteAccountScreen(
@@ -784,6 +806,8 @@ fun App(
                 onDismiss = { WorkNav.picker.value = false },
             )
         }
+        // খোলা রসিদ আর রসিদ যাচাই — অন্য পাতা/ডায়ালগের উপরে (Receipts.kt)
+        if (!blocked) ReceiptOverlays()
         if (showRestored && !blocked) {
             DeletionCancelledBanner(
                 onClose = { showRestored = false },

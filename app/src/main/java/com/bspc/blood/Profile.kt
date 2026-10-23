@@ -255,6 +255,9 @@ fun ProfileTab(
             HorizontalDivider()
             ActionRow(R.drawable.ic_medication, tr("My prescriptions", "আমার প্রেসক্রিপশন"), null, { RxNav.open.value = "mine" })
             HorizontalDivider()
+            // ফার্মেসি, প্যাথলজি, ডাক্তার, অ্যাম্বুলেন্সের রসিদ আর মাসের খরচ (Receipts.kt)
+            ActionRow(R.drawable.ic_payments, tr("My receipts & expenses", "আমার রসিদ ও খরচ"), null, { InvoiceNav.list.value = 0 })
+            HorizontalDivider()
             // কেয়ারগিভার (জরুরি যোগাযোগ, আমার হয়ে কাজ করতে পারেন), যাঁদের দেখাশোনা করি, পরিবারের সদস্য
             ActionRow(R.drawable.ic_health_and_safety_filled, tr("Caregivers & family", "কেয়ারগিভার ও পরিবার"), tr("People who can help you in the app", "যাঁরা অ্যাপে আপনার হয়ে কাজ করতে পারেন"), { RxNav.open.value = "care" })
             HorizontalDivider()

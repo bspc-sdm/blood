@@ -96,6 +96,8 @@ object Notifier {
     val DATA_KEYS = listOf(
         EXTRA_TYPE, EXTRA_REQUEST_ID, EXTRA_QUESTION_ID, EXTRA_KIND, EXTRA_RX_ID, EXTRA_AS_UID, EXTRA_REQ_ID,
         "role", "sub", "ticketId", "emergencyId", "id", "labOrderId", "orderId", "findId", "visitId",
+        // নতুন রসিদ (invoice_new) — সরাসরি সেই রসিদ খোলে
+        "invoiceId",
     )
 
     /** পুশের data থেকে নোটিফিকেশনের intent-এর extras (title/body/forUid বাদ, খালি মান বাদ) */

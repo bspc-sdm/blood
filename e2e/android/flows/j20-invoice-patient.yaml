@@ -1,0 +1,52 @@
+# যাত্রা ২০ — রসিদ (রোগী): প্রোফাইল › "আমার রসিদ ও খরচ" — ফার্মেসি/প্যাথলজি/ডাক্তার/অ্যাম্বুলেন্সের রসিদ (ডেমো সার্ভারের),
+# একটা খুলে দেখা (QR, "মূসক চালানপত্র নয়", ১২৩/123, A4/ছোট), তারপর "খরচ" — এই মাসের মোট আর কোন সেবায় কত।
+appId: com.bspc.blood
+env:
+  J: j20
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: "আমার রসিদ ও খরচ"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn: "আমার রসিদ ও খরচ"
+- extendedWaitUntil:
+    visible: ".*ডেমো লাইফ ফার্মেসি.*"
+    timeout: 30000
+- takeScreenshot: j20-01-my-receipts
+- tapOn:
+    text: ".*ডেমো লাইফ ফার্মেসি.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*PDF শে(?:য়|য়)ার.*"
+    timeout: 20000
+- assertVisible: "রসিদ · ফার্মেসি"
+- takeScreenshot: j20-02-receipt
+- tapOn: "123"
+- tapOn: "ছোট .*"
+- scrollUntilVisible:
+    element: ".*মূসক চালানপত্র নয়.*"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: j20-03-receipt-bottom
+# রোগী বাতিল বা টাকা নিতে পারেন না
+- assertNotVisible: "রসিদ বাতিল"
+- back
+- extendedWaitUntil:
+    visible: "খরচ"
+    timeout: 10000
+- tapOn: "খরচ"
+- extendedWaitUntil:
+    visible: "এই মাসে খরচ"
+    timeout: 30000
+- assertVisible: "অ্যাম্বুলেন্স"
+- assertVisible: "ডাক্তারের ফি"
+- takeScreenshot: j20-04-expenses
+- tapOn: ".*আগের মাস.*"
+- extendedWaitUntil:
+    visible: "এই মাসে খরচ"
+    timeout: 30000
+- takeScreenshot: j20-05-expenses-prev-month

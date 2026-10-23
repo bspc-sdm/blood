@@ -808,6 +808,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
             ) {
                 // ডাক্তার: আজকের সিরিয়াল চালানো — শুরু, পরের রোগী, বিরতি, দেরির উত্তর (Queue.kt; আজ সিরিয়াল না থাকলে কিছু নয়)
                 if (role == "provider") item { QueuePanel(null, refreshKey = reload) }
+                // ফি নেওয়া আর রসিদ (InvoiceForms.kt)
+                if (role == "provider") item { ChamberFeesButton() }
                 item { ErrorText(errorMsg) }
                 when {
                     loading && list.isEmpty() -> item { LoadingBox() }
@@ -862,6 +864,10 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                 Text(a.note, style = MaterialTheme.typography.bodyMedium)
                                 if (a.providerNote.isNotBlank()) {
                                     Text(tr("Note: ", "নোট: ") + a.providerNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+                                }
+                                // ফি ও রসিদ: ডাক্তার "ফি নিন", রোগী "রসিদ" (InvoiceForms.kt / Receipts.kt)
+                                if (a.status == "confirmed" || a.status == "completed") {
+                                    if (a.role == "provider") FeeCollectAction(a) else ReceiptLink("appointment", a.id)
                                 }
                                 if (a.otherPhone.isNotBlank()) {
                                     Button(onClick = { callPhone(context, a.otherPhone) }) {

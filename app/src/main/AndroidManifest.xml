@@ -45,6 +45,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="${linkHost}" android:pathPrefix="/r/" />
             </intent-filter>
+            <!-- রসিদের QR (https://lifolo.com/v/{কোড}) — অ্যাপে যাচাইয়ের পাতা; অ্যাপ না থাকলে ওয়েবের যাচাই পাতা -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="${linkHost}" android:pathPrefix="/v/" />
+            </intent-filter>
             <!-- পুরোনো সার্ভারের (Vercel) আগে শেয়ার করা লিংক — ২.৩৪.০-এর আগের অ্যাপ এই নামে লিংক বানাত; সেগুলোও অ্যাপে খোলে -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

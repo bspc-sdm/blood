@@ -26,11 +26,13 @@ adb shell getprop ro.build.version.release
 
 ONLY=${E2E_ONLY:-}
 # ক্রম: আগে ফার্মেসি (আগের যাত্রায় রোগীর পাঠানো খোলা প্রেসক্রিপশন বন্ধ করে), তারপর রোগী আবার পাঠায় — বারবার চালানো যায়
-ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings j14-account-delete j15-account-pause j16-online-chamber"
+ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings j14-account-delete j15-account-pause j16-online-chamber j19-invoice-pharmacy j20-invoice-patient j21-invoice-driver"
 cd "$OUT/shots"
 for f in $ORDER; do
   # j16 (অনলাইন চেম্বার) শুধু চাইলে: প্রোডাকশনে ডেমো ডাক্তারের অনলাইন চেম্বার বন্ধ (DEMO_ONLINE_CHAMBERS) — স্টেজিংয়ে চালান
   if [ -z "$ONLY" ] && [ "$f" = j16-online-chamber ]; then continue; fi
+  # j19–j21 (রসিদ) শুধু চাইলে: inv_pharmacy/inv_lab/inv_chamber/inv_ambulance/my_expenses ডেমোতে চালু থাকলে তবেই (ফিচার সুইচ, শুরুতে বন্ধ)
+  case "$f" in j19-*|j20-*|j21-*) [ -z "$ONLY" ] && continue ;; esac
   if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " ${f%%-*} "; then continue; fi
   adb logcat -c || true
   start=$(date +%s)

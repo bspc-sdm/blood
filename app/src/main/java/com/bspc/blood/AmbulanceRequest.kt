@@ -797,6 +797,8 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
                 "done" -> {
                     StatusHead(R.drawable.ic_check_circle, tr("Trip finished", "ট্রিপ শেষ"), r.ambulance?.name ?: "")
                     if (r.canRate && !rated) Button(onClick = { rating = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Rate the ambulance", "অ্যাম্বুলেন্সকে রেটিং দিন"), R.drawable.ic_star) }
+                    // চালকের দেওয়া ভাড়ার রসিদ (Receipts.kt)
+                    ReceiptLink("ambreq", id)
                 }
                 "byPhone" -> {
                     StatusHead(R.drawable.ic_check_circle, tr("You got an ambulance by phone", "ফোনে গাড়ি পেয়েছেন"), r.ambulance?.name ?: "")
@@ -1032,6 +1034,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
     var cancelling by remember { mutableStateOf<AmbDriverReq?>(null) }
+    var finishing by remember { mutableStateOf<AmbDriverReq?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     // প্রতিটা ডাকের ভাড়ার ঘর (না লিখলে আনুমানিক ভাড়া)
     var fares by remember { mutableStateOf(mapOf<String, String>()) }
@@ -1104,8 +1107,9 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                             if (r.status == "accepted") {
                                 Button(onClick = { act(r) { AmbRequests.step(r.id, "arrived") } }, enabled = busy == null) { ButtonContent(busy == r.id, tr("Arrived", "পৌঁছেছি")) }
                             }
-                            Button(onClick = { act(r, changed = true) { AmbRequests.step(r.id, "done"); infoMsg = tr("Trip finished. You're available again.", "ট্রিপ শেষ। আপনি আবার খালি।") } }, enabled = busy == null) {
-                                ButtonContent(busy == r.id, tr("Finish", "শেষ"))
+                            // "যাত্রা শেষ": ভাড়া + অতিরিক্ত + কীভাবে পেলেন → রসিদ (ambreq_finish, InvoiceForms.kt)
+                            Button(onClick = { finishing = r }, enabled = busy == null, modifier = Modifier.testTag("amb_finish")) {
+                                ButtonContent(busy == r.id, tr("Finish trip", "যাত্রা শেষ"))
                             }
                             Spacer(Modifier.weight(1f))
                             TextButton(onClick = { cancelling = r }, enabled = busy == null) { Text(tr("Cancel", "বাতিল"), color = cs.error) }
@@ -1150,6 +1154,14 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+    finishing?.let { r ->
+        AmbFinishDialog(r, onDismiss = { finishing = null }) {
+            finishing = null
+            infoMsg = tr("Trip finished. You're available again.", "ট্রিপ শেষ। আপনি আবার খালি।")
+            onChanged()
+            reload++
         }
     }
     cancelling?.let { r ->

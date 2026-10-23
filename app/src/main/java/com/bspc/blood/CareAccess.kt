@@ -414,13 +414,18 @@ fun CareModeScreen(patientUid: String, patientName: String, profile: Profile, on
             }
             PillTabs(
                 selected = tab,
-                tabs = listOf(PillTab(tr("Prescriptions", "প্রেসক্রিপশন"), R.drawable.ic_medication), PillTab(tr("Serials", "সিরিয়াল"), R.drawable.ic_calendar_month)),
+                tabs = listOf(
+                    PillTab(tr("Prescriptions", "প্রেসক্রিপশন"), R.drawable.ic_medication), PillTab(tr("Serials", "সিরিয়াল"), R.drawable.ic_calendar_month),
+                    PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_payments),
+                ),
                 onSelect = { tab = it },
                 secondary = true,
             )
             Box(Modifier.weight(1f)) {
                 when (tab) {
                     0 -> MyPrescriptionsScreen(profile, onBack = null)
+                    // রোগীর রসিদ ও খরচ (Receipts.kt; asUid দিয়ে)
+                    2 -> ReceiptsAndExpenses(patientUid)
                     else -> AppointmentsList(role = "patient", title = "", onBack = null)
                 }
             }

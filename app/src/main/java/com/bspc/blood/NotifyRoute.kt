@@ -17,6 +17,12 @@ sealed interface NotifyRoute {
 
     /** কেয়ারগিভার: রোগীর হয়ে (কেয়ারগিভার মোডে) তাঁর প্রেসক্রিপশন */
     data class CareRx(val asUid: String, val rxId: String) : NotifyRoute
+
+    /** নতুন রসিদ (invoice_new) — asUid: কেয়ারগিভারকে রোগীর রসিদ */
+    data class Invoice(val id: String, val asUid: String? = null, val manage: Boolean = false) : NotifyRoute
+
+    /** রসিদের QR / lifolo.com/v/<কোড> — যাচাইয়ের ছোট পাতা (লগইন লাগে না) */
+    data class VerifyInvoice(val code: String) : NotifyRoute
 }
 
 /**
@@ -51,6 +57,18 @@ fun notifyRoute(data: Map<String, String>, approvedBadge: String? = null, hasWor
         type == "rx" -> (data["rxId"] ?: data["id"])?.takeIf { it.isNotBlank() }?.let { NotifyRoute.Rx(it) }
             ?: NotifyRoute.Open(Screen.MyPrescriptions)
         type == "rx_review" -> NotifyRoute.Open(Screen.RxReviews)
+        // রসিদ: সরাসরি সেই রসিদ; id না থাকলে "আমার রসিদ"
+        type == "invoice_new" -> data["invoiceId"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.Invoice(it, data["asUid"]?.takeIf { u -> u.isNotBlank() }) }
+            ?: NotifyRoute.Open(Screen.MyReceipts())
+        // ডাক্তারকে: সহকারী একটা রসিদ বাতিল করেছেন — সেই রসিদ (ব্যবসার দিক থেকে)
+        type == "invoice_void" -> data["invoiceId"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.Invoice(it, manage = true) } ?: NotifyRoute.Open(Screen.ChamberEdit, "fees")
+        // মালিকের "দিনের শেষ" (বাতিল, বড় ছাড়, নষ্ট দেখানো স্টক): kind থাকলে সেই ব্যবসার রসিদ (ডাক্তার — "ফি ও রসিদ"), না থাকলে "আমার কাজ"
+        type == "invoice_summary" || type == "invoice_day_end" -> when (val k = data["kind"]) {
+            "chamber" -> NotifyRoute.Open(Screen.ChamberEdit, "fees")
+            in BUSINESS_KINDS -> NotifyRoute.Open(Screen.MyBusiness(k!!), "receipts")
+            else -> NotifyRoute.Tab(if (hasWork) Tabs.WORK else Tabs.HOME)
+        }
+        type == "invoice_verify" -> data["code"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.VerifyInvoice(it) } ?: NotifyRoute.Tab(Tabs.HOME)
         // কেয়ারগিভারকে রোগীর প্রেসক্রিপশনের খবর: রোগীর হয়ে সেই প্রেসক্রিপশন; অন্য খবর / নতুন আমন্ত্রণ: "কেয়ারগিভার ও পরিবার"
         type == "care" && !data["asUid"].isNullOrBlank() && !data["rxId"].isNullOrBlank() -> NotifyRoute.CareRx(data["asUid"]!!, data["rxId"]!!)
         type == "care" -> NotifyRoute.Open(Screen.Care)

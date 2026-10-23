@@ -447,6 +447,7 @@ object RxNetText {
         "ready" -> tr("Ready to collect", "তৈরি — নিয়ে আসুন")
         "accepted" -> tr("Order accepted", "অর্ডার নিয়েছে")
         "out" -> tr("On the way", "পথে আছে")
+        "delivered" -> tr("Delivered", "পৌঁছে দিয়েছে")
         "done" -> tr("Given", "দেওয়া হয়েছে")
         "cancelled" -> tr("Can't provide", "দিতে পারবে না")
         "withdrawn" -> tr("Taken back", "ফিরিয়ে নিয়েছেন")
@@ -590,6 +591,8 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                         if (o.missed.isNotEmpty()) SmallNote(tr("Didn't have: ", "ছিল না: ") + o.missed.joinToString(", "))
                         // দোকান সব দিতে না পারলে ফিরিয়ে নিয়ে অন্য দোকানে
                         if (o.status in setOf("sent", "ready", "accepted")) SmallAction(tr("Take back", "ফিরিয়ে নিন"), R.drawable.ic_close, { withdrawing = o })
+                        // অনলাইন অর্ডার পৌঁছালে দোকানের রসিদ (Receipts.kt)
+                        if (o.mode == "online" && o.status in setOf("out", "delivered")) ReceiptLink("rx_order", o.id)
                     }
                 }
                 if (!rx.cancelled && a.meds.any { !it.done }) {
@@ -636,6 +639,8 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                                 }
                             }
                         }
+                        // প্যাথলজির বিলের রসিদ (Receipts.kt)
+                        if (o.status in setOf("received", "reported")) ReceiptLink("lab_order", o.id)
                         if (o.status == "reported") {
                             SmallAction(tr("See report", "রিপোর্ট দেখুন"), R.drawable.ic_list_alt, { report = o.id }, primary = true)
                             val r = a.reviews.firstOrNull { it.labOrderId == o.id }

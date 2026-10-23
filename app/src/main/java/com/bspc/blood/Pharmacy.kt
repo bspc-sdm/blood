@@ -297,6 +297,8 @@ internal fun MyPharmacyPanel(profile: Profile) {
         when (t) {
             "finds" -> tab = 1
             "shop" -> { tab = 2; shopSub = 0 }
+            // "দিনের শেষ" রসিদের খবর → দোকান › রসিদ
+            "receipts" -> { tab = 2; shopSub = 4 }
             else -> { tab = 0; seg = "new" }
         }
     }
@@ -422,6 +424,7 @@ internal fun MyPharmacyPanel(profile: Profile) {
                             PillTab(tr("Sales", "বিক্রি"), R.drawable.ic_payments),
                             PillTab(tr("Stock", "স্টক"), R.drawable.ic_list_alt),
                             PillTab(tr("Analytics", "এনালাইটিক্স"), R.drawable.ic_history),
+                            PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_list_alt),
                         ),
                         { shopSub = it },
                         secondary = true,
@@ -432,6 +435,7 @@ internal fun MyPharmacyPanel(profile: Profile) {
                         1 -> PharmacySalesLite()
                         2 -> PharmacyStockLite()
                         3 -> PharmacyAnalyticsLite()
+                        4 -> BizInvoicesPanel("pharmacy", s.id)
                         else -> ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
                     }
                 }

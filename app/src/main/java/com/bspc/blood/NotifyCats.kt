@@ -58,6 +58,9 @@ object NotifyCats {
             "emergency" -> BLOOD_EMERGENCY
             // রক্তপ্রার্থীকে: কেউ রাজি হলেন/সরে গেলেন; ডোনারকে: রাজি হওয়া রিকোয়েস্ট মুছে ফেলা হয়েছে
             "response", "request_removed" -> MY_REQUEST
+            // নতুন রসিদ (সার্ভার নিজেই cat my_request দেয়)
+            "invoice_new" -> MY_REQUEST
+            "invoice_summary", "invoice_void", "invoice_day_end" -> BUSINESS
             "appointment", "homecare", "homevisit" -> APPOINTMENTS
             "rx", "med_find_mine" -> RX
             "amb_req_mine", "amb_call" -> AMBULANCE

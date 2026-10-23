@@ -1,0 +1,159 @@
+# যাত্রা ২১ — রসিদ (অ্যাম্বুলেন্স): রোগী রহিম ডাকেন (যেকোনো ভাড়া) → চালক "আসছি — ৳…" → রোগী "রাজি" → চালক "যাত্রা শেষ"
+# (ঠিক হওয়া ভাড়া বড় করে, চার্টের ইঙ্গিত, টোল যোগ, চার্টের বেশি হলে সতর্কতা) → রসিদ → রোগী "আমার রসিদ"-এ দেখেন।
+# চালকের গাড়ি "এখন খালি" না থাকলে ডাক যায় না — তাই আগে চালকের পাতা খুলে খালি কি না দেখে নেওয়া (j6-এর মতো)।
+appId: com.bspc.blood
+env:
+  J: j21
+  ROLE: ডেমো রোগী রহিম
+---
+# ১) রোগী: অ্যাম্বুলেন্স ডাকা
+- runFlow: ../common/start.yaml
+- tapOn: "সেবা"
+- tapOn:
+    id: "amb_request"
+- extendedWaitUntil:
+    visible: "কোথা থেকে নেবে"
+    timeout: 20000
+- tapOn: "লোকেশন লিখুন"
+- inputText: "Tongi Bazar"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "হাসপাতাল বা ক্লিনিক বেছে নিন.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "হাসপাতাল বা ক্লিনিক বেছে নিন.*"
+- extendedWaitUntil:
+    visible: "হাসপাতাল বা ক্লিনিক খুঁজুন"
+    timeout: 20000
+- tapOn: "হাসপাতাল বা ক্লিনিক খুঁজুন"
+- inputText: "Dhaka Medical"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "ঢাকা মেডিকেল কলেজ হাসপাতাল"
+    timeout: 20000
+- tapOn: "ঢাকা মেডিকেল কলেজ হাসপাতাল"
+- scrollUntilVisible:
+    element: "যেকোনো"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "যেকোনো"
+- scrollUntilVisible:
+    element: "পাঠান"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "পাঠান"
+- extendedWaitUntil:
+    visible: ".*অ্যাম্বুলেন্স খোঁজা হচ্ছে.*"
+    timeout: 30000
+- takeScreenshot: j21-01-patient-waiting
+# ২) চালক: "আসছি — ৳…"
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j21d
+      ROLE: ডেমো অ্যাম্বুলেন্স চালক
+- tapOn: "আমার কাজ"
+- tapOn: "অ্যাম্বুলেন্স.*"
+- extendedWaitUntil:
+    visible: "অ্যাম্বুলেন্স দরকার"
+    timeout: 60000
+- runFlow:
+    when:
+      visible:
+        id: "amb_fare_input"
+    commands:
+      - tapOn:
+          id: "amb_fare_input"
+      - eraseText: 10
+      - inputText: "2000"
+      - hideKeyboard
+- tapOn:
+    id: "amb_accept"
+    index: 0
+- takeScreenshot: j21-02-driver-offered
+# ৩) রোগী: "রাজি"
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j21p
+      ROLE: ডেমো রোগী রহিম
+- tapOn: "সেবা"
+# সেবা › অ্যাম্বুলেন্সের উপরে চালু অনুরোধের ব্যানার → অপেক্ষার পাতা (প্রস্তাবের তালিকা)
+- extendedWaitUntil:
+    visible: "দেখতে চাপুন"
+    timeout: 30000
+- tapOn: "দেখতে চাপুন"
+- extendedWaitUntil:
+    visible:
+      id: "amb_agree"
+    timeout: 60000
+- tapOn:
+    id: "amb_agree"
+    index: 0
+- extendedWaitUntil:
+    visible: "ঠিক হওয়া ভাড়া"
+    timeout: 30000
+- takeScreenshot: j21-03-patient-agreed
+# ৪) চালক: "যাত্রা শেষ" → রসিদ
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j21f
+      ROLE: ডেমো অ্যাম্বুলেন্স চালক
+- tapOn: "আমার কাজ"
+- tapOn: "অ্যাম্বুলেন্স.*"
+- extendedWaitUntil:
+    visible:
+      id: "amb_finish"
+    timeout: 60000
+- tapOn:
+    id: "amb_finish"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*শেষ করে রসিদ দিন.*"
+    timeout: 15000
+- assertVisible: "ঠিক হওয়া ভাড়া"
+- takeScreenshot: j21-04-finish-dialog
+- tapOn: "টোল"
+- tapOn: "৳"
+- inputText: "150"
+- hideKeyboard
+# চার্ট/ঠিক হওয়া ভাড়ার বেশি → সতর্কতা
+- extendedWaitUntil:
+    visible: ".*বেশি। রসিদে চিহ্ন থাকবে.*"
+    timeout: 5000
+- takeScreenshot: j21-05-finish-over-warning
+- tapOn: ".*শেষ করে রসিদ দিন.*"
+- extendedWaitUntil:
+    visible: ".*PDF শে(?:য়|য়)ার.*"
+    timeout: 30000
+- assertVisible: "রসিদ · অ্যাম্বুলেন্স"
+- takeScreenshot: j21-06-driver-receipt
+- back
+# ৫) রোগী: "আমার রসিদ"-এ অ্যাম্বুলেন্সের রসিদ, "রসিদের চেয়ে বেশি নিয়েছে" বাটন (চাপা হয় না)
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j21r
+      ROLE: ডেমো রোগী রহিম
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: "আমার রসিদ ও খরচ"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn: "আমার রসিদ ও খরচ"
+- extendedWaitUntil:
+    visible: ".*অ্যাম্বুলেন্স.*"
+    timeout: 30000
+- tapOn:
+    text: ".*অ্যাম্বুলেন্স.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*PDF শে(?:য়|য়)ার.*"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "রসিদের চে(?:য়|য়)ে বেশি নি(?:য়|য়)েছে"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: j21-07-patient-ambulance-receipt

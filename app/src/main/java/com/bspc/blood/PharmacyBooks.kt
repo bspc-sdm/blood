@@ -80,10 +80,13 @@ object PharmacyBooks {
         return RxSalePreview(o.str("code").ifBlank { code }, o.optLong("at", at), o.str("source").ifBlank { "rx" }, o.optBoolean("recorded"), lines)
     }
 
-    /** দাম পাঠানো হয় না — সার্ভার পণ্যের বিক্রি দাম আর ছাড় বসায় (ওয়েবে "দাম না বদলালে"-র মতোই) */
-    suspend fun rxRecord(p: RxSalePreview) {
+    /**
+     * দাম পাঠানো হয় না — সার্ভার পণ্যের বিক্রি দাম আর ছাড় বসায় (ওয়েবে "দাম না বদলালে"-র মতোই)।
+     * উত্তরে রসিদ (চুক্তির ডিফল্ট: পুরো টাকা ক্যাশে) — পুরোনো সার্ভারে null।
+     */
+    suspend fun rxRecord(p: RxSalePreview): Invoice? {
         val lines = JSONArray(p.lines.map { l -> JSONObject().put("i", l.i).apply { if (l.itemId != null) put("itemId", l.itemId) } })
-        call("books_sale_add", JSONObject().put("source", "rx").put("rx", JSONObject().put("code", p.code).put("at", p.at)).put("lines", lines))
+        return InvoiceApi.invoiceIn(call("books_sale_add", JSONObject().put("source", "rx").put("rx", JSONObject().put("code", p.code).put("at", p.at)).put("lines", lines)))
     }
 
     fun r2(v: Double): Double = Math.round(v * 100) / 100.0
@@ -205,6 +208,8 @@ fun RxSaleOffer(code: String, at: Long, onClose: () -> Unit) {
                 android.widget.Toast.makeText(context, tr("Added to sales", "বিক্রির হিসাবে উঠেছে"), android.widget.Toast.LENGTH_SHORT).show()
                 PharmacyBooks.refresh.intValue++
                 onClose()
+                // বিক্রির রসিদ — দেখানো, শেয়ার/প্রিন্ট (Receipts.kt)
+                InvoiceNav.issued(r.getOrNull())
             } else if (runCatching { PharmacyBooks.rxPreview(code, at).recorded }.getOrDefault(false)) {
                 // অন্য কোথাও (ওয়েবে/আরেক ফোনে) এর মধ্যে তোলা হয়ে গেছে
                 state = "done"
