@@ -175,7 +175,7 @@ jobs:
           # আশা: live পোর্ট, ঠিক একটা lifolo-api* চালু, JobRunr শুধু তাতে running, ডাটাবেসে একটা JobRunr server
           expect_live() { # $1 নাম, $2 পোর্ট
             local name="$1" port="$2" n jobs other dbn
-            [ "$(cat /etc/lifolo/api-port 2>/dev/null)" = "$port" ] || fails="$fails $name(api-port=$(cat /etc/lifolo/api-port 2>/dev/null))"
+            [ "$(sudo cat /etc/lifolo/api-port 2>/dev/null)" = "$port" ] || fails="$fails $name(api-port=$(sudo cat /etc/lifolo/api-port 2>/dev/null))"
             n="$(systemctl list-units --state=active --no-legend --plain 'lifolo-api*' | grep -c '^lifolo-api' || true)"
             [ "$n" = 1 ] || fails="$fails $name(active-units=$n)"
             systemctl is-active --quiet "lifolo-api@$port" || fails="$fails $name(lifolo-api@$port-inactive)"
@@ -195,7 +195,7 @@ jobs:
             done
             echo "$name jobrunr servers in db: $dbn"
             [ "$dbn" = 1 ] || fails="$fails $name(jobrunr-servers=$dbn)"
-            { echo "## $name"; echo "api-port=$(cat /etc/lifolo/api-port)"; echo "jobs=$jobs"; echo "jobrunr_servers_db=$dbn"; } >> "$out/checks.txt"
+            { echo "## $name"; echo "api-port=$(sudo cat /etc/lifolo/api-port)"; echo "jobs=$jobs"; echo "jobrunr_servers_db=$dbn"; } >> "$out/checks.txt"
           }
 
           deploy 1-legacy-to-bluegreen "$RUNNER_TEMP/v2.jar" ok
