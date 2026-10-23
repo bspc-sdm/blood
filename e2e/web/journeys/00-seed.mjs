@@ -1,6 +1,7 @@
 // মালিক: অ্যাডমিন প্যানেলে (/admin) নিজের ইমেইলে লগইন করে "ডেমো (পরীক্ষা)" › "ডেমো বানান" — ধাপে ধাপে admin_demo_seed
 import { BASE } from '../stack.mjs';
-import { settle } from '../lib.mjs';
+import { settle, CONSENT } from '../lib.mjs';
+import { act, owner } from '../api.mjs';
 
 export const meta = { no: 0, slug: 'demo-seed', titleBn: 'মালিক: ডেমো বানানো (অ্যাডমিন প্যানেল)' };
 export const OWNER_EMAIL = 'ekapkbd@gmail.com';
@@ -47,4 +48,10 @@ export async function run(J) {
   await page.getByText(/ডেমো চালু আছে/).waitFor({ timeout: 120000 });
   await settle(page);
   await J.shot('ধাপে ধাপে ডেমো বানানো শেষ', '"ডেমো চালু আছে (… ডামি তথ্য)" লেখা আসে।');
+  // স্বাস্থ্য তথ্যের সম্মতি (health_consent) FEATURES_ALL_ON-এর বাইরে — সব সুইচ চালু রাখতে মালিক এটাও "সবার জন্য" করেন
+  // (admin_feature_set, প্যানেলের "ফিচার সুইচ"-এর একই কাজ)
+  if (CONSENT) {
+    const r = await act(await owner(), 'admin_feature_set', { key: 'health_consent', mode: 'on' });
+    if (r.error) throw new Error(`health_consent: ${r.error}`);
+  }
 }

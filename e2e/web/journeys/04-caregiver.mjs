@@ -1,5 +1,5 @@
 // কেয়ারগিভার (গাইড journey-care.json J-60…J-69): রুমা রহিমের হয়ে — প্রেসক্রিপশন, সিরিয়াল, ফার্মেসি, প্যাথলজি, সীমা, সরিয়ে দেওয়া
-import { tap, see, go, settle, dhakaISO, bookBtn, pharmacyWork, labWorkTab } from '../lib.mjs';
+import { tap, see, go, settle, dhakaISO, bookBtn, bookSent, pharmacyWork, labWorkTab } from '../lib.mjs';
 
 export const meta = { no: 4, slug: 'caregiver', titleBn: 'কেয়ারগিভার: রোগীর হয়ে কাজ' };
 
@@ -60,10 +60,12 @@ export async function run(J) {
     await bookBtn(page).first().click();
     const d = page.getByRole('dialog').last();
     await J.shot('কার জন্য — রহিমের পরিবার', '‘কার জন্য’-তে ‘আমি’ (= রহিম), ‘ডেমো মা রাবেয়া বেগম’, ‘ডেমো ছেলে তামিম’ — রুমার নিজের নয়।');
-    await d.locator('input[type=date]').fill(dhakaISO(2));
+    // কাল: পরশু (বা তার পরের অনলাইন দিনে) রহিমের এই ডাক্তারের অনলাইন চেম্বারে নিশ্চিত সিরিয়াল আছে (ডেমো, online_chamber চালু হলে) — একই দিনে
+    // একই ডাক্তারের কাছে দ্বিতীয় অনুরোধ হয় না (‘সেদিন … আগে থেকেই আছে’)
+    await d.locator('input[type=date]').fill(dhakaISO(1));
     await d.getByRole('textbox').last().fill('ডেমো: রুমা রহিমের হয়ে সিরিয়াল নিলেন');
     await d.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
-    await see(page, 'অনুরোধ পাঠানো হয়েছে');
+    await bookSent(page, J);
     await J.shot('রহিমের হয়ে অনুরোধ গেল', '‘অনুরোধ পাঠানো হয়েছে…’।');
     await bookBtn(page).first().click();
     const d2 = page.getByRole('dialog').last();
@@ -72,7 +74,7 @@ export async function run(J) {
     await d2.getByRole('textbox').last().fill('ডেমো: রুমা রাবেয়ার হয়ে সিরিয়াল নিলেন');
     await J.shot('রাবেয়ার জন্য অনুরোধ', '‘কার জন্য’-তে ‘ডেমো মা রাবেয়া বেগম’।');
     await d2.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
-    await see(page, 'অনুরোধ পাঠানো হয়েছে');
+    await bookSent(page);
   });
 
   await J.sc('J-64', 'ডাক্তার রুমার নেওয়া অনুরোধটা রহিমের নামে দেখেন', async () => {

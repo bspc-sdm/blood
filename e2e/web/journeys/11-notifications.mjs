@@ -10,9 +10,9 @@
 // রানের সব পুশ (E2E_PG_URL থাকলে ডাটাবেস থেকে) একই নিয়মে যাচাই। ফল: shots/push-matrix.json (Android Maestro-র যাত্রাও এটা পড়ে)।
 import fs from 'node:fs';
 import path from 'node:path';
-import { act, demo, owner, post, sql, cronDaily, uidOf, apptForRx } from '../api.mjs';
+import { act, demo, owner, post, sql, cronDaily, uidOf, apptForRx, ensureConsent } from '../api.mjs';
 import { BASE } from '../stack.mjs';
-import { SHOTS, settle, go, vis } from '../lib.mjs';
+import { SHOTS, settle, go, vis, demoConsents } from '../lib.mjs';
 
 export const meta = { no: 11, slug: 'notifications', titleBn: 'নোটিফিকেশন: ২১ ধরন — শিরোনাম, লেখা, চাপলে কোথায়' };
 
@@ -42,6 +42,9 @@ export function androidTarget(d) {
     case 'emergency': return 'Main(HOME) + emergency banner';
     case 'pharmacy_order': case 'pharmacy_mine': return 'MyBusiness(pharmacy) › orders';
     case 'services': return ['ambulance', 'pharmacy', 'bloodbank', 'lab'].includes(d.kind) ? `MyBusiness(${d.kind})` : 'Main(WORK|HOME)';
+    // সুইচের পেছনের: নতুন রসিদ (NotifyRoute.Invoice), রোগীর পেমেন্ট (PayPush.route → NotifyRoute.Pay)
+    case 'invoice_new': return d.invoiceId ? `Invoice(${d.invoiceId}${d.asUid ? `, ${d.asUid}` : ''})` : 'MyReceipts';
+    case 'pay_requested': case 'pay_confirmed': case 'pay_rejected': case 'pay_refunded': return `Pay(${d.payRequestId || ''})`;
     default: return 'Main(HOME)';
   }
 }
@@ -64,6 +67,8 @@ function webTarget(d) {
     case 'rx_lab': return '/work/lab';
     case 'med_find_mine': return '/services/pharmacy/medicine';
     case 'services': return d.kind ? `/work/${d.kind}` : '/work';
+    case 'invoice_new': return d.invoiceId ? `/invoices/${d.invoiceId}` : '/invoices';
+    case 'pay_requested': case 'pay_confirmed': case 'pay_rejected': case 'pay_refunded': return d.payRequestId ? `/invoices/payments/${d.payRequestId}` : '/invoices/payments';
     default: return '/';
   }
 }
@@ -121,6 +126,8 @@ async function realUser(email, set) {
   }).then((x) => x.json());
   const uid = uidOf(r.idToken);
   const who = { token: r.idToken, uid, role: email.split('@')[0], email };
+  // সম্মতির সুইচ চালু থাকলে রক্তের গ্রুপ/ওজন/রক্তদানের তারিখ দেওয়ার আগে সম্মতি (নতুন মানুষ, প্রস্তুতি)
+  await ensureConsent(who);
   await act(who, 'profile_update', { set: { lang: 'bn', ...set } });
   return who;
 }
@@ -131,6 +138,7 @@ export async function run(J) {
   await J.sc('PUSH-00', 'প্রস্তুতি: ডেমো রোল, দুজন নতুন (আসল) ব্যবহারকারী, সবার ফোনের টোকেন (device_register)', async () => {
     [P, D, DOC, PH, LAB, AMB, CG] = await Promise.all(['patient', 'donor', 'doctor', 'pharmacy', 'lab', 'ambulance', 'caregiver'].map((r) => demo(r)));
     O = await owner();
+    await demoConsents();
     const birth = Date.UTC(1994, 4, 10);
     A = await realUser('e2e-push-patient@lifolo-e2e.test', { name: 'ই২ই রোগী রুবেল', phone: '01711000501', ...AT, placeName: GZP, locationSource: 'district' });
     B = await realUser('e2e-push-donor@lifolo-e2e.test', {
@@ -281,6 +289,37 @@ export async function run(J) {
     });
     await expectPush({ id: 'PUSH-appointment-patient', to: D, type: 'appointment', title: 'অ্যাপয়েন্টমেন্ট নেওয়া হয়নি', data: { role: 'patient' } }, async () => {
       await act(DOC, 'appointment_update', { id: apptId, op: 'decline', providerNote: 'ই২ই' });
+    });
+  });
+
+  // ---------- সুইচের পেছনের (চালু থাকলে): চেম্বারের অগ্রিম → pay_requested, চেম্বারের ফি → invoice_new ----------
+  const on = async (who, key) => !!(await act(who, 'features')).keys?.[key];
+  let advAppt;
+  await J.sc('PUSH-pay_requested', 'pay_requested — চেম্বারের অগ্রিম (pay_chamber_advance): রোগীকে ‘পেমেন্ট আপডেট — লাইফলো’, টাকা/নম্বর ছাড়া, চাপলে সেই পেমেন্ট', async () => {
+    if (!(await on(P, 'pay_chamber_advance'))) return; // সুইচ বন্ধ: অগ্রিম নেই
+    await expectPush({ id: 'PUSH-pay_requested', to: P, type: 'pay_requested', title: 'পেমেন্ট আপডেট — লাইফলো', body: /^[^0-9০-৯৳]+$/, data: (c) => ({ payRequestId: c.payRequestId, purpose: 'booking_advance', cat: 'appointments' }) }, async () => {
+      // ডেমো ডাক্তারের প্রথম চেম্বারে অগ্রিম ৳২০০ (ডেমো); আজকের সময় পার হলে অগ্রিম চাওয়া হয় না — কয়েক দিন পরের খালি দিন
+      const dhakaToday = Math.floor((Date.now() + 6 * 3600000) / DAY) * DAY;
+      let last;
+      for (let i = 12; i <= 30; i++) {
+        try {
+          const r = await act(P, 'book', { providerUid: DOC.uid, date: dhakaToday + i * DAY, chamberIndex: 0, note: 'ই২ই অগ্রিম' });
+          advAppt = r.id;
+          if (!r.payRequestId) throw new Error(`book: অগ্রিমের অনুরোধ নেই (${JSON.stringify(r)})`);
+          return { payRequestId: r.payRequestId };
+        } catch (e) {
+          last = e;
+          if (advAppt) throw e;
+        }
+      }
+      throw last;
+    });
+  });
+  await J.sc('PUSH-invoice_new', 'invoice_new — ডাক্তার চেম্বারের ফি নিলে রোগীকে নতুন রসিদ (inv_chamber + my_expenses), চাপলে সেই রসিদ', async () => {
+    if (!advAppt || !(await on(DOC, 'inv_chamber')) || !(await on(P, 'my_expenses'))) return;
+    await expectPush({ id: 'PUSH-invoice_new', to: P, type: 'invoice_new', title: /থেকে নতুন রসিদ$/, data: (c) => ({ invoiceId: c.id, cat: 'my_request' }) }, async () => {
+      const r = await act(DOC, 'chamber_fee_collect', { appointmentId: advAppt, visitType: 'new', amount: 500, method: 'cash' });
+      return { id: r.invoice.id };
     });
   });
 
@@ -438,7 +477,14 @@ export async function run(J) {
     const rows = sql(`SELECT json_agg(json_build_object('uid', i.uid, 'title', i.title, 'body', i.body, 'data', i.data, 'lang', p.lang) ORDER BY i.id)
       FROM inbox_items i LEFT JOIN user_profiles p ON p.uid = i.uid WHERE i.created_at > now() - interval '6 hours'`);
     if (!rows) return; // ডাটাবেস দেখা যায় না (E2E_PG_URL নেই)
-    const known = new Set(['request', 'response', 'request_removed', 'emergency', 'eligible', 'correction', 'care', 'support', 'hospital', 'badge', 'services', 'amb_req_mine', 'answer', 'appointment', 'rx', 'rx_pharmacy', 'rx_lab', 'rx_review', 'med_find', 'med_find_mine', 'homecare', 'homevisit', 'pharmacy_order', 'pharmacy_mine']);
+    const known = new Set([
+      'request', 'response', 'request_removed', 'emergency', 'eligible', 'correction', 'care', 'support', 'hospital', 'badge', 'services', 'amb_req_mine', 'answer', 'appointment', 'rx', 'rx_pharmacy', 'rx_lab', 'rx_review', 'med_find', 'med_find_mine', 'homecare', 'homevisit', 'pharmacy_order', 'pharmacy_mine',
+      // সুইচের পেছনের নতুন সুবিধা (সার্ভারের NotifyCats.BY_TYPE, অ্যাপের NotifyCats/NotifyRoute, ওয়েবের account/util.ts-এ নিবন্ধিত):
+      // রসিদ (INVOICES.md), লাইফলো পে (PAYMENTS.md), অ্যাপে কল (CALLS.md), মেসেজ (CHAT.md)
+      'invoice_new', 'invoice_void', 'invoice_summary',
+      'pay_requested', 'pay_confirmed', 'pay_rejected', 'pay_refunded', 'pay_claimed', 'pay_reminder', 'pay_refund_due', 'pay_methods_changed',
+      'call_missed', 'appt_call_ready', 'chat_message',
+    ]);
     const exists = (table, col, id) => !!sql(`SELECT json_agg(1) FROM ${table} WHERE ${col} = '${String(id).replace(/'/g, "''")}'`);
     const bad = [];
     for (const r of rows) {
@@ -454,6 +500,15 @@ export async function run(J) {
       if (d.type === 'care' && d.rxId && !d.asUid) why.push('rxId আছে, asUid নেই');
       if (d.type === 'support' && !d.ticketId) why.push('ticketId নেই');
       if (d.type === 'appointment' && !d.role) why.push('role নেই');
+      // লাইফলো পে: শিরোনাম সবসময় ‘পেমেন্ট আপডেট — লাইফলো’, লেখায় টাকা/নম্বর/নাম নয়, data-তে অনুরোধের id (PAYMENTS.md P15)
+      // (pay_methods_changed আলাদা: মালিককে নিরাপত্তার খবর, ঘণ্টার তালিকায় নম্বরের শেষ ৩ অঙ্ক; ফোনের লক স্ক্রিনে অ্যাপ সাধারণ লেখা দেখায়)
+      if (/^pay_/.test(d.type || '') && d.type !== 'pay_methods_changed') {
+        if (!/^পেমেন্ট আপডেট — লাইফলো$|^Payment update — Lifolo$/.test(r.title)) why.push('পেমেন্টের শিরোনাম সাধারণ নয়');
+        if (/[0-9০-৯৳]/.test(r.body || '')) why.push('পেমেন্টের লেখায় টাকা/নম্বর');
+        if (!d.payRequestId) why.push('payRequestId নেই');
+        else if (!exists('pay_requests', 'id', d.payRequestId)) why.push(`পেমেন্ট ${d.payRequestId} নেই`);
+      }
+      if (d.type === 'invoice_new' && !(d.invoiceId && exists('invoices', 'id', d.invoiceId))) why.push(`রসিদ ${d.invoiceId} নেই`);
       if (d.questionId && !exists('questions', 'id', d.questionId)) why.push(`প্রশ্ন ${d.questionId} নেই`);
       if (d.reqId && !exists('ambulance_requests', 'id', d.reqId)) why.push(`অ্যাম্বুলেন্স অনুরোধ ${d.reqId} নেই`);
       if (d.rxId && !exists('prescriptions', 'id', d.rxId)) why.push(`প্রেসক্রিপশন ${d.rxId} নেই`);

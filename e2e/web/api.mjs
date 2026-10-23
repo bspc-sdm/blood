@@ -58,6 +58,18 @@ export async function act(who, action, body = {}) {
   return j;
 }
 
+/**
+ * স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md) — সুইচ health_consent চালু আর এই মানুষের সম্মতি বাকি থাকলে নিজে দেওয়া
+ * (consent_grant, দুটো scope, সার্ভারের এখনকার লেখার version)। সুইচ বন্ধ বা আগেই দেওয়া — কিছু নয়। ফেরত: দেওয়া হলো কি না।
+ * যাত্রার প্রস্তুতিতে (API দিয়ে বানানো মানুষ, ডেমো রোল); সম্মতির পর্দা নিজে চেপে দেখা হয় ১০-এর নতুন ব্যবহারকারীর বেলায়।
+ */
+export async function ensureConsent(who) {
+  const s = await act(who, 'consent_status');
+  if (!s.on || !(s.needed || []).length) return false;
+  await act(who, 'consent_grant', { scopes: ['health_data', 'data_abroad'], version: s.version, source: 'web' });
+  return true;
+}
+
 /** অন্য HTTP পথ (যেমন /api/respond) */
 export async function post(who, path, body = {}) {
   const r = await fetch(`${BASE}${path}`, {

@@ -1,6 +1,6 @@
 // বাকি দৃশ্যগুলো (আগের যাত্রার পরে যেগুলো করা যায়): দোকানের হিসাব-খাতা, প্যাথলজির দাম আর বাসা থেকে নমুনা,
 // অ্যাম্বুলেন্সের জায়গা আর মনে করানো, প্যাথলজির রিপোর্ট, ব্যাজ সংশোধন/বাতিল, চেম্বারের গড় সময়, আপিল
-import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
+import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, posPicker, posNoPrint, posSave } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { adminLogin } from './00-seed.mjs';
 
@@ -14,7 +14,7 @@ async function labWork(page, tab) {
 }
 const itemRow = (page, name) => page.locator('tr').filter({ has: page.getByText(name, { exact: true }) }).first();
 async function pickProduct(page, name) {
-  const p = page.getByPlaceholder('পণ্য খুঁজুন').first();
+  const p = posPicker(page);
   await p.fill(name);
   await settle(page, 500);
   await p.press('Enter');
@@ -91,17 +91,32 @@ export async function run(J) {
 
   await J.sc('S-46 S-47', 'কেনা দামের নিচে বিক্রি, আর ভুল বিক্রি মোছা', async () => {
     await tap(page, 'বিক্রি', { role: 'tab' });
+    await posNoPrint(page);
     await pickProduct(page, 'Flagyl');
     await page.locator('input').and(page.getByLabel(/কয়টা/)).last().fill('21');
     await settle(page, 300);
     await J.shot('Flagyl — কেনা দামের নিচে', 'লাইনের নিচে লাল ‘কেনা দামের নিচে’।', { full: true });
-    await page.getByRole('button', { name: 'বিক্রি লিখুন' }).click();
-    await see(page, 'বিক্রি লেখা হয়েছে');
+    await posSave(page);
     await J.shot('বিক্রির তালিকায় ক্ষতি', 'এই বিক্রির নিচে লাল ‘ক্ষতি ৳৮.৪’।', { full: true });
     await tap(page, '৭ দিন');
     await J.shot('৭ দিনের বিক্রি', 'তারিখসহ সব বিক্রি, ‘অনলাইন’ ট্যাগও আছে।', { full: true });
     await tap(page, 'আজ', { exact: true });
-    await page.locator('div, li').filter({ hasText: 'Flagyl ×২১' }).getByRole('button', { name: 'মুছুন' }).last().click();
+    const sale = page.locator('li').filter({ hasText: 'Flagyl ×২১' }).first();
+    if (await sale.getByRole('button', { name: 'রসিদ দেখুন' }).count()) {
+      // রসিদ চালু (inv_pharmacy): রসিদের বিক্রি মোছা যায় না (INVOICES.md I2) — দোকান › রসিদ-এ রসিদ বাতিল, জিনিস স্টকে ফেরে
+      await go(page, '/work/pharmacy/shop/invoices');
+      await page.locator('[data-testid=biz-invoice]').filter({ hasText: 'Flagyl' }).first().getByTestId('row-void').click();
+      const d = page.getByRole('dialog').last();
+      await d.locator('[data-reason=wrong_item]').click();
+      await d.getByLabel('বিস্তারিত লিখুন (দিতেই হবে)').fill('ডেমো: ভুল করে বিক্রি লেখা');
+      await J.shot('এই রসিদ বাতিল করবেন?', '‘রসিদ কখনো মোছে না… জিনিসগুলো স্টকে ফিরে যাবে।’; কারণ ‘ভুল পণ্য’।');
+      await d.getByTestId('void-confirm').click();
+      await see(page, 'রসিদ বাতিল হয়েছে');
+      await settle(page, 500);
+      await J.shot('রসিদ বাতিল', 'তালিকায় Flagyl-এর রসিদ ‘বাতিল’, নিচে ‘বাতিলের কারণ: ভুল পণ্য’।', { full: true });
+      return;
+    }
+    await sale.getByRole('button', { name: 'মুছুন' }).click();
     const d = page.getByRole('dialog').last();
     await J.shot('এই বিক্রি মুছবেন?', '‘পরিমাণগুলো স্টকে ফিরে যাবে।’');
     await d.getByRole('button', { name: 'মুছুন' }).click();

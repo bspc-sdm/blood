@@ -8,7 +8,7 @@
 //   admin_emergency_group (বন্ধ/খোলা), admin_emergency_more, admin_emergency_close।
 // জরুরি আহ্বান আসল দুনিয়ার — ডেমো অ্যাকাউন্টে কখনো যায় না (সার্ভারের নিয়ম), তাই এখানে একজন সত্যিকারের নতুন ব্যবহারকারী ইমেইলে
 // লগইন করে (গাজীপুর, O-) আহ্বানে সাড়া দেন।
-import { tap, see, go, settle, logout, until } from '../lib.mjs';
+import { tap, see, go, settle, logout, until, CONSENT, consentDialog } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { adminLogin, OWNER_EMAIL } from './00-seed.mjs';
 import { pickDistrict } from './02-blood.mjs';
@@ -243,6 +243,15 @@ export async function run(J) {
     await dlg.getByText('কখনো রক্ত দিইনি').click();
     await J.shot('রক্তদাতার তথ্য', 'গ্রুপ O-, জন্ম তারিখ, ওজন ৬৪, ‘কখনো রক্ত দিইনি’ — ‘এগিয়ে যান’।', { page: p });
     await dlg.getByRole('button', { name: 'এগিয়ে যান' }).click();
+    if (CONSENT) {
+      // সম্মতির সুইচ চালু (CONSENT.md): রক্তের গ্রুপ আর ওজন স্বাস্থ্য তথ্য — নতুন মানুষের সম্মতি নেই, তাই সার্ভার 428
+      // consent_required → সম্মতির পর্দা (সার্ভারের লেখা) → ‘রাজি আছি’ → একই সেভ আবার যায়
+      const c = consentDialog(p);
+      await c.waitFor({ timeout: 10000 });
+      await J.shot('স্বাস্থ্য তথ্যের সম্মতি', '‘স্বাস্থ্য তথ্য রাখার আগে আপনার সম্মতি’ — কী তথ্য, কেন, কোথায় (ইউরোপ), কে দেখে, কতদিন, কীভাবে তুলে নেবেন; দুটো সম্মতি; ‘এখন না’ / ‘রাজি আছি’।', { page: p });
+      await c.getByRole('button', { name: 'রাজি আছি' }).click();
+      await c.waitFor({ state: 'detached', timeout: 10000 });
+    }
     await until(p, () => !document.querySelector('[role="dialog"]'), null, 15000);
     await settle(p, 600);
     const card2 = p.locator('section, article, div').filter({ hasText: 'জরুরি আহ্বান · Lifolo টিম' }).filter({ hasText: HOSPITAL }).last();

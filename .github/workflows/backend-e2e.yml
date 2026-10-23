@@ -46,6 +46,10 @@ on:
         type: boolean
         required: false
         default: false
+      consent:
+        description: "health_consent switch for the run: on (default — every switch on) or off (it stays outside FEATURES_ALL_ON)"
+        required: false
+        default: "on"
 
 permissions:
   contents: write
@@ -106,6 +110,9 @@ jobs:
       E2E_WANT_CLOCK: ${{ inputs.clock || '11:00' }}
       LABEL: ${{ matrix.backend }}
       E2E_WEB: ${{ inputs.web || 'vue' }}
+      # every feature switch on: FEATURES_ALL_ON (e2e/spring.sh) + health_consent, which stays outside all-on and is
+      # switched on by the owner after the demo is built (journey 00, admin_feature_set)
+      E2E_CONSENT: ${{ inputs.consent || 'on' }}
     steps:
       - uses: actions/checkout@v5
         if: env.SKIP != 'true'

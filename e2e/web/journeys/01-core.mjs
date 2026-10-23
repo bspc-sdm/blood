@@ -1,5 +1,5 @@
 // রোগীর পুরো যাত্রা (গাইড journey.json J-01…J-25): সিরিয়াল → সারি → প্রেসক্রিপশন → ফার্মেসি → ল্যাব → রিপোর্ট দেখানোর টাকা → ডাক্তার
-import { tap, has, see, go, settle, dhakaISO, bn, bookBtn, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
+import { tap, has, see, go, settle, dhakaISO, bn, bookBtn, bookSent, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
 
 export const meta = { no: 1, slug: 'core-journey', titleBn: 'রোগীর পুরো যাত্রা: সিরিয়াল থেকে রিপোর্ট' };
 
@@ -40,7 +40,7 @@ export async function run(J) {
     await dlg.getByRole('textbox').last().fill('সুগার বেশি, মাথা ঘোরে');
     await J.shot('সিরিয়ালের অনুরোধের ঘর ভরা', 'তারিখ ‘আজ’ বাছা, ‘কী সমস্যা’-তে লেখা।');
     await dlg.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
-    await see(page, 'অনুরোধ পাঠানো হয়েছে');
+    await bookSent(page, J);
     await J.shot('অনুরোধ পাঠানো হলো', '‘অনুরোধ পাঠানো হয়েছে। নিশ্চিত হলে নোটিফিকেশন পাবেন।’ লেখা আসে।');
     await go(page, '/my-appointments');
     await J.shot('আমার অ্যাপয়েন্টমেন্ট — অপেক্ষায়', '‘ডা. ডেমো হাসান’ — অবস্থা ‘অপেক্ষায়’, সিরিয়াল নম্বর নেই, ডাক্তারের ফোন নেই।');

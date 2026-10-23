@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { BASE, E2E } from './stack.mjs';
+import { demo, ensureConsent } from './api.mjs';
 
 export const SHOTS = path.join(E2E, 'web/shots');
 export const PHONE = { width: 412, height: 915 };
@@ -24,6 +25,32 @@ export const ROLE_LABEL = {
   caregiver: 'কেয়ারগিভার',
 };
 export const PHONE_ROLES = new Set(['patient', 'donor', 'caregiver', 'ambulance', 'guest', 'homecare', 'bloodbank']);
+
+/**
+ * স্বাস্থ্য তথ্যের সম্মতির সুইচ (health_consent, backend/docs/CONSENT.md) — FEATURES_ALL_ON-এর বাইরে, তাই আলাদা:
+ * E2E_CONSENT=on হলে ০০-এর পরে মালিক সুইচটা "সবার জন্য" চালু করেন (CI-র ডিফল্ট — সব সুইচ চালু)।
+ */
+export const CONSENT = (process.env.E2E_CONSENT || 'off') === 'on';
+let consentReady = false;
+/**
+ * সম্মতি চালু থাকলে ডেমো রোলগুলোর সম্মতি প্রস্তুতিতেই (API, একবার) — আগের যাত্রাগুলো সম্মতির আগের মতোই চলে (রোগীর হয়ে
+ * কেয়ারগিভারের কাজেও রোগীর সম্মতি লাগে)। পর্দা দিয়ে সম্মতি: ১০-এর নতুন ব্যবহারকারী (ADM-08)।
+ */
+export async function demoConsents() {
+  if (!CONSENT || consentReady) return;
+  for (const r of Object.keys(ROLE_LABEL)) {
+    try {
+      await ensureConsent(await demo(r));
+    } catch (e) {
+      // এই ডেমোতে না থাকা রোল (লগইন হয় না) — বাদ
+      if (!/demo login/.test(e.message)) throw e;
+    }
+  }
+  consentReady = true;
+}
+
+/** সম্মতির পর্দা (সার্ভারের লেখা: শিরোনাম ‘স্বাস্থ্য তথ্য রাখার আগে আপনার সম্মতি’, বোতাম ‘রাজি আছি’ / ‘এখন না’) */
+export const consentDialog = (page) => page.getByRole('dialog').filter({ hasText: 'স্বাস্থ্য তথ্য রাখার আগে আপনার সম্মতি' });
 
 export const manifest = [];
 export const issues = []; // নিজে থেকে ধরা সন্দেহ — হাতে দেখে bug/ঠিক আছে ঠিক করা হয়
@@ -104,6 +131,7 @@ export class Journey {
 
   /** এই রোলের পাতা (ফোন/ডেস্কটপ রোল দেখে, বা vp দিয়ে জোর করে) — লগইন/রোল বদল ডেমো তালিকা দিয়ে */
   async as(role, vp = PHONE_ROLES.has(role) ? 'phone' : 'desktop') {
+    if (role !== 'guest' && role !== 'owner') await demoConsents();
     const P = await this.ctxFor(vp);
     if (P.role !== role) {
       await switchRole(P.page, role, P.role);
@@ -421,6 +449,24 @@ export async function adminAct(page, loc) {
 export const bookBtn = (page) => page.getByRole('button', { name: /^অ্যাপয়েন্টমেন্ট: |^অ্যাপয়েন্টমেন্ট চাই$/ });
 
 /**
+ * ‘অনুরোধ পাঠান’-এর পরে: চেম্বারে অগ্রিম থাকলে (সুইচ pay_chamber_advance, PAYMENTS.md) আগে পেমেন্টের জানালা
+ * ‘অনুরোধ গেছে। সিরিয়াল রাখতে অগ্রিম দিন।’ — রোগী পরে দেবেন (জানালা বন্ধ; বুকিং থাকে, ‘অগ্রিম বাকি’), তারপর
+ * ‘অনুরোধ পাঠানো হয়েছে’। সুইচ বন্ধ বা অগ্রিম নেই (আজকের পার হওয়া সময়) — সরাসরি ‘অনুরোধ পাঠানো হয়েছে’।
+ * J দিলে অগ্রিমের জানালার ছবি।
+ */
+export async function bookSent(page, J) {
+  const sent = vis(page.getByText('অনুরোধ পাঠানো হয়েছে'));
+  const adv = page.getByRole('dialog').filter({ hasText: 'সিরিয়াল রাখতে অগ্রিম দিন' });
+  await sent.or(adv).first().waitFor({ timeout: 10000 });
+  if (await adv.count()) {
+    await settle(page, 300);
+    if (J) await J.shot('অগ্রিমের জানালা (পরে দেবেন)', '‘অনুরোধ গেছে। সিরিয়াল রাখতে অগ্রিম দিন।’ — অগ্রিম ৳২০০, ডাক্তারের ডেমো নম্বর; বন্ধ করলে বুকিং থাকে (‘অগ্রিম বাকি’)।');
+    await page.keyboard.press('Escape');
+  }
+  await see(page, 'অনুরোধ পাঠানো হয়েছে');
+}
+
+/**
  * আমার কাজ › ফার্মেসি (তিন ট্যাব: অর্ডার · ওষুধ খোঁজা · দোকান › তথ্য/বিক্রি/স্টক/এনালাইটিক্স)। পুরোনো ট্যাবের নামও চলে
  * (‘অনলাইন অর্ডার’ → অর্ডার, ‘পণ্য ও স্টক’ → দোকান › স্টক)।
  */
@@ -430,6 +476,34 @@ export async function pharmacyWork(page, tab) {
     'বিক্রি': 'shop/sales', 'পণ্য ও স্টক': 'shop/stock', 'স্টক': 'shop/stock', 'এনালাইটিক্স': 'shop/analytics',
   }[tab] || 'orders';
   await go(page, `/work/pharmacy/${to}`);
+}
+
+/**
+ * দোকান › বিক্রি-র পণ্য খোঁজার ঘর। রসিদ চালু থাকলে (সুইচ inv_pharmacy, INVOICES.md) লেখা ‘খুঁজুন বা বারকোড স্ক্যান করুন’,
+ * বন্ধ থাকলে ‘পণ্য খুঁজুন’ (দোকান › মাল কেনা-তেও ‘পণ্য খুঁজুন’)।
+ */
+export const posPicker = (page) => page.getByPlaceholder(/^পণ্য খুঁজুন$|^খুঁজুন বা বারকোড স্ক্যান করুন$/).first();
+
+/** রসিদ চালু: ‘প্রতিটা বিক্রির পর রসিদ প্রিন্ট’ বন্ধ (যাত্রায় ছাপা নয়) — বন্ধ সুইচে ঘরটাই নেই */
+export async function posNoPrint(page) {
+  const c = page.getByRole('checkbox', { name: 'প্রতিটা বিক্রির পর রসিদ প্রিন্ট' });
+  if ((await c.count()) && (await c.first().isChecked())) await c.first().uncheck();
+}
+
+/**
+ * ‘বিক্রি লিখুন’ → ‘বিক্রি লেখা হয়েছে’ (রসিদ চালু: ‘… — রসিদ তৈরি’ আর রসিদের জানালা; ছবি নিয়ে বন্ধ, যাতে পরের ধাপ চলে)।
+ * J দিলে রসিদের ছবি।
+ */
+export async function posSave(page, J) {
+  await page.getByRole('button', { name: 'বিক্রি লিখুন' }).click();
+  await see(page, 'বিক্রি লেখা হয়েছে');
+  const r = page.getByRole('dialog').filter({ hasText: 'রসিদ' });
+  if (await r.count()) {
+    await settle(page, 300);
+    if (J) await J.shot('বিক্রির রসিদ', 'রসিদ নম্বর, দোকানের নাম, লাইন, ছাড়, মোট, পরিশোধ (নগদ) আর যাচাইয়ের QR।');
+    await page.keyboard.press('Escape');
+    await r.first().waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+  }
 }
 
 /** আমার কাজ › প্যাথলজি (অনুরোধ · ল্যাব › ল্যাবের তথ্য/পরীক্ষা ও দাম/স্বাভাবিক মাত্রা); পুরোনো ‘পরীক্ষার অনুরোধ’ → অনুরোধ */

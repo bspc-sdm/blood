@@ -1,7 +1,7 @@
 // সেবা (গাইড services.json): অ্যাম্বুলেন্স/ফার্মেসি/প্যাথলজি/নার্সের তালিকা, ওষুধ খোঁজা, অনলাইন অর্ডার, দোকানের হিসাব-খাতা,
 // প্যাথলজির দাম আর বাসা থেকে নমুনা, রেটিং, রিপোর্ট, মালিকের অনুমোদন
 import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, inStore, copyIfThere } from '../lib.mjs';
-import { adminAct } from '../lib.mjs';
+import { adminAct, posPicker, posNoPrint, posSave } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
 import { adminLogin } from './00-seed.mjs';
@@ -375,7 +375,8 @@ export async function run(J) {
 
   await J.sc('S-45', 'কাউন্টারে বিক্রি — পণ্যের ছাড় আর বিলে ছাড়', async () => {
     await tap(page, 'বিক্রি', { role: 'tab' });
-    const pick = page.getByPlaceholder('পণ্য খুঁজুন').first();
+    await posNoPrint(page);
+    const pick = posPicker(page);
     await pick.fill('Comet');
     await settle(page, 500);
     await pick.press('Enter');
@@ -388,8 +389,7 @@ export async function run(J) {
     if (await bill.count()) await bill.fill('5');
     await settle(page, 300);
     await J.shot('কাউন্টারে বিক্রি — Comet ২০, Seclo ১০, বিলে ৫%', 'মোট ৳১৭০, ছাড় ৳২৪.৬৫, দিতে হবে ৳১৪৫.৩৫।', { full: true });
-    await page.getByRole('button', { name: 'বিক্রি লিখুন' }).click();
-    await see(page, 'বিক্রি লেখা হয়েছে');
+    await posSave(page, J);
     await J.shot('বিক্রি লেখা হয়েছে', '‘বিক্রি লেখা হয়েছে · ৳১৪৫.৩৫’; ডানে ‘কাউন্টার’ ট্যাগ।', { full: true });
   });
 

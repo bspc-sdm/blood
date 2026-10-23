@@ -56,7 +56,9 @@ export async function run(J) {
     } else {
       await tap(page, 'ফিল্টার');
       const d = page.getByRole('dialog').last();
-      await d.getByText('হৃদরোগ', { exact: true }).first().click();
+      // ফিল্টারের জানালায় চিপে সংখ্যাও থাকে: ‘হৃদরোগ (১)’ (দ্রুত-চিপ শুধু সবচেয়ে বেশি ডাক্তারের ৩টা বিশেষজ্ঞতা — নতুন পেশা আর
+      // চিকিৎসা পদ্ধতির ডাক্তার যোগ হলে হৃদরোগ সেখানে থাকে না)
+      await d.getByText(/^হৃদরোগ( \(|$)/).first().click();
       const show = d.getByRole('button', { name: 'দেখান' });
       if (await show.count()) await show.click();
       await settle(page);

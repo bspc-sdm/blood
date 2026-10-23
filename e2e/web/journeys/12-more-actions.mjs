@@ -2,9 +2,9 @@
 // (ব্রাউজারে বোতাম থাকলে সেটা আগের যাত্রায়)। প্রতিটা দৃশ্যে শুধু "সফল" নয় — ফলটা আবার পড়ে মেলানো (তালিকায় এল/গেল, অবস্থা বদলাল)।
 // নতুন দোকান/প্যাথলজি/ব্লাড ব্যাংক/অ্যাম্বুলেন্স: একজন নতুন (আসল) ব্যবহারকারী বানিয়ে মুছে ফেলেন — ডেমো অক্ষত থাকে।
 // শেষ দৃশ্যে ডেমো মোছা (admin_demo_wipe — রিলিজের আগে যেটা করতে হবে, আসল অ্যাকাউন্ট-মোছার পথ) — তাই এই যাত্রা সবার শেষে।
-import { act, demo, owner, post, sql, uidOf, ApiError, apptForRx } from '../api.mjs';
+import { act, demo, owner, post, sql, uidOf, ApiError, apptForRx, ensureConsent } from '../api.mjs';
 import { BASE } from '../stack.mjs';
-import { go, see, settle, logout } from '../lib.mjs';
+import { go, see, settle, logout, demoConsents } from '../lib.mjs';
 import { adminLogin } from './00-seed.mjs';
 
 export const meta = { no: 12, slug: 'more-actions', titleBn: 'বাকি কাজ: সাপোর্ট, তালিকা মোছা, হিসাব-খাতা, প্রশ্নোত্তর, ল্যাব, ফার্মেসি, ডেমো মোছা' };
@@ -20,6 +20,8 @@ async function realUser(email, set) {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: v.token, returnSecureToken: true }),
   }).then((x) => x.json());
   const who = { token: r.idToken, uid: uidOf(r.idToken), role: email.split('@')[0], email };
+  // সম্মতির সুইচ চালু থাকলে রক্তের গ্রুপ/ওজন/রক্তদানের তারিখ দেওয়ার আগে সম্মতি (নতুন মানুষ, প্রস্তুতি)
+  await ensureConsent(who);
   await act(who, 'profile_update', { set: { lang: 'bn', ...set } });
   return who;
 }
@@ -41,6 +43,7 @@ export async function run(J) {
   await J.sc('MORE-00', 'প্রস্তুতি', async () => {
     [P, D, DOC, PH, LAB, AMB, BB] = await Promise.all(['patient', 'donor', 'doctor', 'pharmacy', 'lab', 'ambulance', 'bloodbank'].map((r) => demo(r)));
     O = await owner();
+    await demoConsents();
     U = await realUser('e2e-more-owner@lifolo-e2e.test', { name: 'ই২ই ব্যবসায়ী', phone: '01711000601', ...AT, placeName: GZP, locationSource: 'district' });
   });
 
