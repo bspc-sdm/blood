@@ -6,7 +6,7 @@ import { router } from '@/router';
 import { useSession } from '@/lib/session';
 import { toast } from '@/ui/toast';
 import { vFocus } from '@/ui/composables';
-import { installOffline } from '..';
+import { installOffline, markDesktopShell } from '..';
 import { OfflineEngine, hashName } from '../engine/engine';
 import { randomCode } from '../engine/crypt';
 import { desktopFeatureOn, refreshDesktopFeature } from '../feature';
@@ -130,6 +130,7 @@ export function hasBusiness(): boolean {
 let stopEvents: (() => void) | null = null;
 
 export async function bootDesktop() {
+  markDesktopShell();
   installOffline(store);
 
   // ডেস্কটপের নিজের পাতা

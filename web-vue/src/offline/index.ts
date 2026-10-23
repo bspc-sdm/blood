@@ -38,6 +38,13 @@ const webStore: OfflineStore = {
 };
 
 let impl: OfflineStore = webStore;
+let shell: 'web' | 'desktop' = 'web';
+
+/** কোন খোলসে চলছে — ডেস্কটপের শুরু (boot.ts) markDesktopShell() ডাকে; ওয়েবের বিল্ডে Tauri-র কোনো নাম থাকে না */
+export const appShell = () => shell;
+export function markDesktopShell() {
+  shell = 'desktop';
+}
 
 /** ডেস্কটপের শুরুতে একবার (desktop-main.ts) */
 export function installOffline(x: OfflineStore) {

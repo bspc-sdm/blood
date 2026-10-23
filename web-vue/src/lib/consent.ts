@@ -11,6 +11,7 @@ import { store } from './store';
 import { testUser } from './testmode';
 import { tr } from './i18n';
 import { auth } from './firebase';
+import { appShell } from '@/offline';
 
 // "এখন না" বললে কাজটা হয় না — পাতায় এই বার্তা
 const declined = () => tr('Not saved. This needs your consent for health information.', 'সেভ হয়নি। এর জন্য স্বাস্থ্য তথ্যের সম্মতি লাগে।'); // bn-ok
@@ -73,7 +74,7 @@ const state = reactive({
 export const consent: Readonly<typeof state> = state;
 
 /** কোথা থেকে দেওয়া হলো (সার্ভারে রাখা হয়) */
-export const consentSource = (): 'web' | 'desktop' => (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window ? 'desktop' : 'web');
+export const consentSource = (): 'web' | 'desktop' => appShell();
 
 const uidNow = () => auth.currentUser?.uid ?? testUser()?.uid ?? null;
 
