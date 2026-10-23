@@ -266,7 +266,7 @@ class ConsentIT : P2TestBase() {
     // ------------------------------------------------------------------ provider-created records
 
     @Test
-    fun `records a provider makes are saved without the patient's consent; the patient is asked afterwards`() {
+    fun `records a provider makes are saved without the patient's consent - the patient is asked afterwards`() {
         on()
         clock.fixedMs = dhaka("2026-10-19 10:00")
         pro("physio", type = "physio", specialties = listOf("physio_back_neck"))
