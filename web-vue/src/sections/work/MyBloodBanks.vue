@@ -20,6 +20,9 @@ import StatusTag from './StatusTag.vue';
 import StatusReason from './StatusReason.vue';
 import AppealButton from './AppealButton.vue';
 import DocsNeededNotice from './DocsNeededNotice.vue';
+import ProviderPreview from '@/ui/listing/ProviderPreview.vue';
+import StockEditor, { type StockResult } from '@/ui/listing/StockEditor.vue';
+import { useOwnListings } from './ownListing';
 
 const s = useSession();
 const nav = useNav();
@@ -38,6 +41,10 @@ useAreas();
 const title = computed(() => myBusinessTitle('bloodbank'));
 const st = computed(() => new Map((stats.data?.items ?? []).map((x) => [x.id, x])));
 const canAdd = computed(() => list.value.length < MAX_BLOODBANKS);
+// "রোগীরা আপনাকে যেভাবে দেখেন" + রক্তের মজুদ (প্রতিটা ব্লাড ব্যাংকের; স্থগিত হলে নয়)
+const own = useOwnListings('bloodbank');
+const live = computed(() => list.value.filter((b) => b.status !== 'suspended'));
+const stockSaved = (b: BloodBank, r: StockResult) => own.patch(b, { stock: r.stock, stockUpdatedAt: r.stockUpdatedAt, stockStale: r.stockStale });
 async function remove() {
   if (!del.value) return;
   delBusy.value = true;
@@ -66,6 +73,15 @@ const askDel = (b: BloodBank) => {
   <BizPage v-else :title="title">
     <template v-if="canAdd" #actions><Button icon="add" @click="nav('/work/bloodbank/new')">{{ tr('Add blood bank', 'ব্লাড ব্যাংক যোগ করুন') }}</Button></template>
     <Flash :msg="flash" />
+    <ProviderPreview
+      v-for="b in live"
+      :key="'pv-' + b.id"
+      :l="own.listing(b)"
+      :public-to="b.status === 'approved' ? `/services/bloodbank/${b.id}` : null"
+      :store-key="'bloodbank.' + b.id"
+    >
+      <StockEditor :id="b.id" :stock="own.raw(b).stock" @saved="(r) => stockSaved(b, r)" />
+    </ProviderPreview>
     <div v-if="list.length" class="stats work-stats">
       <Stat icon="bloodtype" :value="num(list.length)" :label="tr('Blood banks', 'ব্লাড ব্যাংক')" />
       <Stat icon="check_circle" :value="num(list.filter((b) => b.status === 'approved').length)" :label="tr('Listed', 'তালিকায় আছে')" />

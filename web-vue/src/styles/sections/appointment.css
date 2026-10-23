@@ -172,3 +172,4 @@
 .appt-trx { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; overflow-wrap: anywhere; }
 .appt-pay-rej { padding: 10px 12px; border-radius: 12px; background: var(--error-container); color: var(--on-error-container); }
 .appt-pay-pro { align-items: center; margin-top: 4px; }
+.appt-chpick-name { overflow-wrap: anywhere; }

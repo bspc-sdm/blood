@@ -2,18 +2,25 @@
 import { expect, test } from '@playwright/test';
 import { def, open, watchErrors } from './helpers';
 
-test('ডাক্তারের তালিকা: চেম্বার আগে, আজ/আগামীকাল/বিশেষজ্ঞতার ফিল্টার', async ({ page }) => {
+test('ডাক্তারের তালিকা: এক ছাঁচের কার্ড (বিশেষজ্ঞতা · ফি), আজ/আগামীকাল/এখন চেম্বারে চিপ, "মুছুন"', async ({ page }) => {
   const errs = watchErrors(page);
+  const bodies: any[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/') && r.postDataJSON()?.action === 'providers') bodies.push(r.postDataJSON());
+  });
   await open(page, def('appointment', 'list'));
-  for (const chip of ['আজ বসছেন', 'আগামীকাল', 'এখন চেম্বারে']) await expect(page.getByRole('button', { name: chip }).first()).toBeVisible();
-  // প্রথম কার্ডে চেম্বার (হাসপাতাল, বার ও সময়, ফি)
-  const card = page.locator('main').getByText('ফি:').first();
-  await expect(card).toBeVisible();
-  const all = await page.locator('main').innerText();
-  await page.getByRole('button', { name: 'আজ বসছেন' }).first().click();
-  await page.waitForTimeout(400);
-  const today = await page.locator('main').innerText();
-  expect(today.length).toBeLessThan(all.length);
+  const chips = page.getByTestId('filter-chips');
+  for (const chip of ['আজ বসছেন', 'আগামীকাল', 'এখন চেম্বারে']) await expect(chips.getByRole('button', { name: chip })).toBeVisible();
+  // প্রথম কার্ডের মূল লাইনে ফি "ফি ৳৭০০", ব্যাজ "আজ সিরিয়াল আছে", রেটিং
+  const card = page.getByTestId('listing-card').first();
+  await expect(card.getByTestId('key-line')).toContainText('ফি ৳');
+  await expect(card).toContainText('আজ সিরিয়াল আছে');
+  await expect(card.getByTestId('rating')).toContainText('★');
+  await chips.getByRole('button', { name: 'আজ বসছেন' }).click();
+  await expect(chips.getByRole('button', { name: 'আজ বসছেন' })).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => bodies.at(-1)?.day).toBe('today');
+  await chips.getByTestId('filter-clear').click();
+  await expect(chips.getByRole('button', { name: 'আজ বসছেন' })).toHaveAttribute('aria-pressed', 'false');
   expect(errs).toEqual([]);
 });
 
@@ -44,48 +51,33 @@ test('আমার প্রেসক্রিপশন থাকে সেব�
   expect(errs).toEqual([]);
 });
 
-test('ফার্মেসির খুঁটিনাটি: নিচে আটকানো "প্রেসক্রিপশন পাঠান", পাশে ছোট ফোন বোতাম', async ({ page }) => {
-  await open(page, def('services', 'pharm-user'));
-  // আগে "কীভাবে কিনবেন?" — দোকানে গিয়ে
-  await page.getByText('দোকানে গিয়ে কিনব').first().click();
-  await page.getByText('লাইফ কেয়ার ফার্মেসি').first().click();
-  const foot = page.locator('.services-foot').first();
-  await expect(foot).toBeVisible();
-  expect(await foot.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
-  const send = foot.locator('button.detail-bar-main', { hasText: 'প্রেসক্রিপশন পাঠান' });
-  await expect(send).toBeVisible();
-  const call = foot.locator('.detail-bar-row a[href^="tel:"]', { hasText: 'ফোন' });
-  await expect(call).toBeVisible();
-  // একই সারিতে, ফোন আগে; মালিকের অনুরোধ: ফোনের মাপে "ফোন" ছোট (লেখার মাপে), "প্রেসক্রিপশন পাঠান" চওড়া
-  const [sw, cw] = [(await send.boundingBox())!, (await call.boundingBox())!];
-  expect(Math.abs(sw.y - cw.y)).toBeLessThan(2);
-  expect(cw.x).toBeLessThan(sw.x);
-  expect(cw.width).toBeLessThan(sw.width * 0.6);
-  // "প্রেসক্রিপশন পাঠান" এক লাইনে, কাটা নয়
-  expect(await send.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-});
-
-test('ফোন + আরেকটা কাজ পাশাপাশি: প্যাথলজি আর ডাক্তারেও ফোন ছোট; অ্যাম্বুলেন্সে দুটো সমান (ফোনই মূল)', async ({ page }) => {
-  const widths = async () => {
-    const row = page.locator('.detail-bar-row').first();
-    await expect(row).toBeVisible();
-    const call = row.locator('a[href^="tel:"]').first();
-    const other = row.locator('button').first();
+test('বিস্তারিতের নিচে আটকানো বার: মূল বাটন + কল আইকন (ফার্মেসি, প্যাথলজি, ডাক্তার, অ্যাম্বুলেন্স)', async ({ page }) => {
+  const bar = async (primary: string) => {
+    const b = page.getByTestId('detail-bar').first();
+    await expect(b).toBeVisible();
+    expect(await b.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
+    const main = b.getByRole('button', { name: primary });
+    const call = b.getByTestId('contact-call');
+    await expect(main).toBeVisible();
     await expect(call).toBeVisible();
-    await expect(other).toBeVisible();
-    return [(await call.boundingBox())!.width, (await other.boundingBox())!.width];
+    const [m, c] = [(await main.boundingBox())!, (await call.boundingBox())!];
+    // একই সারিতে, মূল বাটন চওড়া আর আগে, কল আইকন ডানে
+    expect(Math.abs(m.y + m.height / 2 - (c.y + c.height / 2))).toBeLessThan(4);
+    expect(c.x).toBeGreaterThan(m.x);
+    expect(c.width).toBeLessThan(m.width * 0.5);
+    expect(await main.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    // ফোন নম্বর "ঠিকানা ও ফোন"-এ, কপি করা যায়
+    await expect(page.getByTestId('detail-phone').first()).toBeVisible();
   };
+  await open(page, def('services', 'pharm-user'));
+  await page.getByTestId('listing-card').filter({ hasText: 'লাইফ কেয়ার ফার্মেসি' }).click();
+  await bar('প্রেসক্রিপশন পাঠান');
   await open(page, def('services', 'lab-detail'));
-  const [lc, lo] = await widths();
-  expect(lc).toBeLessThan(lo * 0.6);
-  // ডাক্তার: ফোনের মাপে "সিরিয়ালের ফোন" ছোট হয়ে "ফোন"
+  await bar('পরীক্ষা পাঠান');
   await open(page, def('appointment', 'detail'));
-  const [dc, dO] = await widths();
-  expect(dc).toBeLessThan(dO * 0.6);
-  expect((await page.locator('.detail-bar-row a[href^="tel:"]').first().innerText()).trim()).toBe('ফোন');
+  await bar('সিরিয়াল নিন');
   await open(page, def('services', 'amb-user-detail'));
-  const [ac, ao] = await widths();
-  expect(Math.abs(ac - ao)).toBeLessThan(2);
+  await bar('অ্যাম্বুলেন্স ডাকুন');
 });
 
 test('ফার্মেসির ট্যাব: অর্ডার / ওষুধ খোঁজা / দোকান (তথ্য · বিক্রি · স্টক · এনালাইটিক্স)', async ({ page }) => {

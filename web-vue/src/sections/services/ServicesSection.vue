@@ -2,6 +2,7 @@
 // "সেবা" (অ্যাপের ServicesTab): অ্যাম্বুলেন্স / ফার্মেসি (+ ওষুধ খুঁজুন) / ব্লাড ব্যাংক / প্যাথলজি।
 // পথ: /services → /services/ambulance; /services/:kind; /services/:kind/:id; /services/pharmacy/medicine;
 // /services/pharmacy/prescriptions(/:id) — আমার প্রেসক্রিপশন (পুরোনো /prescriptions/* এখানে redirect)
+// /services/doctor(/:id) — ডাক্তারের তালিকা (অ্যাপয়েন্টমেন্টের একই পাতা, সেবার ট্যাবে)
 // নিজের ব্যবসা এখানে নয় — "আমার কাজ" (/work)।
 import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -13,13 +14,17 @@ import Directory from './Directory.vue';
 import MedFind from './MedFind.vue';
 import RequestPage from './RequestPage.vue';
 import PrescriptionsPage from '../health/PrescriptionsPage.vue';
+import DoctorsPage from '../appointment/DoctorsPage.vue';
 
 usePageTitle(() => tr('Services', 'সেবা'));
 const route = useRoute();
 const nav = useNav();
-const page = computed<{ k: 'med' } | { k: 'rx'; id: string | null } | { k: 'req'; id: string } | { k: 'dir'; kind: Kind; id: string | null } | { k: 'redirect' }>(() => {
+const page = computed<{ k: 'doc'; id: string | null } | { k: 'med' } | { k: 'rx'; id: string | null } | { k: 'req'; id: string } | { k: 'dir'; kind: Kind; id: string | null } | { k: 'redirect' }>(() => {
   const pathname = route.path;
   if (matchPath('/services/pharmacy/medicine', pathname)) return { k: 'med' };
+  if (matchPath({ path: '/services/doctor', end: true }, pathname)) return { k: 'doc', id: null };
+  const doc = matchPath({ path: '/services/doctor/:id', end: true }, pathname);
+  if (doc?.params.id) return { k: 'doc', id: doc.params.id };
   if (matchPath('/services/pharmacy/prescriptions', pathname)) return { k: 'rx', id: null };
   const rx = matchPath('/services/pharmacy/prescriptions/:id', pathname);
   if (rx?.params.id) return { k: 'rx', id: rx.params.id };
@@ -41,7 +46,8 @@ watch(
 </script>
 
 <template>
-  <MedFind v-if="page.k === 'med'" />
+  <DoctorsPage v-if="page.k === 'doc'" base="services" :detail-id="page.id" />
+  <MedFind v-else-if="page.k === 'med'" />
   <PrescriptionsPage v-else-if="page.k === 'rx'" :id="page.id" />
   <RequestPage v-else-if="page.k === 'req'" :id="page.id" :key="page.id" />
   <Directory v-else-if="page.k === 'dir'" :key="page.kind" :kind="page.kind" :id="page.id" />

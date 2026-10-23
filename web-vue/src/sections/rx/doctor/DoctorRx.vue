@@ -31,6 +31,7 @@ import { invFeature } from '../../invoices/features';
 import { newTypeLabel, rxKindOf, systemTag, writesRx } from '@/lib/practice';
 import { practitionerLabel } from '@/lib/titleGuard';
 
+const DoctorPreview = defineAsyncComponent(() => import('../../appointment/pro/DoctorPreview.vue'));
 const ChamberDesk = defineAsyncComponent(() => import('../../invoices/ChamberDesk.vue'));
 
 const BASE = '/work/rx';
@@ -147,6 +148,8 @@ const pickWho = (v: string) => nav(BASE + (v ? `?doctor=${encodeURIComponent(v)}
         <Select :aria-label="tr('Working for', 'কার হয়ে কাজ')" :model-value="selected" :options="options" @update:model-value="pickWho" />
       </div>
     </template>
+    <!-- সহকারী: ডাক্তারের "রোগীরা যেভাবে দেখেন" আর অনুমতির চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" -->
+    <DoctorPreview v-if="actor.role === 'assistant' && (page.k === 'patients' || page.k === 'desk')" :key="actor.doctorUid ?? ''" :doctor-uid="actor.doctorUid" />
     <div class="rxd-tabs">
       <PillTabs :tabs="tabs" :value="cur" :label="title" @change="(k) => nav(link(k))" />
     </div>

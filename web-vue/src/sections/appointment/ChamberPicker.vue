@@ -32,7 +32,7 @@ const rows = computed(() =>
       >
         <span class="appt-chpick-ic"><Icon :name="r.c.mode === 'online' ? 'language' : 'local_hospital'" /></span>
         <span class="col grow appt-chpick-txt">
-          <span class="t-title-s semi ellipsis">{{ chamberShort(r.c) }}</span>
+          <span class="t-title-s semi appt-chpick-name">{{ chamberShort(r.c) }}</span>
           <span v-if="r.st.text" :class="cx('t-body-s appt-st', r.st.kind)">{{ r.st.text }}</span>
           <span class="t-body-s muted">{{ r.line }}</span>
         </span>

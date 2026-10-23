@@ -1,0 +1,154 @@
+/* সেবার পাঁচ তালিকার এক ছাঁচ (src/ui/listing): উপরের ছোট অংশ, কার্ড, কঙ্কাল, খালি অবস্থা, বিস্তারিত আর নিচের বার */
+
+/* ---------- সেবার ট্যাব (ছোট, এক লাইনে, পাশে সরে) ---------- */
+.lst-tabs { margin: 0 -16px; min-width: 0; }
+.lst-tabs .pills { padding: 2px 16px 4px; gap: 6px; scroll-padding-inline: 16px; }
+.lst-tabs .pill { min-height: 32px; padding: 5px 12px; font-size: 13px; line-height: 18px; gap: 5px; }
+.lst-tabs .pill svg { width: 16px; height: 16px; }
+.lst-tabs .pills.secondary { padding-top: 0; }
+@media (min-width: 720px) {
+  .lst-tabs { margin: 0 -24px; }
+  .lst-tabs .pills { padding-left: 24px; padding-right: 24px; }
+}
+@media (min-width: 960px) { .lst-tabs { margin: 0; } .lst-tabs .pills { padding-left: 0; padding-right: 0; } }
+
+/* ---------- উপরের অংশ ---------- */
+.lst-top { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lst-search-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lst-search { position: relative; flex: 1 1 0; min-width: 0; display: block; }
+.lst-search > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--on-surface-variant); pointer-events: none; }
+.lst-search .input { height: 40px; min-height: 40px; padding: 0 10px 0 38px; border-radius: 20px; font-size: 14px; width: 100%; }
+.lst-search .input:focus { padding-left: 37px; }
+.lst-area { max-width: 46%; height: 40px; border-radius: 20px; padding: 0 8px 0 10px; gap: 4px; background: var(--surface-low); }
+.lst-area-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.lst-area svg { flex: none; }
+.lst-filter-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lst-sort { position: relative; flex: none; }
+.lst-sort > .chip { gap: 4px; padding: 0 8px 0 10px; }
+.lst-sort-menu { left: 0; right: auto; min-width: 180px; }
+.lst-sort-menu [aria-checked='true'] { font-weight: 600; color: var(--primary); }
+.lst-ghost { opacity: 0; }
+.lst-chips-wrap { position: relative; flex: 1 1 0; min-width: 0; }
+.lst-chips { gap: 6px; padding: 0 2px; }
+.lst-chips .chip { padding: 0 12px; gap: 4px; font-size: 13px; cursor: pointer; }
+.lst-chips .chip svg { width: 16px; height: 16px; }
+.lst-chips .chip:hover { background: var(--primary-a12); }
+.lst-chips .chip[aria-pressed='true']:hover { filter: brightness(.97); background: var(--secondary-container); }
+.lst-chips-wrap.fade::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 36px; pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--bg) 85%);
+}
+.lst-clear { border-color: transparent; background: var(--surface-high); }
+
+/* ---------- কার্ড ---------- */
+.lst-list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.lst-card { position: relative; display: flex !important; flex-direction: column; gap: 6px; padding: 12px 12px 10px 14px; }
+.lst-head { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.lst-main { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
+.lst-name-row { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+.lst-name { font-size: 16px; line-height: 22px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.lst-verified { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--primary); }
+.lst-key { margin: 0; font-size: 14px; line-height: 20px; color: var(--on-surface-variant); overflow-wrap: anywhere; }
+.lst-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 56px; min-height: 0; }
+.lst-meta .tag { font-size: 12px; line-height: 16px; padding: 2px 8px; }
+.lst-rating { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--on-surface); }
+.lst-card .lst-stock { padding-left: 56px; }
+.lst-actions { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 2px; }
+.lst-actions .btn, .lst-actions .lst-primary { min-height: 36px; height: 36px; padding: 0 14px; font-size: 14px; }
+.lst-actions .call-btns { flex: none; }
+.lst-card.preview { cursor: pointer; }
+.lst-card .services-more { margin: -6px -6px 0 0; }
+
+/* রক্তের মজুদ */
+.lst-stock { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.lst-stock-chip { display: inline-flex; align-items: baseline; gap: 2px; font-size: 12px; line-height: 16px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; }
+.lst-stock-chip b { font-weight: 700; }
+.lst-stock-chip.have { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.lst-stock-chip.low { background: var(--secondary-container); color: var(--on-secondary-container); }
+.lst-stock-chip.none { background: transparent; color: var(--on-surface-variant); box-shadow: inset 0 0 0 1px var(--outline-variant); }
+.lst-stock-note { font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
+.lst-stock-note.stale { color: var(--error); font-weight: 600; }
+.lst-stock.big .lst-stock-chip { font-size: 14px; line-height: 20px; padding: 4px 10px; }
+.lst-stock.big .lst-stock-note { flex-basis: 100%; font-size: 13px; }
+
+/* কঙ্কাল (কার্ডের একই গড়ন) */
+.lst-skel { pointer-events: none; }
+.lst-skel-av { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+.lst-skel-line { display: block; height: 16px; border-radius: 6px; margin: 3px 0; }
+.lst-skel-line.sm { height: 12px; }
+.lst-skel-line.w30 { width: 30%; } .lst-skel-line.w60 { width: 60%; } .lst-skel-line.w80 { width: 80%; }
+.lst-skel-btn { width: 132px; height: 36px; border-radius: 10px; }
+.lst-skel-ic { width: 36px; height: 36px; border-radius: 50%; }
+
+.lst-empty { padding: 32px 16px; }
+.lst-empty .t { font-size: 17px; line-height: 24px; }
+
+/* ---------- বিস্তারিত ---------- */
+.lst-dhead { display: flex; align-items: flex-start; gap: 14px; min-width: 0; padding-top: 4px; }
+.lst-dname { overflow-wrap: anywhere; }
+.lst-dname .lst-verified { display: inline-block; vertical-align: -3px; margin-left: 4px; }
+.lst-phone { align-items: center; }
+.lst-phone .btn { margin-left: auto; }
+.lst-bar {
+  position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+  margin: 8px -16px -32px; padding: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
+  background: var(--bg); border-top: 1px solid var(--outline-variant);
+}
+.lst-bar > .btn, .lst-bar > .lst-primary, .lst-bar > .contents > .btn { flex: 1 1 auto; min-height: 48px; border-radius: 12px; font-weight: 600; justify-content: center; }
+.lst-bar .call-btns { flex: none; }
+@media (min-width: 720px) { .lst-bar { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; } }
+@media (min-width: 960px) { .lst-bar { background: var(--surface-lowest); } }
+
+/* ---------- অ্যাম্বুলেন্সের উপরের ছোট অংশ ---------- */
+.lst-999 { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }
+.lst-999 a { display: inline-flex; align-items: center; gap: 4px; color: var(--error); font-weight: 700; text-decoration: none; }
+.lst-999 svg { width: 16px; height: 16px; }
+
+/* ---------- "আমার কাজ": রোগীরা আপনাকে যেভাবে দেখেন + এক চাপের সুইচ + কাজের সারি ---------- */
+.pv-box { display: flex; flex-direction: column; gap: 8px; min-width: 0; border-radius: var(--r-card); border: 1px solid var(--outline-variant); padding: 8px 12px 12px; background: var(--surface-lowest); }
+.pv-head { display: flex; align-items: center; gap: 6px; min-height: 36px; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; width: 100%; }
+.pv-head svg { width: 20px; height: 20px; color: var(--on-surface-variant); transition: transform .15s; flex: none; }
+.pv-head svg.flip { transform: rotate(180deg); }
+.pv-box .lst-card { background: var(--surface-low); }
+.pv-switches { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.pv-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--outline-variant); background: transparent; color: var(--on-surface); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.pv-switch svg { width: 18px; height: 18px; }
+.pv-switch[aria-pressed='true'] { background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }
+.pv-switch.good[aria-pressed='true'] { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.pv-switch:disabled { opacity: .6; cursor: default; }
+.pv-stock { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pv-stock-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pv-stock-row b { width: 34px; flex: none; font-variant-numeric: tabular-nums; }
+.pv-stock-row .seg { display: inline-flex; border: 1px solid var(--outline-variant); border-radius: 8px; overflow: hidden; }
+.pv-stock-row .seg button { border: 0; background: transparent; color: var(--on-surface); font: inherit; font-size: 13px; padding: 4px 8px; min-height: 32px; cursor: pointer; }
+.pv-stock-row .seg button + button { border-left: 1px solid var(--outline-variant); }
+.pv-stock-row .seg button[aria-pressed='true'].have { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.pv-stock-row .seg button[aria-pressed='true'].low { background: var(--secondary-container); color: var(--on-secondary-container); }
+.pv-stock-row .seg button[aria-pressed='true'].none { background: var(--surface-highest); }
+.q-seg { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.q-seg::-webkit-scrollbar { display: none; }
+
+/* সেবার তালিকার পাতা: ফাঁক কম, অ্যাম্বুলেন্স ডাকুন ছোট (এক লাইনের নিচের লেখা; কাছের গাড়ির লাইন কার্ডেই আছে) */
+.ld-list .list-inner.lst-page { gap: 8px; }
+.lst-page .services-nearest { min-height: 52px; padding: 6px 12px; gap: 10px; border-radius: 14px; }
+.lst-page .services-nearest .ic { width: 36px; height: 36px; }
+.lst-page .services-nearest .ic svg { width: 20px; height: 20px; }
+.lst-page .services-nearest .sub { -webkit-line-clamp: 1; }
+.lst-page .amb-call-phone { min-height: 52px; border-radius: 14px; }
+.lst-page .amb-callbar + .t-body-s { display: none; }
+.lst-actions .ph-card-send { flex: 0 1 auto; }
+.pv-switches > .col { flex: 1 1 100%; min-width: 0; }
+
+/* "আমার কাজ"-এর সারি, ডেস্কটপে (৯০০px+): বাঁয়ে ছোট সারি, ডানে বাছা জিনিস */
+.q-md { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 440px); gap: 16px; align-items: start; min-width: 0; }
+.q-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.q-item { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 10px 12px; border-radius: var(--r-card); border: 0; background: var(--surface-low); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.q-item:hover { background: var(--surface-mid); }
+.q-item[aria-current='true'] { background: var(--secondary-container); box-shadow: inset 0 0 0 1.5px var(--primary); }
+.q-detail { position: sticky; top: 72px; }
+/* ফোনে সেবার পাঁচ ট্যাব এক লাইনে পুরো (আইকন ছাড়া) — কোনো ট্যাব কাটা পড়ে না */
+@media (max-width: 479px) {
+  .lst-tabs .pills:not(.secondary) .pill svg { display: none; }
+  .lst-tabs .pills:not(.secondary) { gap: 4px; }
+  .lst-tabs .pills:not(.secondary) .pill { padding: 5px 10px; }
+}

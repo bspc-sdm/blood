@@ -39,6 +39,8 @@ let pharmacy = {
   id: 'u-work', name: 'নিউ লাইফ ফার্মেসি', phone: '01811556677', address: 'চরপাড়া মোড়, মেডিকেল কলেজ গেটের বিপরীতে', district: MYM, upazilaId: SADAR,
   openAt: '08:00', closeAt: '23:30', open24: false, openNow: true, closedUntil: 0, closedDays: [5], delivery: true, deliveryNote: 'চরপাড়া ও গাঙ্গিনাপাড়ে ফ্রি',
   discount: 10, rating: 4.4, ratingCount: 31, licenseNo: 'DL-MYM-2019-04412', status: 'approved', statusReason: '', hasLocation: true,
+  // তালিকার একই ঘর (backend/docs/LISTINGS.md "Provider side")
+  ratingSummary: { avg: 4.4, count: 31 }, is24h: false, opensAt: '08:00', closesAt: '23:30', openOverride: null, verified: true,
 };
 
 let bloodBanks = [
@@ -46,6 +48,8 @@ let bloodBanks = [
     id: 'bb1', name: 'সন্ধানী ব্লাড ব্যাংক, ময়মনসিংহ মেডিকেল', kind: 'org', phone: '01911000222', district: MYM, upazilaId: SADAR,
     address: 'ময়মনসিংহ মেডিকেল কলেজ, ছাত্রাবাস রোড', open24: false, openAt: '09:00', closeAt: '21:00', openNow: true,
     services: ['whole_blood', 'screening', 'donate_here'], closedDays: [], licenseNo: '', status: 'approved', statusReason: '',
+    ratingSummary: null, verified: true,
+    stock: { 'A+': 'have', 'A-': 'none', 'B+': 'low', 'B-': 'none', 'O+': 'have', 'O-': null, 'AB+': 'low', 'AB-': null }, stockUpdatedAt: now - 5 * HOUR, stockStale: false,
   },
 ];
 
@@ -139,6 +143,23 @@ export default {
     bloodBanks = [...bloodBanks, { ...b, id: 'bb' + (bloodBanks.length + 10), openNow: true, status: 'pending', statusReason: '' }];
     return { ok: true, pending: true };
   },
+  bloodbank_stock_set: (b) => {
+    const t = Date.now();
+    bloodBanks = bloodBanks.map((x) => (x.id === b.id ? { ...x, stock: b.groups ?? x.stock, stockUpdatedAt: t, stockStale: false } : x));
+    const x = bloodBanks.find((y) => y.id === b.id);
+    return { ok: true, id: b.id, stock: x?.stock ?? null, stockUpdatedAt: t, stockStale: false };
+  },
+  pharmacy_open_override: (b) => {
+    const until = Date.now() + 3 * HOUR;
+    pharmacy = { ...pharmacy, openNow: b.open == null ? true : !!b.open, openOverride: b.open == null ? null : { open: !!b.open, until } };
+    return { ok: true, openNow: pharmacy.openNow, openOverride: pharmacy.openOverride };
+  },
+  pharmacy_delivery_set: (b) => {
+    pharmacy = { ...pharmacy, delivery: !!b.delivery };
+    return { ok: true, delivery: pharmacy.delivery };
+  },
+  lab_open_override: (b) => ({ ok: true, openNow: b.open !== false, openOverride: b.open == null ? null : { open: !!b.open, until: Date.now() + 3 * HOUR } }),
+  lab_home_collection_set: (b) => ({ ok: true, homeCollection: !!b.homeCollection }),
   bloodbank_delete: (b) => {
     bloodBanks = bloodBanks.filter((x) => x.id !== b.id);
     return { ok: true };

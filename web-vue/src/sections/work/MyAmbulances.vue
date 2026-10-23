@@ -26,6 +26,11 @@ import AmbulanceCalls from './AmbulanceCalls.vue';
 import StillAvailable from './StillAvailable.vue';
 import AmbReceipts from '../invoices/AmbReceipts.vue';
 import { invFeature } from '../invoices/features';
+import ProviderPreview from '@/ui/listing/ProviderPreview.vue';
+import SwitchPair from '@/ui/listing/SwitchPair.vue';
+import { LT } from '@/ui/listing/model';
+import { useOwnListings } from './ownListing';
+import { useCatalog as useLists } from '@/sections/services/data';
 
 const s = useSession();
 const nav = useNav();
@@ -48,6 +53,9 @@ const st = computed(() => new Map((stats.data?.items ?? []).map((x) => [x.id, x]
 const canAdd = computed(() => list.value.length < MAX_AMBULANCES);
 const live = computed(() => list.value.filter((a) => a.status === 'approved'));
 const names = computed(() => Object.fromEntries(list.value.map((a) => [a.id, a.name])));
+// "রোগীরা আপনাকে যেভাবে দেখেন" — প্রতিটা চালু গাড়ির কার্ড, আর "খালি আছি / ট্রিপে আছি" (আগের ambulance_available)
+const lists = useLists();
+const own = useOwnListings('ambulance', () => lists.value);
 
 async function toggle(a: Ambulance, on: boolean) {
   busy.value = a.id;
@@ -55,6 +63,7 @@ async function toggle(a: Ambulance, on: boolean) {
   setFlash(null);
   try {
     await call('ambulance_available', { id: a.id, available: on });
+    own.patch(a, { available: on, availableAt: on ? Date.now() : a.availableAt, busySince: 0 });
     await after();
   } catch (e) {
     err.value = errorText(e);
@@ -90,6 +99,16 @@ const askDel = (a: Ambulance) => {
   <BizPage v-else :title="title">
     <template v-if="canAdd" #actions><Button icon="add" @click="nav('/work/ambulance/new')">{{ tr('Add ambulance', 'অ্যাম্বুলেন্স যোগ করুন') }}</Button></template>
     <Flash :msg="flash" :error="err" />
+    <ProviderPreview v-for="a in live" :key="'pv-' + a.id" :l="own.listing(a)" :public-to="`/services/ambulance/${a.id}`" :store-key="'ambulance.' + a.id">
+      <SwitchPair
+        :label="LT.ambFree()"
+        testid="sw-available"
+        :busy="busy === a.id"
+        :value="a.available ? 'free' : 'trip'"
+        :options="[{ key: 'free', label: LT.ambFree(), icon: 'check_circle', good: true }, { key: 'trip', label: LT.ambTrip(), icon: 'ambulance' }]"
+        @pick="(k) => toggle(a, k === 'free')"
+      />
+    </ProviderPreview>
     <!-- উপরে "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" -->
     <AmbulanceCalls v-if="live.length" :names="names" :on-changed="() => { after(); }" />
     <div v-if="list.length" class="stats work-stats">

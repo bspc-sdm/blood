@@ -5,7 +5,7 @@
 // গন্তব্য "শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল" (লিখে) — ডেমো ভাড়ার তালিকায় আছে। ধরন "এসি" হলে প্রার্থী শুধু দুটো:
 // চালকের ‘ডেমো জীবন অ্যাম্বুলেন্স (এসি)’ (৳১০০০) আর ‘ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস’ (৳৩০০০, ১২ ঘণ্টার বেশি আগে খালি
 // জানানো) — তাই কে খবর পায় তা নিশ্চিত। একজন রোগী ঘণ্টায় ৫টা ডাকতে পারেন — তাই কিছু দৃশ্য ডেমো ডোনারকে দিয়ে।
-import { tap, see, go, settle, until, vis } from '../lib.mjs';
+import { pickQueueItem, tap, see, go, settle, until, vis } from '../lib.mjs';
 
 export const meta = { no: 9, slug: 'ambulance-call', titleBn: 'অ্যাম্বুলেন্স ডাকুন: ভাড়ার প্রস্তাব, রাজি, পৌঁছানো, বাতিল, ফোনে পাওয়া' };
 
@@ -69,7 +69,20 @@ async function cancelAsPatient(page, reason) {
 async function driverCall(page, pickup) {
   await go(page, '/work/ambulance');
   const card = page.getByTestId('amb-call').filter({ hasText: pickup });
-  await card.first().waitFor({ timeout: 15000 });
+  // ডাক এখন নতুন / চলছে / শেষ ভাগে, আর ডেস্কটপে তালিকা-বিস্তারিত (বাঁয়ে সারি, ডানে বাছা ডাক) — যে ভাগে আছে সেখানে বাছা
+  const segs = page.getByTestId('queue-segs').first().getByRole('tab');
+  const t0 = Date.now();
+  while (Date.now() - t0 < 15000) {
+    if (await card.count()) return card.first();
+    for (let i = 0; i < (await segs.count()); i++) {
+      await segs.nth(i).click().catch(() => {});
+      await settle(page, 150);
+      await pickQueueItem(page, pickup);
+      if (await card.count()) return card.first();
+    }
+    await page.waitForTimeout(1000);
+  }
+  await card.first().waitFor({ timeout: 2000 });
   return card.first();
 }
 
@@ -253,7 +266,8 @@ export async function run(J) {
     await see(patient, 'আপনার অ্যাম্বুলেন্সের অনুরোধ চলছে');
     await patient.locator('article').filter({ hasText: MOMOTA }).first().click();
     await settle(patient);
-    await vis(patient.locator('a.call[href^="tel:"]')).first().click({ noWaitAfter: true });
+    // এক ছাঁচের বিস্তারিত: নিচের বারে কলের আইকন (ফোন কল)
+    await vis(patient.getByTestId('detail-bar').locator('a[href^="tel:"]')).first().click({ noWaitAfter: true });
     await settle(patient, 400);
     await J.shot('অনুরোধ চলার সময় তালিকা থেকে ফোন', `তালিকার উপরে ‘আপনার অ্যাম্বুলেন্সের অনুরোধ চলছে’; ‘${MOMOTA}’-এ ফোন — অনুরোধে ওঠে।`);
     driver = await J.as('ambulance', 'desktop');

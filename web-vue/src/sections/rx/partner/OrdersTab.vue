@@ -4,14 +4,16 @@
 // দোকানে আসা আর অনলাইন অর্ডার একই তালিকায় — প্রতিটায় পরিষ্কার লেখা "দোকানে এসেছেন" / "অনলাইন অর্ডার", নতুন আগে।
 // ভাগ সার্ভার ঠিক করে (rx_orders_pharmacy-এর seg, counts)। ?s=active|closed — নইলে "নতুন"।
 import { computed, ref } from 'vue';
-import { Button, ErrorText, Icon, PillTabs, SkeletonCards, Tag, cx } from '@/ui/kit';
+import { Button, ErrorText, Icon, SkeletonCards, Tag, cx } from '@/ui/kit';
 import { errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
 import { formatDateTime, timeAgo } from '@/lib/format';
 import { useNav, useSearchParams } from '@/lib/nav';
-import { PHARM_SEGS, isOpenOrder, orderStatusShop, orderTone, pharmSegLabel, pharmSegOf, segCounts, type PharmOrder, type PharmOrders, type PharmSeg } from './model';
+import { PHARM_SEGS, isOpenOrder, orderStatusShop, orderTone, pharmSegOf, segCounts, type PharmOrder, type PharmOrders, type PharmSeg } from './model';
 import { useOrderUpdate } from './online';
 import CodeBox from './CodeBox.vue';
+import BizPreview from '../../work/BizPreview.vue';
+import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
 import ModeTag from './ModeTag.vue';
 import RxPanel from './RxPanel.vue';
 import AcceptDialog from './AcceptDialog.vue';
@@ -40,30 +42,31 @@ const s = useSession();
 const pharmId = computed(() => String((s.work.pharmacy as { id?: string } | null)?.id ?? s.uid ?? ''));
 const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(PHARM_SEGS, props.orders.data?.counts, pharmSegOf as (x: never) => PharmSeg, items.value));
+// ভাগ: নতুন / চলছে / শেষ (সেবার "আমার কাজ"-এর এক ছাঁচ, QueueSegs) — ভেতরে সার্ভারের new / active / closed; ?s=done বা ?s=closed = শেষ
 const seg = computed<PharmSeg>(() => {
-  const asked = sp.value.get('s') as PharmSeg | null;
-  return asked && PHARM_SEGS.includes(asked) ? asked : 'new';
+  const asked = sp.value.get('s');
+  const k = (asked === 'done' ? 'closed' : asked) as PharmSeg | null;
+  return k && PHARM_SEGS.includes(k) ? k : 'new';
 });
+const qseg = computed<QSeg>(() => (seg.value === 'closed' ? 'done' : seg.value));
 const rows = computed(() => items.value.filter((o) => pharmSegOf(o) === seg.value).sort((a, c) => c.createdAt - a.createdAt));
-const keep = computed(() => (seg.value === 'new' ? '' : `?s=${seg.value}`));
+const keep = computed(() => (seg.value === 'new' ? '' : `?s=${qseg.value}`));
 const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
 </script>
 
 <template>
   <div class="rxp-codewrap">
     <div class="col gap-16 rxp-codemain">
+      <BizPreview kind="pharmacy" />
       <RxPanel v-if="code" :key="code" :code="code" @next="nav(`${BASE}${keep}`)" />
 
       <div class="row wrap gap-8">
-        <div class="rxp-sub-pills">
-          <PillTabs
-            secondary
-            :label="tr('Orders', 'অর্ডার')"
-            :value="seg"
-            :tabs="PHARM_SEGS.map((s) => ({ key: s, label: pharmSegLabel(s), count: counts[s] }))"
-            @change="(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })"
-          />
-        </div>
+        <QueueSegs
+          :label="tr('Orders', 'অর্ডার')"
+          :value="qseg"
+          :counts="{ new: counts.new, active: counts.active, done: counts.closed }"
+          @change="(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })"
+        />
         <span class="grow" />
         <Button variant="text" small icon="refresh" :busy="orders.isFetching && !orders.isLoading" @click="orders.refetch()">{{ tr('Refresh', 'নতুন করে দেখুন') }}</Button>
       </div>

@@ -20,6 +20,7 @@ import BookingsTab from './BookingsTab.vue';
 import PatientsTab from './PatientsTab.vue';
 import HomeCareTab from './HomeCareTab.vue';
 import DoctorPanelCard from './DoctorPanelCard.vue';
+import DoctorPreview from './DoctorPreview.vue';
 import { T } from '../../invoices/text';
 import { invFeature } from '../../invoices/features';
 
@@ -29,7 +30,7 @@ useAreasReady();
 const nav = useNav();
 const route = useRoute();
 const s = useSession();
-const pm = useCall<{ provider: any | null }>('provider_me', {}, () => ({ enabled: s.ready && !s.guest }));
+const pm = useCall<{ provider: any | null; card?: any | null }>('provider_me', {}, () => ({ enabled: s.ready && !s.guest }));
 const provider = computed(() => (pm.data?.provider ? parseProvider(pm.data.provider) : null));
 const type = computed(() => {
   const me = s.me;
@@ -94,6 +95,8 @@ function chamberSaved() {
       <RouterLink class="btn tonal has-icon" to="/work/rx"><Icon name="edit_note" />{{ tr('Write a prescription', 'প্রেসক্রিপশন লিখুন') }}</RouterLink>
       <RouterLink v-if="invFeature('inv_chamber')" class="btn outline has-icon" to="/work/rx/desk"><Icon name="event_outline" />{{ T.deskTitle() }}</RouterLink>
     </template>
+    <!-- "রোগীরা আপনাকে যেভাবে দেখেন" + আজকের চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" (বুকিংয়ের ওপরে) -->
+    <DoctorPreview v-if="!nurse && cur === ''" :fallback-card="pm.data?.card ?? pm.data?.provider ?? null" />
     <div class="appt-ws-tabs">
       <PillTabs :tabs="tabs" :value="cur" :label="title" @change="go" />
     </div>

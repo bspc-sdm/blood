@@ -1,76 +1,95 @@
 <script setup lang="ts">
-// সেবার তালিকা: অ্যাম্বুলেন্স / ফার্মেসি / ব্লাড ব্যাংক / প্যাথলজি — এলাকা, ফিল্টার, কার্ড, আর পাশে (বা পুরো পাতায়) বিস্তারিত
+// সেবার তালিকা (অ্যাম্বুলেন্স / ফার্মেসি / ব্লাড ব্যাংক / প্যাথলজি) — পাঁচ তালিকার এক ছাঁচ (src/ui/listing, listings CONTRACT §১):
+// উপরে ছোট অংশ (খোঁজা, এলাকার চিপ, সাজানো, ছাঁকনির চিপ), একই কার্ড, কার্ডের মতো কঙ্কাল, এক লাইনের খালি অবস্থা।
+// ডেস্কটপে (দুই ভাগ) বাঁয়ে তালিকা, ডানে বাছা জিনিসের পুরো বিস্তারিত — কিছু বাছা না থাকলে প্রথমটা (ডান ভাগ কখনো খালি নয়);
+// বাছলে URL বদলায় (শেয়ার করা যায়), পাতা নতুন করে খোলে না।
 import { computed, onMounted, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
-import { ActiveChips, Button, ChoiceChips, EmptyState, ErrorBox, FilterBar, Loading, SkeletonCards, Switch } from '@/ui/kit';
+import { Button, ErrorBox, Loading } from '@/ui/kit';
 import AreaPicker from '@/ui/AreaPicker.vue';
 import { useFilterArea, type AreaValue } from '@/ui/areaFilter';
 import ListDetail from '@/shell/ListDetail.vue';
 import DetailPane from '@/shell/DetailPane.vue';
+import { useTwoPane } from '@/shell/chrome';
 import { useCall } from '@/lib/query';
 import { tr } from '@/lib/i18n';
 import { areaLabel, ensureAreas } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
 import { useLoc, useNav, useSearchParams } from '@/lib/nav';
+import { useQ } from '@/lib/query';
+import { call } from '@/lib/api';
 import RxSendFromPlace from '@/sections/health/RxSendFromPlace.vue';
 import type { LastHome } from '@/sections/health/rx';
+import type { PublicPrices } from '@/lib/labprice';
+import ListingCard from '@/ui/listing/ListingCard.vue';
+import ListingTop, { type FilterChip } from '@/ui/listing/ListingTop.vue';
+import ListingSkeleton from '@/ui/listing/ListingSkeleton.vue';
+import ListingEmpty from '@/ui/listing/ListingEmpty.vue';
+import ListingDetail from '@/ui/listing/ListingDetail.vue';
+import { LT, isSort, matchesSearch, sortListings, type Listing, type SortKey } from '@/ui/listing/model';
 import {
-  ambulanceEntry, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, remember, setAmbActive, useCatalog,
-  type Ambulance, type BloodBank, type Entry, type Kind, type Lab, type ListResult, type Pharmacy, type RateAspect,
+  ambulanceTypeLabel, ambulanceTypes, kindIcon, kindLabel, recall, recordCall, remember, reportKind, setAmbActive, useCatalog,
+  type Ambulance, type BloodBank, type BuyMode, type Kind, type Lab, type ListResult, type Pharmacy, type RateAspect,
 } from './data';
+import { ambulanceDetail, bloodBankDetail, labDetail, listingOf, pharmacyDetail } from './listing';
 import { useActiveRequest, useBackFromCall } from './ambreq';
 import { useAmbulanceOrigin } from './origin';
-import { useBuyMode, useMyMedRx } from './pharmacy';
+import { useMyMedRx } from './pharmacy';
 import ServiceTabs from './ServiceTabs.vue';
-import ServiceCard from './ServiceCard.vue';
-import EntryDetail from './EntryDetail.vue';
-import Emergency999 from './Emergency999.vue';
-import FilterSheet from './FilterSheet.vue';
 import RatingDialog from './RatingDialog.vue';
 import ReportDialog from './ReportDialog.vue';
 import ActiveBanner from './ActiveBanner.vue';
 import RequestDialog from './RequestDialog.vue';
-import BuyModePicker from './BuyModePicker.vue';
-import RxSelector from './RxSelector.vue';
 import PharmacyRxInfo from './PharmacyRxInfo.vue';
 import Nearest from './Nearest.vue';
 import BusyBlock from './BusyBlock.vue';
-import Summary from './Summary.vue';
-import LabEntryDetail from './LabEntryDetail.vue';
 
 const props = defineProps<{ kind: Kind; id: string | null }>();
 const ACTION: Record<Kind, string> = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodbanks', lab: 'labs' };
 onMounted(() => ensureAreas().catch(() => {}));
 const nav = useNav();
 const loc = useLoc();
+const two = useTwoPane();
 const [params, setParams] = useSearchParams();
 const s = useSession();
 const lists = useCatalog();
 const [area, setArea] = useFilterArea();
 const showArea = ref(false);
-const showFilter = ref(false);
 const busyOpen = ref(false);
+const search = ref('');
 const rating = ref<{ id: string; name: string; aspects?: RateAspect[] } | null>(null);
 const reporting = ref<string | null>(null);
 
-// ফিল্টার URL-এ (বিস্তারিত খুলে ফিরে এলেও থাকে)
-const type = computed(() => (props.kind === 'ambulance' ? params.value.get('type') : null));
-const openNow = computed(() => props.kind === 'pharmacy' && params.value.get('open') === '1');
-// ২৪ ঘণ্টা খোলা: ব্লাড ব্যাংক আর ফার্মেসি (রাতে ওষুধ দরকার হলে)
-const open24 = computed(() => (props.kind === 'bloodbank' || props.kind === 'pharmacy') && params.value.get('h24') === '1');
+// ---------- ছাঁকনি আর সাজানো (URL-এ — বিস্তারিত খুলে ফিরে এলেও থাকে) ----------
+const p = (k: string) => params.value.get(k);
+const type = computed(() => (props.kind === 'ambulance' ? p('type') : null));
+const openNow = computed(() => props.kind !== 'ambulance' && p('open') === '1');
+const open24 = computed(() => (props.kind === 'bloodbank' || props.kind === 'pharmacy') && p('h24') === '1');
+const mode = computed<BuyMode | null>(() => (props.kind === 'pharmacy' && (p('mode') === 'shop' || p('mode') === 'online') ? (p('mode') as BuyMode) : null));
+const delivery = computed(() => props.kind === 'pharmacy' && p('delivery') === '1');
+const home = computed(() => props.kind === 'lab' && p('home') === '1');
 const setParam = (k: string, v: string | null) => {
-  const p = new URLSearchParams(params.value);
-  if (v == null) p.delete(k);
-  else p.set(k, v);
-  setParams(p, { replace: true });
+  const n = new URLSearchParams(params.value);
+  if (v == null) n.delete(k);
+  else n.set(k, v);
+  setParams(n, { replace: true });
 };
-// ফিল্টার মোছায় বাছা প্রেসক্রিপশন (rx) থাকে
-const clearFilters = () => setParams(new URLSearchParams(params.value.get('rx') ? { rx: params.value.get('rx')! } : {}), { replace: true });
+const toggle = (k: string, v = '1') => () => setParam(k, p(k) === v ? null : v);
+// মোছায় সাজানো আর বাছা প্রেসক্রিপশন (rx) থাকে
+const clearFilters = () => {
+  const keep = new URLSearchParams();
+  for (const k of ['rx', 'sort']) if (p(k)) keep.set(k, p(k)!);
+  setParams(keep, { replace: true });
+  search.value = '';
+};
 
 const gps = computed(() => (s.place?.source === 'gps' ? s.place : null));
+// নিকটতম: জায়গা জানা থাকলে (ফোনের জায়গা, বা উপজেলার কেন্দ্র — সার্ভার হিসাব করে)
+const located = computed(() => !!gps.value || area.value?.upazilaId != null);
+const sort = computed<SortKey>(() => (isSort(p('sort')) ? (p('sort') as SortKey) : located.value ? 'near' : 'rating'));
+
 const { origin, ready, exact } = useAmbulanceOrigin(() => area.value?.district, () => props.kind === 'ambulance');
-// অ্যাম্বুলেন্স ডাকুন (২.২৮.০): নিজের চালু অনুরোধ, নিশ্চিত করার ঘর (target = বিস্তারিত থেকে একটা গাড়ি)
+// অ্যাম্বুলেন্স ডাকুন (২.২৮.০)
 const activeReq = useActiveRequest();
 const requesting = ref<{ target: { id: string; name: string } | null } | null>(null);
 watch(() => activeReq.value?.id ?? null, (id) => setAmbActive(id), { immediate: true });
@@ -79,34 +98,42 @@ const requestAmbulance = (target: { id: string; name: string } | null) => {
   if (activeReq.value) return nav(`/services/ambulance/call/${activeReq.value.id}`);
   s.requireLogin(tr('Log in to call an ambulance', 'অ্যাম্বুলেন্স ডাকতে লগইন করুন'), () => (requesting.value = { target }));
 };
-// ফার্মেসি (২.৩২.০): আগে কীভাবে কিনবেন (মনে থাকে), আর প্রেসক্রিপশন — URL-এর rx (না থাকলে নতুনটা, "none" = ছাড়া)
+// ফার্মেসি: প্রেসক্রিপশন বাছাই এখন "প্রেসক্রিপশন পাঠান"-এর ভেতরে; URL-এ rx থাকলে (প্রেসক্রিপশনের পাতা থেকে এলে) সেটার হিসাব
 const pharmacy = computed(() => props.kind === 'pharmacy');
-const [buyMode, setBuyMode] = useBuyMode();
 const care = useCareMode();
 const myRx = useMyMedRx();
 const rx = computed(() => {
-  const rxParam = pharmacy.value ? params.value.get('rx') : null;
-  return !pharmacy.value || rxParam === 'none' ? null : myRx.value.list.find((r) => r.id === rxParam) ?? myRx.value.list[0] ?? null;
+  const r = pharmacy.value ? p('rx') : null;
+  return r && r !== 'none' ? myRx.value.list.find((x) => x.id === r) ?? null : null;
 });
-const rxReady = computed(() => !pharmacy.value || s.guest || myRx.value.ready);
 const body = computed(() => {
   const kind = props.kind;
-  const b: Record<string, unknown> = { district: area.value?.district, upazilaId: area.value?.upazilaId ?? null };
-  if (kind === 'ambulance' && type.value) b.type = type.value;
-  // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে) — শুধু আসল GPS হলে; "এলাকা ধরে" হলে কিছুই নয় (উপজেলা আগে)
-  const o = origin.value;
-  if (kind === 'ambulance' && o && !o.byArea) Object.assign(b, { lat: o.lat, lng: o.lng, gps: true });
+  const b: Record<string, unknown> = { district: area.value?.district, upazilaId: area.value?.upazilaId ?? null, sort: sort.value };
+  if (kind === 'ambulance') {
+    if (type.value) b.type = type.value;
+    // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে) — শুধু আসল GPS হলে; "এলাকা ধরে" হলে উপজেলার কেন্দ্র
+    const o = origin.value;
+    if (o && !o.byArea) Object.assign(b, { lat: o.lat, lng: o.lng, gps: true });
+    return b;
+  }
+  if (gps.value) Object.assign(b, { lat: gps.value.lat, lng: gps.value.lng });
   if (kind === 'pharmacy') {
-    Object.assign(b, { lat: gps.value?.lat ?? null, lng: gps.value?.lng ?? null, openNow: openNow.value, open24: open24.value, mode: buyMode.value });
-    // প্রেসক্রিপশনের হিসাব এক ডাকেই; কেয়ারগিভার মোডে রোগীর হয়ে (তালিকা নিজে সাধারণত নিজের হয়েই)
+    Object.assign(b, { openNow: openNow.value, open24: open24.value });
+    if (delivery.value) b.delivery = true;
+    if (mode.value) b.mode = mode.value;
     if (rx.value) Object.assign(b, { rxId: rx.value.id, ...(care.value ? { asUid: care.value.uid } : {}) });
   }
-  if (kind === 'bloodbank') b.open24 = open24.value;
+  if (kind === 'bloodbank') {
+    b.open24 = open24.value;
+    if (openNow.value) b.openNow = true;
+  }
+  if (kind === 'lab') {
+    if (openNow.value) b.openNow = true;
+    if (home.value) b.homeCollection = true;
+  }
   return b;
 });
-const q = useCall<ListResult<any> & { lastHome?: LastHome | null }>(ACTION[props.kind], body, () => ({
-  enabled: !!area.value?.district && ready.value && rxReady.value && (!pharmacy.value || !!buyMode.value),
-}));
+const q = useCall<ListResult<any> & { lastHome?: LastHome | null }>(ACTION[props.kind], body, () => ({ enabled: !!area.value?.district && ready.value }));
 const items = computed(() => q.data?.items ?? []);
 const busy = computed(() => (q.data?.busy ?? []) as Ambulance[]);
 watch(
@@ -117,35 +144,92 @@ watch(
   },
   { immediate: true },
 );
-
-const toEntry = (x: any): Entry => {
-  const kind = props.kind;
-  return kind === 'ambulance' ? ambulanceEntry(x as Ambulance, lists.value) : kind === 'pharmacy' ? pharmacyEntry(x as Pharmacy, buyMode.value) : kind === 'bloodbank' ? bloodBankEntry(x as BloodBank, lists.value) : labEntry(x as Lab);
-};
-const byId = computed(() => new Map<string, any>(items.value.map((x) => [x.id, x])));
 const lastHome = computed(() => q.data?.lastHome ?? null);
-const entries = computed(() => items.value.map(toEntry));
-const busyEntries = computed(() => busy.value.map(toEntry));
+const byId = computed(() => new Map<string, any>([...items.value, ...busy.value].map((x) => [x.id, x])));
 
+// কার্ড: সার্ভার না পারলে (পুরোনো সার্ভার) এখানেই ছাঁকা আর সাজানো
+const all = computed(() => items.value.map((x) => listingOf(props.kind, x, lists.value)));
+const shown = computed(() => {
+  const list = all.value.filter((l) => {
+    if (!matchesSearch(l, search.value)) return false;
+    if (openNow.value && l.openNow === false) return false;
+    if (props.kind === 'bloodbank' && open24.value && !l.badges.some((b) => b.text === LT.h24())) return false;
+    if (delivery.value) {
+      const x = byId.value.get(l.id) as Pharmacy | undefined;
+      if (!x?.delivery && !x?.online) return false;
+    }
+    if (home.value && !(byId.value.get(l.id) as Lab | undefined)?.homeCollection) return false;
+    return true;
+  });
+  return sortListings(list, sort.value);
+});
+const busyShown = computed(() => busy.value.map((x) => listingOf('ambulance', x, lists.value)).filter((l) => matchesSearch(l, search.value)));
+
+// ---------- চিপ ----------
+const chips = computed<FilterChip[]>(() => {
+  const k = props.kind;
+  if (k === 'ambulance') return ambulanceTypes(lists.value).map((t) => ({ key: 'type-' + t, label: ambulanceTypeLabel(lists.value, t), on: type.value === t, toggle: toggle('type', t) }));
+  if (k === 'pharmacy') {
+    return [
+      { key: 'shop', label: tr('At the shop', 'দোকানে গিয়ে'), icon: 'storefront', on: mode.value === 'shop', toggle: toggle('mode', 'shop') }, // bn-ok
+      { key: 'online', label: tr('Online order', 'অনলাইন অর্ডার'), icon: 'local_shipping', on: mode.value === 'online', toggle: toggle('mode', 'online') }, // bn-ok
+      { key: 'open', label: tr('Open now', 'এখন খোলা'), on: openNow.value, toggle: toggle('open') },
+      { key: 'h24', label: LT.h24(), on: open24.value, toggle: toggle('h24') },
+      { key: 'delivery', label: tr('Delivery', 'ডেলিভারি'), on: delivery.value, toggle: toggle('delivery') },
+    ];
+  }
+  if (k === 'bloodbank') {
+    return [
+      { key: 'open', label: tr('Open now', 'এখন খোলা'), on: openNow.value, toggle: toggle('open') },
+      { key: 'h24', label: LT.h24(), on: open24.value, toggle: toggle('h24') },
+    ];
+  }
+  return [
+    { key: 'open', label: tr('Open now', 'এখন খোলা'), on: openNow.value, toggle: toggle('open') },
+    { key: 'home', label: LT.homeSample(), on: home.value, toggle: toggle('home') },
+  ];
+});
+const filtering = computed(() => chips.value.some((c) => c.on) || !!search.value.trim());
+
+// ---------- কাজ ----------
 const listPath = computed(() => `/services/${props.kind}${loc.value.search}`);
 const open = (eid: string) => nav(`/services/${props.kind}/${eid}${loc.value.search}`);
-const rateGate = (e: Entry) => () => s.requireLogin(tr('Log in to do this', 'এর জন্য লগইন করুন'), () => (rating.value = { id: e.id, name: e.title, aspects: e.rateAspects }));
-const reportGate = (e: Entry) => () => s.requireLogin(tr('Log in to report', 'রিপোর্ট করতে লগইন করুন'), () => (reporting.value = e.id));
-const pharmOf = (e: Entry) => (pharmacy.value ? (byId.value.get(e.id) as Pharmacy | undefined) : undefined);
+const rateGate = (id: string, name: string, aspects?: RateAspect[]) => () =>
+  s.requireLogin(tr('Log in to do this', 'এর জন্য লগইন করুন'), () => (rating.value = { id, name, aspects }));
+const reportGate = (id: string) => () => s.requireLogin(tr('Log in to report', 'রিপোর্ট করতে লগইন করুন'), () => (reporting.value = id));
+const reportable = computed(() => props.kind !== 'lab');
+const onCall = (id: string) => () => recordCall(props.kind, id, s.guest);
+const callPrimary = computed(() => props.kind === 'ambulance' || props.kind === 'bloodbank');
+// বন্ধ ফার্মেসিতে "প্রেসক্রিপশন পাঠান" নয়
+const noPrimary = (l: Listing) => props.kind === 'pharmacy' && l.openNow === false;
 
-// ---------- ফিল্টার ----------
-const filterCount = computed(() => (type.value ? 1 : 0) + (openNow.value ? 1 : 0) + (open24.value ? 1 : 0));
-const chips = computed(() => [
-  ...(type.value ? [{ label: ambulanceTypeLabel(lists.value, type.value), onRemove: () => setParam('type', null) }] : []),
-  ...(openNow.value ? [{ label: tr('Open now', 'এখন খোলা'), onRemove: () => setParam('open', null) }] : []),
-  ...(open24.value ? [{ label: tr('24 hours', '২৪ ঘণ্টা'), onRemove: () => setParam('h24', null) }] : []),
-]);
-const typeOpts = computed(() => ambulanceTypes(lists.value).map((t) => ({ value: t, label: ambulanceTypeLabel(lists.value, t) })));
-const ambItems = computed(() => items.value as Ambulance[]);
+// ---------- বিস্তারিত: বাছা, না হলে (ডেস্কটপে) প্রথমটা ----------
+const selId = computed(() => props.id ?? (two.value ? shown.value[0]?.id ?? null : null));
+const raw = computed(() => {
+  const id = selId.value;
+  return id ? byId.value.get(id) ?? recall<any>(props.kind, id) ?? null : null;
+});
+const sel = computed(() => (raw.value ? listingOf(props.kind, raw.value, lists.value) : null));
+// প্যাথলজি: পুরো পরীক্ষা ও দামের তালিকা (lab_prices_public)
+const labId = computed(() => (props.kind === 'lab' && raw.value?.prices ? (raw.value as Lab).id : null));
+const prices = useQ<{ prices: PublicPrices | null }>(() => ({
+  queryKey: ['lab_prices_public', labId.value],
+  queryFn: () => call('lab_prices_public', { labId: labId.value }),
+  enabled: !!labId.value,
+  staleTime: 60_000,
+}));
+const detail = computed(() => {
+  const x = raw.value;
+  if (!x) return null;
+  const k = props.kind;
+  if (k === 'ambulance') return { ...ambulanceDetail(x as Ambulance, lists.value), ratingNote: '' };
+  if (k === 'pharmacy') return pharmacyDetail(x as Pharmacy, mode.value === 'online');
+  if (k === 'bloodbank') return { ...bloodBankDetail(x as BloodBank, lists.value), ratingNote: '' };
+  const full = !(x as Lab).prices ? null : prices.data ? prices.data.prices : prices.isError ? null : undefined;
+  return { ...labDetail(x as Lab, full), ratingNote: '' };
+});
+const closeDetail = () => nav(listPath.value);
 
-// ---------- বিস্তারিত ----------
-const raw = computed(() => (props.id ? items.value.find((x) => x.id === props.id) ?? busy.value.find((x) => x.id === props.id) ?? recall<any>(props.kind, props.id) : null));
-const detailEntry = computed(() => (raw.value ? toEntry(raw.value) : null));
 function onPicked(v: AreaValue) {
   setArea({ district: v.district, upazilaId: v.upazilaId ?? null, unionId: null });
   showArea.value = false;
@@ -153,143 +237,112 @@ function onPicked(v: AreaValue) {
 </script>
 
 <template>
-  <ListDetail :has-detail="!!id">
-    <div class="list-inner">
+  <ListDetail :has-detail="!!id" :auto="two">
+    <div class="list-inner lst-page">
       <ServiceTabs :kind="kind" :sub="kind === 'pharmacy' ? 'list' : undefined" />
-      <FilterBar
+      <template v-if="kind === 'ambulance'">
+        <ActiveBanner v-if="activeReq" :r="activeReq" />
+        <Nearest v-if="area" :list="items as Ambulance[]" :id="q.data?.nearestId" :by-area="!!origin?.byArea" :lists="lists" @request="requestAmbulance(null)" />
+        <a class="lst-999" href="tel:999" data-testid="call-999">{{ tr('Emergency? 999 is free, 24 hours', 'জরুরি হলে ৯৯৯ — বিনামূল্যে, ২৪ ঘণ্টা') }}</a>
+      </template>
+      <ListingTop
+        v-model:search="search"
+        :kind="kind"
         :area-label="area ? areaLabel(area.district, area.upazilaId) : ''"
         :on-area="() => (showArea = true)"
-        :filter-count="filterCount"
-        :on-filter="kind === 'lab' ? undefined : () => (showFilter = true)"
-      >
-        <ActiveChips :items="chips" />
-      </FilterBar>
-      <ActiveBanner v-if="kind === 'ambulance' && activeReq" :r="activeReq" />
-      <Nearest
-        v-if="kind === 'ambulance' && area && !q.isLoading && ambItems.some((a) => a.available)"
-        :list="ambItems"
-        :id="q.data?.nearestId"
-        :by-area="!!origin?.byArea"
-        :lists="lists"
-        @request="requestAmbulance(null)"
+        :sort="sort"
+        :sorts="['near', 'rating', 'open']"
+        :chips="chips"
+        :on-clear="clearFilters"
+        @sort="(k) => setParam('sort', k)"
       />
-      <Emergency999 v-if="kind === 'ambulance'" />
-      <p v-if="kind === 'bloodbank'" class="t-body-s muted">{{ tr('Buying or selling blood is illegal; only processing costs apply.', 'রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।') }}</p>
-      <BuyModePicker v-if="pharmacy" :value="buyMode" @change="setBuyMode" />
-      <RxSelector v-if="pharmacy && buyMode && myRx.list.length" :list="myRx.list" :value="rx" @change="(v) => setParam('rx', v)" />
-      <template v-if="pharmacy && !buyMode" />
-      <EmptyState v-else-if="!area" icon="location_on" :title="tr('Choose area', 'এলাকা বেছে নিন')">
-        <Button @click="showArea = true">{{ tr('Choose area', 'এলাকা বেছে নিন') }}</Button>
-      </EmptyState>
-      <SkeletonCards v-else-if="q.isLoading || !rxReady" :n="4" :h="150" />
+      <ListingEmpty v-if="!area" icon="location_on" :title="LT.chooseArea()" :on-area="() => (showArea = true)" />
+      <ListingSkeleton v-else-if="q.isLoading || !ready" :n="4" />
       <ErrorBox v-else-if="q.isError" :error="q.error!.message" :on-retry="() => q.refetch()" />
       <template v-else>
-        <div v-if="entries.length" class="grid-cards">
-          <ServiceCard
-            v-for="e in entries"
-            :key="e.id"
-            :e="e"
-            :selected="e.id === id"
-            :on-open="() => open(e.id)"
-            :on-rate="e.canRate ? rateGate(e) : undefined"
-            :on-report="e.reportable ? reportGate(e) : undefined"
+        <div v-if="shown.length" class="lst-list">
+          <ListingCard
+            v-for="l in shown"
+            :key="l.id"
+            :l="l"
+            :selected="l.id === selId"
+            :on-open="() => open(l.id)"
+            :call-primary="callPrimary"
+            :no-primary="noPrimary(l)"
+            :on-call="onCall(l.id)"
+            :on-report="reportable && !s.guest ? reportGate(l.id) : undefined"
           >
-            <template v-if="pharmOf(e)" #main><RxSendFromPlace :pharmacy="pharmOf(e)" :mode="buyMode ?? undefined" :rx="rx" :last="lastHome" card /></template>
-            <template v-if="pharmOf(e)" #info><PharmacyRxInfo :p="pharmOf(e)!" :mode="buyMode" /></template>
-          </ServiceCard>
+            <template v-if="kind === 'pharmacy'" #primary>
+              <RxSendFromPlace :pharmacy="byId.get(l.id) as Pharmacy" :mode="mode ?? undefined" :rx="rx" :last="lastHome" card />
+            </template>
+            <template v-else-if="kind === 'lab'" #primary>
+              <RxSendFromPlace :lab="byId.get(l.id) as Lab" card :label="LT.sendTest()" />
+            </template>
+          </ListingCard>
         </div>
-        <!-- খালি অবস্থা -->
-        <EmptyState
-          v-else-if="kind === 'ambulance'"
-          icon="ambulance"
-          :title="(q.data?.busyCount ?? busy.length) > 0 ? tr('All ambulances here are on a trip now', 'এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে') : tr('No ambulance listed in this area yet', 'এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি')"
-          :text="tr('Know an ambulance service? They can join from &quot;My work&quot;.', 'কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে &quot;আমার কাজ&quot; থেকে যোগ হতে বলুন।')"
-        >
-          <RouterLink to="/work/add" class="btn text small">{{ tr('Add yours from My work', '"আমার কাজ" থেকে যোগ করুন') }}</RouterLink>
-        </EmptyState>
-        <EmptyState
-          v-else-if="kind === 'pharmacy' && buyMode === 'online'"
-          icon="local_shipping"
-          :title="tr('No pharmacy delivers to your area yet', 'আপনার এলাকায় এখনো কোনো ফার্মেসি অনলাইনে ডেলিভারি দেয় না')"
-          :text="tr('Choose &quot;I\'ll buy at the shop&quot; to see all pharmacies nearby.', '&quot;দোকানে গিয়ে কিনব&quot; বাছলে কাছের সব ফার্মেসি দেখাবে।')"
-        >
-          <Button variant="tonal" icon="storefront" @click="setBuyMode('shop')">{{ tr("I'll buy at the shop", 'দোকানে গিয়ে কিনব') }}</Button>
-        </EmptyState>
-        <EmptyState
-          v-else-if="kind === 'pharmacy'"
-          icon="storefront"
-          :title="tr('No pharmacy in the app here yet', 'এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই')"
-          :text="tr('Know a pharmacy? They can join from &quot;My work&quot;.', 'কোনো ফার্মেসি চিনলে &quot;আমার কাজ&quot; থেকে যোগ হতে বলুন।')"
-        >
-          <RouterLink to="/work/add" class="btn text small">{{ tr('Add yours from My work', '"আমার কাজ" থেকে যোগ করুন') }}</RouterLink>
-        </EmptyState>
-        <EmptyState
-          v-else-if="kind === 'bloodbank'"
-          icon="bloodtype"
-          :title="tr('No blood bank in the app here yet', 'এখানে এখনো অ্যাপে কোনো ব্লাড ব্যাংক নেই')"
-          :text="tr('Know one? They can join from &quot;My work&quot;.', 'কোনো ব্লাড ব্যাংক চিনলে &quot;আমার কাজ&quot; থেকে যোগ হতে বলুন।')"
-        >
-          <RouterLink to="/work/add" class="btn text small">{{ tr('Add yours from My work', '"আমার কাজ" থেকে যোগ করুন') }}</RouterLink>
-        </EmptyState>
-        <EmptyState
+        <ListingEmpty
+          v-else-if="filtering && all.length"
+          :icon="kindIcon(kind)"
+          :title="LT.noMatch()"
+          :on-clear="clearFilters"
+        />
+        <ListingEmpty
           v-else
-          icon="local_hospital"
-          :title="tr('No lab in the app here yet', 'এখানে এখনো অ্যাপে কোনো প্যাথলজি নেই')"
-          :text="tr('Know a diagnostic centre? They can join from &quot;My work&quot;.', 'কোনো ডায়াগনস্টিক সেন্টার চিনলে &quot;আমার কাজ&quot; থেকে যোগ হতে বলুন।')"
-        >
-          <RouterLink to="/work/add" class="btn text small">{{ tr('Add yours from My work', '"আমার কাজ" থেকে যোগ করুন') }}</RouterLink>
-        </EmptyState>
-        <BusyBlock v-if="kind === 'ambulance' && busy.length" :open="busyOpen || !entries.length" :count="busy.length" @toggle="busyOpen = !(busyOpen || !entries.length)">
-          <div class="grid-cards">
-            <ServiceCard
-              v-for="e in busyEntries"
-              :key="e.id"
-              :e="e"
-              :selected="e.id === id"
-              :on-open="() => open(e.id)"
-              :on-rate="e.canRate ? rateGate(e) : undefined"
-              :on-report="e.reportable ? reportGate(e) : undefined"
+          :icon="kindIcon(kind)"
+          :title="kind === 'ambulance' && busy.length ? tr('All ambulances here are on a trip now', 'এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে') : LT.empty(kind)"
+          :on-area="filtering ? undefined : () => (showArea = true)"
+          :on-clear="filtering ? clearFilters : undefined"
+        />
+        <BusyBlock v-if="kind === 'ambulance' && busyShown.length" :open="busyOpen || !shown.length" :count="busyShown.length" @toggle="busyOpen = !(busyOpen || !shown.length)">
+          <div class="lst-list">
+            <ListingCard
+              v-for="l in busyShown"
+              :key="l.id"
+              :l="l"
+              :selected="l.id === selId"
+              :on-open="() => open(l.id)"
+              call-primary
+              :on-call="onCall(l.id)"
+              :on-report="!s.guest ? reportGate(l.id) : undefined"
             />
           </div>
         </BusyBlock>
       </template>
     </div>
     <template #detail>
-      <template v-if="id">
-        <LabEntryDetail v-if="raw && kind === 'lab'" :key="raw.id" :lab="raw as Lab" :back-to="listPath" />
-        <EntryDetail
-          v-else-if="raw && detailEntry"
-          :key="raw.id"
-          :e="detailEntry"
+      <template v-if="id || two">
+        <ListingDetail
+          v-if="sel && detail"
+          :key="sel.id"
+          :l="sel"
+          :title="kindLabel(kind)"
           :back-to="listPath"
-          :on-rate="detailEntry.canRate ? rateGate(detailEntry) : undefined"
-          :on-report="detailEntry.reportable ? reportGate(detailEntry) : undefined"
+          :facts="detail.facts"
+          :sections="detail.sections"
+          :rating-note="detail.ratingNote"
+          :call-primary="callPrimary && !(kind === 'ambulance' && !(raw.busySince ?? 0))"
+          :no-primary="noPrimary(sel)"
+          :on-call="onCall(sel.id)"
+          :on-rate="raw.canRate ? rateGate(sel.id, sel.name, raw.rateAspects) : undefined"
+          :on-report="reportable && !s.guest ? reportGate(sel.id) : undefined"
+          :closable="!!id"
+          @close="closeDetail"
         >
-          <!-- অ্যাম্বুলেন্স (২.২৮.০): নিচের বারে "ফোন"-এর পাশে "অ্যাম্বুলেন্স ডাকুন" — এই গাড়ি আগে (ট্রিপে থাকা গাড়িতে নয়); ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো -->
-          <template v-if="kind === 'ambulance' && !((raw as Ambulance).busySince ?? 0)" #main>
+          <template v-if="kind === 'pharmacy'" #top><PharmacyRxInfo :p="raw as Pharmacy" :mode="mode" big /></template>
+          <template v-if="kind === 'ambulance'" #primary>
             <Button icon="ambulance" data-testid="amb-request-one" @click="requestAmbulance({ id: raw.id, name: (raw as Ambulance).name })">{{ tr('Call ambulance', 'অ্যাম্বুলেন্স ডাকুন') }}</Button>
           </template>
-          <template v-else-if="kind === 'pharmacy'" #main><RxSendFromPlace :pharmacy="raw as Pharmacy" :mode="buyMode ?? undefined" :rx="rx" :last="lastHome" /></template>
-          <!-- ফার্মেসি: প্রেসক্রিপশনের হিসাব মাথার ঠিক নিচে (কার্ডের একই) -->
-          <template v-if="kind === 'pharmacy'" #top><PharmacyRxInfo :p="raw as Pharmacy" :mode="buyMode" big /></template>
-        </EntryDetail>
-        <DetailPane v-else-if="area && (q.isLoading || q.isFetching)" :title="kindLabel(kind)" :back-to="listPath"><Loading /></DetailPane>
-        <DetailPane v-else :title="kindLabel(kind)" :back-to="listPath"><EmptyState :icon="kindIcon(kind)" :title="tr('Not found', 'পাওয়া যায়নি')" /></DetailPane>
+          <template v-else-if="kind === 'pharmacy'" #primary><RxSendFromPlace :pharmacy="raw as Pharmacy" :mode="mode ?? undefined" :rx="rx" :last="lastHome" /></template>
+          <template v-else-if="kind === 'lab'" #primary><RxSendFromPlace :lab="raw as Lab" :label="LT.sendTest()" /></template>
+        </ListingDetail>
+        <DetailPane v-else-if="area && (q.isLoading || q.isFetching || !ready)" :title="kindLabel(kind)" :back-to="listPath"><Loading /></DetailPane>
+        <DetailPane v-else :title="kindLabel(kind)" :back-to="listPath">
+          <ListingEmpty :icon="kindIcon(kind)" :title="id ? tr('Not found', 'পাওয়া যায়নি') : area ? LT.empty(kind) : LT.chooseArea()" :on-area="id ? undefined : () => (showArea = true)" />
+        </DetailPane>
       </template>
-    </template>
-    <template #placeholder>
-      <Summary :kind="kind" :area="area ? areaLabel(area.district, area.upazilaId) : ''" :items="items" :busy-count="busy.length" :loading="!!area && q.isLoading" />
     </template>
   </ListDetail>
   <AreaPicker v-if="showArea" :value="area ? { district: area.district, upazilaId: null } : null" @close="showArea = false" @picked="onPicked" />
-  <FilterSheet v-if="showFilter" @close="showFilter = false" @clear="clearFilters">
-    <div v-if="kind === 'ambulance'" class="col gap-6">
-      <span class="t-title-s">{{ tr('Ambulance type', 'অ্যাম্বুলেন্সের ধরন') }}</span>
-      <ChoiceChips :options="typeOpts" :model-value="type" @update:model-value="(v: string) => setParam('type', v === type ? null : v)" />
-    </div>
-    <Switch v-if="kind === 'pharmacy'" :label="tr('Open now only', 'শুধু এখন খোলা')" :model-value="openNow" @update:model-value="(v) => setParam('open', v ? '1' : null)" />
-    <Switch v-if="kind === 'bloodbank' || kind === 'pharmacy'" :label="tr('Open 24 hours only', 'শুধু ২৪ ঘণ্টা খোলা')" :model-value="open24" @update:model-value="(v) => setParam('h24', v ? '1' : null)" />
-  </FilterSheet>
   <RequestDialog
     v-if="requesting && area"
     :district="area.district"
@@ -300,5 +353,5 @@ function onPicked(v: AreaValue) {
     @close="requesting = null"
   />
   <RatingDialog v-if="rating" :kind="kind" :id="rating.id" :name="rating.name" :aspects="rating.aspects" @close="rating = null" />
-  <ReportDialog v-if="reporting" :kind="kind" :id="reporting" @close="reporting = null" />
+  <ReportDialog v-if="reporting" :kind="reportKind(kind)" :id="reporting" @close="reporting = null" />
 </template>

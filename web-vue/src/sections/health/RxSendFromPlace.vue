@@ -16,7 +16,8 @@ import LabPickDialog from './LabPickDialog.vue';
 import PharmacySendDialog from './PharmacySendDialog.vue';
 import RxSentDialog from './RxSentDialog.vue';
 
-const props = defineProps<{ lab?: PlaceLab; pharmacy?: PlacePharmacy; mode?: 'shop' | 'online'; rx?: Rx | null; last?: LastHome | null; card?: boolean }>();
+// label: বাটনের লেখা (তালিকার প্যাথলজি কার্ডে "পরীক্ষা পাঠান"); না দিলে "প্রেসক্রিপশন পাঠান"
+const props = defineProps<{ lab?: PlaceLab; pharmacy?: PlacePharmacy; mode?: 'shop' | 'online'; rx?: Rx | null; last?: LastHome | null; card?: boolean; label?: string }>();
 const s = useSession();
 const nav = useNav();
 const picking = ref(false);
@@ -62,9 +63,9 @@ function openRx() {
 <template>
   <!-- কার্ডের ভেতরে: চাপ কার্ডে গিয়ে বিস্তারিত খোলে না (Vue-তে ডায়ালগ body-তে, তাই ভেতরের চাপ কার্ডে পৌঁছায় না) -->
   <span v-if="card" class="contents" @click.stop @keydown.stop>
-    <Button icon="send" square class="ph-card-send" data-testid="ph-card-send" @click="start">{{ tr('Send prescription', 'প্রেসক্রিপশন পাঠান') }}</Button>
+    <Button icon="send" square class="ph-card-send" data-testid="ph-card-send" @click="start">{{ label ?? tr('Send prescription', 'প্রেসক্রিপশন পাঠান') }}</Button>
   </span>
-  <Button v-else icon="send" class="detail-bar-main" @click="start">{{ tr('Send prescription', 'প্রেসক্রিপশন পাঠান') }}</Button>
+  <Button v-else icon="send" class="detail-bar-main" @click="start">{{ label ?? tr('Send prescription', 'প্রেসক্রিপশন পাঠান') }}</Button>
   <RxPickDialog v-if="picking && !chosen" :for-lab="!!lab" :on-only="onOnly" @close="close" @pick="(r) => (chosen = r)" />
   <LabPickDialog v-if="chosen && lab" :rx="chosen" :only="lab" @close="back" @sent="(name, home) => done(name, home ? 'lab_home' : 'lab')" />
   <PharmacySendDialog v-if="chosen && pharmacy" :rx="chosen" :p="pharmacy" :mode="mode" :last="last" @close="back" @sent="(m) => done(pharmacy!.name, m)" />

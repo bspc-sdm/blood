@@ -11,6 +11,7 @@
 @import './styles/layout.css' layer(components);
 @import './styles/sections/blood.css' layer(components);
 @import './styles/sections/services.css' layer(components);
+@import './styles/sections/listing.css' layer(components);
 @import './styles/sections/appointment.css' layer(components);
 @import './styles/sections/health.css' layer(components);
 @import './styles/sections/work.css' layer(components);

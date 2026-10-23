@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // বুকিং: সিরিয়ালের সারি
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, PillTabs, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
 import { useMedia } from '@/shell/chrome';
 import { ServerError, call, errorText } from '@/lib/api';
 import { formatDate } from '@/lib/format';
@@ -9,6 +9,7 @@ import { num, tr } from '@/lib/i18n';
 import { useSearchParams } from '@/lib/nav';
 import { apptChamber, hhmmText, isActive, statusLabel, statusTone, today, type Appointment } from '../model';
 import StatTile from '../StatTile.vue';
+import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
 import QueuePanel from '../QueuePanel.vue';
 import ConfirmApptDialog from './ConfirmApptDialog.vue';
 import OnlinePayPro from '../online/OnlinePayPro.vue';
@@ -23,8 +24,8 @@ import { T as PT } from '../../pay/text';
 import { useNow } from '@/ui/composables';
 
 type View = 'today' | 'upcoming' | 'waiting' | 'past';
+// ভাগ (সেবার "আমার কাজ"-এর এক ছাঁচ, QueueSegs): নতুন = অপেক্ষায় (নিশ্চিত করা বাকি), চলছে = আজ আর সামনের নিশ্চিত, শেষ = আগের/শেষ/বাতিল
 const props = defineProps<{ list: Appointment[]; loading: boolean; error: string | null; reload: () => void; hasChamber: boolean; onSetup: () => void }>();
-const wide = useMedia('(min-width: 1100px)');
 /** চেম্বারের অগ্রিম বাকি: তালিকার payRequestId/payStatus (open/rejected) থেকেই, আলাদা খোঁজ নয় */
 const advanceDue = (a: Appointment) => !a.online && isActive(a.status) && payOn('pay_chamber_advance') && linkDue(a.payLink);
 const [sp, setSp] = useSearchParams();
@@ -47,12 +48,25 @@ const groups = computed<Record<View, Appointment[]>>(() => {
     past: inCh.filter((a) => a.date < t0 || (a.date > t0 && !isActive(a.status))).sort((a, b) => b.date - a.date || bySerial(a, b)),
   };
 });
-const view = computed<View>(() => {
-  const asked = sp.value.get('v') as View | null;
+const segs = computed<Record<QSeg, Appointment[]>>(() => {
   const g = groups.value;
-  return asked && asked in g ? asked : g.today.length ? 'today' : g.waiting.length ? 'waiting' : 'upcoming';
+  const active = [...g.today.filter((a) => a.status === 'confirmed'), ...g.upcoming.filter((a) => a.status === 'confirmed')];
+  return { new: g.waiting, active, done: [...g.today.filter((a) => !isActive(a.status)), ...g.past] };
 });
-const rows = computed(() => groups.value[view.value]);
+const view = computed<QSeg>(() => {
+  const asked = sp.value.get('v');
+  // পুরোনো লিংক (?v=today|waiting|upcoming|past)
+  const k = asked === 'waiting' ? 'new' : asked === 'today' || asked === 'upcoming' ? 'active' : asked === 'past' ? 'done' : asked;
+  // না বাছলে: আজ নিশ্চিত কেউ থাকলে "চলছে" (আজকের কাজ), নইলে অপেক্ষায় কেউ থাকলে "নতুন"
+  if (k === 'new' || k === 'active' || k === 'done') return k;
+  return groups.value.today.some((a) => a.status === 'confirmed') ? 'active' : segs.value.new.length ? 'new' : 'active';
+});
+const rows = computed(() => segs.value[view.value]);
+// ডেস্কটপে (৯০০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা সিরিয়াল (না বাছলে প্রথমটা) — কাজের বোতাম সেখানে
+const md = useMedia('(min-width: 900px)');
+const picked = ref<string | null>(null);
+const sel = computed(() => rows.value.find((a) => a.id === picked.value) ?? rows.value[0] ?? null);
+const shownCards = computed(() => (md.value ? (sel.value ? [sel.value] : []) : rows.value));
 const patients = computed(() => new Set(props.list.filter((a) => a.status === 'confirmed' || a.status === 'completed').map((a) => a.otherKey || a.otherName)).size);
 const manyCh = computed(() => chambers.value.length > 1 && !chamber.value);
 
@@ -134,16 +148,11 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
       <StatTile :value="num(patients)" :label="tr('Patients', 'রোগী')" />
     </div>
     <div class="row wrap appt-toolbar">
-      <PillTabs
-        secondary
-        :tabs="[
-          { key: 'today', label: tr('Today', 'আজ'), count: groups.today.length },
-          { key: 'waiting', label: tr('Waiting', 'অপেক্ষায়'), count: groups.waiting.length },
-          { key: 'upcoming', label: tr('Upcoming', 'সামনের'), count: groups.upcoming.length },
-          { key: 'past', label: tr('Past', 'আগের') },
-        ]"
+      <QueueSegs
+        :label="tr('Bookings', 'বুকিং')"
         :value="view"
-        @change="(k) => setSp(k === 'today' ? {} : { v: k }, { replace: true })"
+        :counts="{ new: segs.new.length, active: segs.active.length, done: segs.done.length }"
+        @change="(k) => setSp({ v: k }, { replace: true })"
       />
       <span class="grow" />
       <div v-if="chambers.length > 1" class="appt-ch-select">
@@ -155,54 +164,25 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
       </div>
       <IconButton icon="refresh" :label="tr('Refresh', 'রিফ্রেশ')" @click="reload()" />
     </div>
-    <QueuePanel v-if="view === 'today'" />
+    <QueuePanel v-if="view === 'active'" />
     <ErrorText :text="err" />
     <EmptyState v-if="!rows.length" icon="calendar_month" :title="tr('No appointments', 'কোনো অ্যাপয়েন্টমেন্ট নেই')">
       <Button v-if="!hasChamber" variant="tonal" icon="add" @click="onSetup()">{{ tr('Add chamber', 'চেম্বার যোগ করুন') }}</Button>
     </EmptyState>
-    <div v-else-if="wide" class="table-wrap">
-      <table class="table appt-table">
-        <thead>
-          <tr>
-            <th>{{ tr('Serial', 'সিরিয়াল') }}</th>
-            <th>{{ tr('Patient', 'রোগী') }}</th>
-            <th>{{ tr('Date', 'তারিখ') }}</th>
-            <th>{{ tr('Time', 'সময়') }}</th>
-            <th v-if="manyCh">{{ tr('Chamber', 'চেম্বার') }}</th>
-            <th>{{ tr('Status', 'অবস্থা') }}</th>
-            <th>{{ tr('Phone', 'ফোন') }}</th>
-            <th :aria-label="tr('Actions', 'কাজ')" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="a in rows" :key="a.id" :class="cx(!isActive(a.status) && a.status !== 'completed' && 'appt-dim')">
-            <td><span v-if="a.serial > 0" class="appt-serial-chip num">{{ num(a.serial) }}</span><span v-else class="muted">—</span></td>
-            <td class="appt-td-name">
-              <div class="t-title-s">{{ name(a) }}</div>
-              <div v-if="a.note" class="t-body-s muted clamp2">{{ a.note }}</div>
-              <div v-if="a.providerNote" class="t-body-s appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</div>
-              <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
-            </td>
-            <td class="appt-nowrap">{{ a.date === t0 ? tr('Today', 'আজ') : formatDate(a.date) }}</td>
-            <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
-            <td v-if="manyCh">{{ apptChamber(a) }}</td>
-            <td><Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag> <Tag v-if="advanceDue(a)" tone="error" data-testid="advance-due">{{ PT.advanceDue() }}</Tag></td>
-            <td class="appt-phone-cell"><span v-if="!a.otherPhone" class="muted">—</span><ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" show-number /></td>
-            <td>
-              <div class="row wrap appt-acts">
-                <template v-if="a.status === 'pending'">
-                  <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>
-                  <Button small variant="text" :disabled="!!busyId" @click="decline(a)">{{ tr('Decline', 'না করুন') }}</Button>
-                </template>
-                <Button v-else-if="a.status === 'confirmed'" small variant="danger-text" :disabled="!!busyId" @click="cancel(a)">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-else class="grid-cards appt-grid">
-      <article v-for="a in rows" :key="a.id" :class="cx('card col gap-6', !isActive(a.status) && a.status !== 'completed' && 'appt-dim')">
+    <div v-else :class="md ? 'q-md' : 'grid-cards appt-grid'">
+      <ul v-if="md" class="q-list" :aria-label="tr('Bookings', 'বুকিং')">
+        <li v-for="a in rows" :key="a.id">
+          <button type="button" :class="cx('q-item', !isActive(a.status) && a.status !== 'completed' && 'appt-dim')" :aria-current="a.id === sel?.id" data-testid="q-item" @click="picked = a.id">
+            <span v-if="a.serial > 0" class="appt-serial-chip num">{{ num(a.serial) }}</span>
+            <span class="col gap-2 grow" :style="{ minWidth: 0 }">
+              <span class="t-title-s">{{ name(a) }}</span>
+              <span class="t-body-s muted">{{ whenLine(a) + (manyCh && a.chamber ? ' · ' + apptChamber(a) : '') }}</span>
+            </span>
+            <Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag>
+          </button>
+        </li>
+      </ul>
+      <article v-for="a in shownCards" :key="a.id" :class="cx('card col gap-6', md && 'q-detail', !isActive(a.status) && a.status !== 'completed' && 'appt-dim')">
         <div class="row">
           <span v-if="a.serial > 0" class="appt-serial-chip num">{{ num(a.serial) }}</span>
           <span class="t-title-m grow clamp2">{{ name(a) }}</span>

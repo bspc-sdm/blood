@@ -71,9 +71,24 @@ const PROVIDERS = [
   },
 ];
 
+// সেবার এক ছাঁচের বাড়তি ঘর (backend/docs/LISTINGS.md): ratingSummary, feeAmount, nextSlot, verified
+const SLOT = { p_mahmuda: [0, 'আজ', true, 0], p_rafiq: [1, 'কাল', true, 0], p_tanvir: [3, null, true, 0], p_nusrat: [0, 'আজ', false, 0], p_faisal: [1, 'কাল', true, 0] };
+const FEE = { p_mahmuda: 700, p_rafiq: 1000, p_tanvir: 600, p_shahana: 800, p_nusrat: 500, p_faisal: 1500 };
+function listingFields(p) {
+  const s = SLOT[p.uid];
+  return {
+    ...p,
+    ratingSummary: p.ratingCount > 0 ? { avg: p.rating, count: p.ratingCount } : null,
+    feeAmount: FEE[p.uid] ?? null,
+    verified: p.uid === 'p_mahmuda' || p.uid === 'p_rafiq',
+    nextSlot: s ? { date: today() + s[0] * DAY, label: s[1] ?? new Date(today() + s[0] * DAY).getUTCDate() + ' অক্টোবর', available: s[2], chamberIndex: s[3] } : null,
+    distanceKm: null,
+  };
+}
+
 function providers(b) {
   return {
-    items: PROVIDERS.filter((p) => p.type === b.type)
+    items: PROVIDERS.map(listingFields).filter((p) => p.type === b.type)
       .filter((p) => !b.specialty || p.specialties.includes(b.specialty))
       .filter((p) => !b.homeVisit || (p.homeVisit && p.homeVisit.enabled))
       .filter((p) => (b.hospitalId ? p.chambers.some((c) => c.hospitalId === b.hospitalId) : !b.district || p.chambers.some((c) => c.district === b.district && (!b.upazilaId || c.upazilaId === b.upazilaId)))),
@@ -184,6 +199,22 @@ const ME_PROVIDER = {
   homeVisit: { enabled: true, radiusKm: 5, upazilaIds: [MUKTAGACHA], services: ['checkup', 'elderly_care'], schedule: '', fee: '১০০০ টাকা', noFee: false, phone: '01711000999', times: [{ days: [5], start: '09:00', end: '12:00' }] },
 };
 
+// "আমার চেম্বার"-এর "রোগীরা আপনাকে যেভাবে দেখেন" আর "আজ সিরিয়াল চলছে / আজ বন্ধ" (chamber_days, chamber_day_set)
+// দুটো চেম্বারই আজ বসে ধরা (নকল) — বন্ধ করলে nextSlot কালকে যায়
+const closedToday = new Set();
+function chamberDays() {
+  const items = ME_PROVIDER.chambers.map((c, i) => ({
+    chamberIndex: i, chamberKey: c.hospitalId || 'c' + i, name: c.hospitalName, nameBn: c.hospitalNameBn, online: false, appointments: c.appointments,
+    sitsToday: true, closedToday: closedToday.has(i), closedDates: [], requestsToday: i === 0 ? 2 : 0,
+  }));
+  const open = items.find((x) => !x.closedToday);
+  const card = {
+    ...ME_PROVIDER, ratingSummary: { avg: 4.6, count: 17 }, feeAmount: open?.chamberIndex === 1 ? 500 : 700, verified: true,
+    nextSlot: open ? { date: today(), label: 'আজ', available: true, chamberIndex: open.chamberIndex } : { date: today() + DAY, label: 'কাল', available: true, chamberIndex: 0 },
+  };
+  return { doctorUid: 'u1', role: 'doctor', items, card };
+}
+
 const daily = Array.from({ length: 30 }, (_, i) => Math.max(0, Math.round(((Math.sin(i * 0.7 + 1) + 1) / 2) * 4 + (i > 24 ? 1 : 0))));
 const sum = (n) => daily.slice(30 - n).reduce((a, b) => a + b, 0);
 
@@ -210,6 +241,12 @@ export default {
   appointment_late_reply: () => ({ ok: true, chamber: queueToday().chambers[0] }),
   queue_today: queueToday,
   queue_control: () => ({ chamber: queueToday().chambers[0] }),
-  provider_me: () => ({ provider: ME_PROVIDER }),
+  provider_me: () => ({ provider: ME_PROVIDER, card: chamberDays().card }),
+  chamber_days: chamberDays,
+  chamber_day_set: (b) => {
+    if (b.closed) closedToday.add(b.chamberIndex);
+    else closedToday.delete(b.chamberIndex);
+    return { ok: true, chamberIndex: b.chamberIndex, closed: !!b.closed, requests: b.chamberIndex === 0 ? 2 : 0 };
+  },
   provider_save: () => ({ ok: true, cancelled: 0 }),
 };

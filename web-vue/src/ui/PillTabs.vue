@@ -6,7 +6,8 @@ import { num } from '@/lib/i18n';
 import Icon from './Icon.vue';
 import type { PillTab } from './types';
 
-const props = defineProps<{ tabs: PillTab[]; value: string; secondary?: boolean; label?: string }>();
+// nearest: বাছা ট্যাব শুধু দরকার হলে যতটুকু লাগে ততটুকু সরিয়ে দেখানো (প্রথম ট্যাব অকারণে কাটা পড়ে না) — সেবার ট্যাব
+const props = defineProps<{ tabs: PillTab[]; value: string; secondary?: boolean; label?: string; nearest?: boolean }>();
 const emit = defineEmits<{ change: [key: string] }>();
 const list = ref<InstanceType<typeof TabsList> | null>(null);
 
@@ -14,7 +15,12 @@ const list = ref<InstanceType<typeof TabsList> | null>(null);
 function center() {
   const box = (list.value as any)?.$el as HTMLElement | undefined;
   const el = box?.querySelector<HTMLElement>('[aria-selected="true"]');
-  if (el && box && box.scrollWidth > box.clientWidth) {
+  if (el && box && box.scrollWidth > box.clientWidth && props.nearest) {
+    const pad = 16;
+    const l = el.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
+    if (l - pad < box.scrollLeft) box.scrollTo({ left: Math.max(0, l - pad) });
+    else if (l + el.offsetWidth + pad > box.scrollLeft + box.clientWidth) box.scrollTo({ left: l + el.offsetWidth + pad - box.clientWidth });
+  } else if (el && box && box.scrollWidth > box.clientWidth) {
     box.scrollTo({ left: el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2, behavior: 'smooth' });
   }
 }

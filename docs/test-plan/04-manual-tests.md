@@ -27,7 +27,7 @@
 | [manual/12-security-privacy.md](manual/12-security-privacy.md) | যা অন্যের দেখা উচিত নয় — হাতে যাচাই | M-SEC | ১ | ২ ঘণ্টা |
 | [manual/13-admin.md](manual/13-admin.md) | অ্যাডমিন প্যানেল (ওয়েব) আর অ্যাপের অ্যাডমিন | M-ADM | ১ | ৩ ঘণ্টা |
 | [manual/14-notifications.md](manual/14-notifications.md) | প্রতিটা নোটিফিকেশন আসে কি না, চাপলে ঠিক পাতা খোলে কি না | M-NTF | ১ | ৩ ঘণ্টা |
-| [manual/15-web.md](manual/15-web.md) | ওয়েব (lifolo.com): মোবাইল/ডেস্কটপ, লিংক, প্রিন্ট | M-WEB | ১ | ২.৫ ঘণ্টা |
+| [manual/15-web.md](manual/15-web.md) | ওয়েব (lifolo.com): মোবাইল/ডেস্কটপ, লিংক, প্রিন্ট, সেবার তালিকার এক ছাঁচ আর "আমার কাজ" | M-WEB | ১ | ৩.৫ ঘণ্টা |
 | [manual/16-business-listings.md](manual/16-business-listings.md) | ব্যবসা যোগ (ফার্মেসি, অ্যাম্বুলেন্স, ব্লাড ব্যাংক, প্যাথলজি), কাগজ, অনুমোদন, বন্ধ, আপিল | M-BIZ | ১ | ২.৫ ঘণ্টা |
 | [manual/17-calls.md](manual/17-calls.md) | অ্যাপে অডিও/ভিডিও কল, অনলাইন ভিডিও চেম্বার, বিকাশে ফি | M-CAL, M-ONC | ২, ৩, ৬, ৭ | ৮ ঘণ্টা |
 | [manual/21-messages.md](manual/21-messages.md) | অ্যাপে মেসেজ, মেসেজে ছবি ও লোকেশন | M-MSG | ৪, ৫ | ৪ ঘণ্টা |
@@ -36,7 +36,8 @@
 | [manual/20-practice.md](manual/20-practice.md) | চিকিৎসা পদ্ধতি, ফিজিওথেরাপিস্ট, সাইকোলজিস্ট | M-PRC | ১৬, ১৭ | ৫ ঘণ্টা |
 | [manual/23-health-consent.md](manual/23-health-consent.md) | স্বাস্থ্য তথ্যের সম্মতি (দেশের বাইরের সার্ভারসহ), তুলে নেওয়া, জরুরি সেবা কখনো আটকায় না | M-CNS | ১৮ | ৩ ঘণ্টা |
 | [manual/22-title-guard.md](manual/22-title-guard.md) | "ডা." পদবির নিয়ম: শুধু MBBS/BDS, অ-এলোপ্যাথিক চিকিৎসকের পেশার নাম, "‘ডা.’ লেখা নাম" | M-TTL | ১৯ | ৩ ঘণ্টা |
-| | **মোট** | **৭২১টা** | | **≈ ৯৩ ঘণ্টা** (ধাপ ১ ≈ ৪৯ ঘণ্টা, বাকি ১৮টা ধাপ মিলে ≈ ৪৪) |
+| [manual/24-service-listings-app.md](manual/24-service-listings-app.md) | সেবার পাঁচ তালিকা এক ছাঁচে (Android) আর "আমার কাজ" | M-LSA | ১ | ১.৫ ঘণ্টা |
+| | **মোট** | **৭৪১টা** | | **≈ ৯৪ ঘণ্টা** (ধাপ ১ ≈ ৫০ ঘণ্টা, বাকি ১৮টা ধাপ মিলে ≈ ৪৪) |
 
 ## শুরুর আগে যা লাগবে
 

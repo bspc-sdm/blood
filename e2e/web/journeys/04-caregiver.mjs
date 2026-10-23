@@ -1,5 +1,5 @@
 // কেয়ারগিভার (গাইড journey-care.json J-60…J-69): রুমা রহিমের হয়ে — প্রেসক্রিপশন, সিরিয়াল, ফার্মেসি, প্যাথলজি, সীমা, সরিয়ে দেওয়া
-import { tap, see, go, settle, dhakaISO, bookBtn, bookSent, pharmacyWork, labWorkTab, rxListAll } from '../lib.mjs';
+import { pickQueueItem, tap, see, go, settle, dhakaISO, bookBtn, bookSent, pharmacyWork, labWorkTab, rxListAll } from '../lib.mjs';
 
 export const meta = { no: 4, slug: 'caregiver', titleBn: 'কেয়ারগিভার: রোগীর হয়ে কাজ' };
 
@@ -84,8 +84,9 @@ export async function run(J) {
     await go(page, '/work');
     await tap(page, 'আমার চেম্বার');
     await tap(page, 'বুকিং', { role: 'tab' });
-    await tap(page, /^অপেক্ষায়/, { role: 'tab' });
-    await J.shot('ডাক্তার: অপেক্ষায় — রহিম আর রাবেয়া', 'রোগী ‘ডেমো রোগী রহিম’ (সমস্যা ‘ডেমো: রুমা রহিমের হয়ে সিরিয়াল নিলেন’) আর ‘ডেমো মা রাবেয়া বেগম’।', { full: true });
+    await tap(page, /^নতুন/, { role: 'tab' });
+    await pickQueueItem(page, 'রুমা রহিমের');
+    await J.shot('ডাক্তার: নতুন — রহিম আর রাবেয়া', 'রোগী ‘ডেমো রোগী রহিম’ (সমস্যা ‘ডেমো: রুমা রহিমের হয়ে সিরিয়াল নিলেন’) আর ‘ডেমো মা রাবেয়া বেগম’।', { full: true });
     const row = page.locator('tr, article').filter({ hasText: 'রুমা রহিমের হয়ে' }).first();
     await row.getByRole('button', { name: 'নিশ্চিত করুন' }).click();
     const d = page.getByRole('dialog').last();

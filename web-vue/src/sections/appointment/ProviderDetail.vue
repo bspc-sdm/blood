@@ -20,7 +20,9 @@ import { T as OT } from './online';
 import { systemTag } from '@/lib/practice';
 import { practitionerLabel } from '@/lib/titleGuard';
 
-const props = defineProps<{ p: Provider; onClose?: () => void; onBooked?: (msg: string) => void; preview?: boolean }>();
+// embedded: সেবার এক ছাঁচের বিস্তারিতের (ListingDetail) ভেতরে — মাথা, রিপোর্ট আর নিচের বার সেখানে; এখানে শুধু চেম্বার ও সিরিয়াল,
+// বাসায় সেবা, পরিচিতি। মূল বাটন ("সিরিয়াল নিন") বাইরে থেকে mainBook() ডাকে।
+const props = defineProps<{ p: Provider; onClose?: () => void; onBooked?: (msg: string) => void; preview?: boolean; embedded?: boolean }>();
 const two = useTwoPane();
 const s = useSession();
 const booking = ref<number | null>(null);
@@ -56,13 +58,14 @@ function mainBook() {
   if (bookable.value.length === 1) book(bookable.value[0]);
   else if (!props.preview) choosing.value = true;
 }
+defineExpose({ mainBook, bookable, askReport: () => (reporting.value = true) });
 function homeCalled() {
   if (!s.guest) call('home_called', { uid: props.p.uid }).catch(() => {});
 }
 </script>
 
 <template>
-  <div class="row top">
+  <div v-if="!embedded" class="row top">
     <div class="grow">
       <DetailHead :title="p.name" :icon="badgeIcon(p.type)" :photo="p.photo || null" :subtitle="p.specialties.map(specialtyLabel).join(' · ')" :meta="ratingLine(p.rating, p.ratingCount)">
         <span v-if="systemTag(p.type, p.system)" class="row" data-testid="detail-system"><Tag tone="info">{{ systemTag(p.type, p.system) }}</Tag></span>
@@ -118,11 +121,11 @@ function homeCalled() {
   <p v-if="preview" class="t-body-s muted">{{ tr('This is how patients see you. Save to update it.', 'রোগীরা আপনাকে এভাবেই দেখবেন। বদল দেখাতে সেভ করুন।') }}</p>
   <InfoText v-if="reported" :text="tr('Reported. An admin will review it.', 'রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।')" />
   <EmergencyNotice k="doctor" />
-  <div v-if="canReport && !(bookable.length || pinnedCall)" class="row">
+  <div v-if="!embedded && canReport && !(bookable.length || pinnedCall)" class="row">
     <span class="grow" />
     <Button variant="text" icon="flag" @click="reporting = true">{{ tr('Report', 'রিপোর্ট') }}</Button>
   </div>
-  <div v-if="bookable.length || pinnedCall" class="detail-bar">
+  <div v-if="!embedded && (bookable.length || pinnedCall)" class="detail-bar">
     <div class="detail-bar-row call-compact">
       <template v-if="pinnedCall">
         <span v-if="preview" :class="cx('btn outline square has-icon call', !bookable.length && 'solo')"><Icon name="call" />{{ num(pinnedCall) }}</span>

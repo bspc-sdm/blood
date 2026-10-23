@@ -560,6 +560,23 @@ export async function orderRow(page, text, opt = {}) {
   throw new Error(`সারি পাওয়া যায়নি: ${[].concat(text).join(' + ')}`);
 }
 
+/**
+ * "আমার কাজ"-এর সারি, ডেস্কটপে তালিকা-বিস্তারিত (বাঁয়ে ছোট সারি, ডানে বাছা জিনিস; listings §৩b): [text] যেটার বিস্তারিতে আছে
+ * সেটা বাছা। ফোনে (সব কার্ড একসাথে) কিছু করে না।
+ */
+export async function pickQueueItem(page, text) {
+  const items = page.getByTestId('q-item');
+  const n = await items.count();
+  if (!n) return;
+  const detail = page.locator('.q-detail');
+  for (let i = 0; i < n; i++) {
+    if (!(await items.nth(i).isVisible())) continue;
+    await items.nth(i).click();
+    await settle(page, 150);
+    if (await detail.filter({ hasText: text }).count()) return;
+  }
+}
+
 /** সেবা › ফার্মেসি: আগে ‘কীভাবে কিনবেন?’ — ‘দোকানে গিয়ে কিনব’ (কাছের সব ফার্মেসি) বাছা, না চাইলে কিছু না */
 export async function inStore(page) {
   await settle(page);

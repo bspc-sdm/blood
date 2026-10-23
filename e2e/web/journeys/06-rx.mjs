@@ -1,5 +1,5 @@
 // ডাক্তার ও প্রেসক্রিপশন (গাইড rx.json R-01…R-38): তালিকা, বুকিং, সেটআপ, রোগী-পাতা, সহকারী, রিপোর্ট দেখানো, ফার্মেসি/প্যাথলজির দিক, যাচাই
-import { tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow, rxListAll } from '../lib.mjs';
+import { pickQueueItem, tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow, rxListAll } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
 import { adminLogin } from './00-seed.mjs';
@@ -54,12 +54,14 @@ export async function run(J) {
     await J.shot('হাসান — দুটো চেম্বার', 'মেডিকেল (বহির্বিভাগ ৩১২, প্রতিদিন, ফি ৫০০) আর কালিয়াকৈর (শুক্রবার, ফি ৪০০)।', { full: true });
     await go(page, '/appointment');
     // ২.৩৩.০: বিশেষজ্ঞতা তালিকার ওপরেই চিপ (আগে ফিল্টারের জানালায়)
-    const chip = page.getByRole('button', { name: 'হৃদরোগ', exact: true });
+    const chip = page.getByTestId('filter-chips').getByRole('button', { name: 'হৃদরোগ', exact: true });
     if (await chip.count()) {
       await chip.first().click();
       await settle(page);
     } else {
-      await tap(page, 'ফিল্টার');
+      // সেবার এক ছাঁচ: বাকি ছাঁকনি চিপের সারির শেষে "আরও"
+      await page.getByTestId('filter-more').click();
+      await settle(page);
       const d = page.getByRole('dialog').last();
       // ফিল্টারের জানালায় চিপে সংখ্যাও থাকে: ‘হৃদরোগ (১)’ (দ্রুত-চিপ শুধু সবচেয়ে বেশি ডাক্তারের ৩টা বিশেষজ্ঞতা — নতুন পেশা আর
       // চিকিৎসা পদ্ধতির ডাক্তার যোগ হলে হৃদরোগ সেখানে থাকে না)
@@ -73,8 +75,9 @@ export async function run(J) {
       await chip.first().click();
       await settle(page);
     } else {
-      const x = page.getByRole('button', { name: /সরান/ });
+      const x = page.getByTestId('filter-clear');
       if (await x.count()) await x.first().click();
+      await settle(page);
     }
     await tap(page, 'ডা. ডেমো ফারজানা হক');
     await J.shot('ফারজানা — শুধু ফোনে সিরিয়াল', '‘অ্যাপয়েন্টমেন্ট চাই’ নেই, শুধু ‘সিরিয়ালের জন্য ফোন’।', { full: true });
@@ -140,12 +143,14 @@ export async function run(J) {
   await J.sc('R-08', 'ওয়েবে সিরিয়ালের সারি (কম্পিউটার)', async () => {
     page = await J.as('doctor');
     await chamber(page, 'বুকিং');
-    for (const t of [/^অপেক্ষায়/, /^সামনের/, /^আগের/]) {
+    // নতুন / চলছে / শেষ (সেবার "আমার কাজ"-এর এক ছাঁচ); কম্পিউটারে বাঁয়ে সারি, ডানে বাছা সিরিয়াল আর তার কাজ
+    for (const t of [/^নতুন/, /^চলছে/, /^শেষ/]) {
       await tap(page, t, { role: 'tab' });
-      await J.shot(`বুকিং — ${String(t).replace(/[\/^]/g, '')}`, 'ছকে সিরিয়াল, রোগী, তারিখ, সময়, অবস্থা, ফোন।', { full: true });
+      await J.shot(`বুকিং — ${String(t).replace(/[\/^]/g, '')}`, 'বাঁয়ে সিরিয়াল, রোগী, তারিখ ও সময়, অবস্থা; ডানে বাছা সিরিয়ালের বিস্তারিত, ফোন আর কাজ।', { full: true });
     }
-    await tap(page, /^সামনের/, { role: 'tab' });
-    const row = page.locator('tr').filter({ hasText: 'ডেমো রোগী নাসিমা বেগম' }).first();
+    await tap(page, /^চলছে/, { role: 'tab' });
+    await pickQueueItem(page, 'ডেমো রোগী নাসিমা বেগম');
+    const row = page.locator('tr, article').filter({ hasText: 'ডেমো রোগী নাসিমা বেগম' }).first();
     await row.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট বাতিল' }).click();
     const d = page.getByRole('dialog').last();
     await d.getByRole('button', { name: /বাতিল/ }).last().click();
@@ -336,7 +341,7 @@ export async function run(J) {
     if (await card.count()) {
       await card.getByRole('button', { name: 'তৈরি' }).click();
       await settle(page, 500);
-      // ‘তৈরি’ চাপলে সারি ‘চলছে / তৈরি’ ট্যাবে যায়
+      // ‘তৈরি’ চাপলে সারি ‘চলছে’ ট্যাবে যায়
       await (await orderRow(page, 'ডেমো রোগী রহিম', { button: 'খুলুন' })).getByRole('button', { name: 'খুলুন' }).first().click();
       await settle(page);
       await page.getByLabel('Comet: কয়টা দিলেন').fill('30').catch(() => {});
@@ -379,11 +384,11 @@ export async function run(J) {
   await J.sc('R-27', 'প্যাথলজির অনুরোধের তালিকা', async () => {
     page = await J.as('lab');
     await labWork(page);
-    // ২.৩x: ফিল্টারের বদলে ট্যাব — নতুন · নমুনা/চলছে · রিপোর্ট দেওয়া · শেষ (বাতিলও ‘শেষ’-এ)
-    for (const f of ['নতুন', 'নমুনা', 'রিপোর্ট দেওয়া', 'শেষ']) {
+    // সেবার "আমার কাজ"-এর এক ছাঁচ: নতুন · চলছে (নমুনা নেওয়া) · শেষ (রিপোর্ট দেওয়া আর বাতিল)
+    for (const f of ['নতুন', 'চলছে', 'শেষ']) {
       await page.getByRole('tab', { name: new RegExp(`^${f}`) }).first().click();
       await settle(page);
-      await J.shot(`ট্যাব: ${f}`, f === 'শেষ' ? 'বাতিল: নাসিমা বেগম (USG)।' : f === 'নতুন' ? 'সালমা TSH, ফাতেমা (বাসা থেকে)।' : f === 'নমুনা' ? 'রহিম CBC (নমুনা নেওয়া)।' : 'রিপোর্ট দেওয়া: রহিম, সালমা, করিম — ‘দেখুন’।', { full: true });
+      await J.shot(`ট্যাব: ${f}`, f === 'শেষ' ? 'রিপোর্ট দেওয়া: রহিম, সালমা, করিম — ‘দেখুন’; বাতিল: নাসিমা বেগম (USG)।' : f === 'নতুন' ? 'সালমা TSH, ফাতেমা (বাসা থেকে)।' : 'রহিম CBC (নমুনা নেওয়া)।', { full: true });
     }
     const row = await orderRow(page, 'ডেমো রোগী সালমা খাতুন', { button: 'নমুনা নিয়েছি' });
     await row.getByRole('button', { name: 'নমুনা নিয়েছি' }).click();

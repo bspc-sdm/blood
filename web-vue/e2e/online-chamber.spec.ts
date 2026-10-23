@@ -62,22 +62,24 @@ test('তালিকা: "অনলাইন" ব্যাজ, ছাঁকন�
     return { ...j, items: [...j.items, ONLINE_DOC] };
   });
   await open(page, def('appointment', 'list'));
-  const card = page.locator('.card', { hasText: 'ডা. রুবিনা ইয়াসমিন' }).first();
+  const card = page.getByTestId('listing-card').filter({ hasText: 'ডা. রুবিনা ইয়াসমিন' }).first();
   await expect(card).toBeVisible();
   await expect(card.locator('.tag', { hasText: /^অনলাইন$/ })).toBeVisible();
-  await expect(card).toContainText('অনলাইন (ভিডিও)');
 
-  await page.locator('.appt-qchips').getByRole('button', { name: 'অনলাইন', exact: true }).click();
+  await page.getByTestId('filter-chips').getByRole('button', { name: 'অনলাইন', exact: true }).click();
   await expect.poll(() => seen.filter((c) => c.action === 'providers').at(-1)?.body).toMatchObject({ type: 'doctor', online: true });
   const last = seen.filter((c) => c.action === 'providers').at(-1)!.body;
   expect(last.district).toBeUndefined();
   expect(last.hospitalId).toBeUndefined();
-  await expect(page.locator('.appt-qchips .chip.on', { hasText: 'অনলাইন' })).toBeVisible();
+  await expect(page.getByTestId('filter-chips').getByRole('button', { name: 'অনলাইন', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('ডা. মাহমুদা আক্তার')).toHaveCount(0);
 
   // বুকিং: এক চেম্বার → সরাসরি অনুরোধ; ঠিকানা নেই, ফির নিয়ম লেখা
   await card.click();
-  await page.locator('.detail-bar').getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট' }).click();
+  // বিস্তারিতে "অনলাইন (ভিডিও)" চেম্বার; নিচের বারে "সিরিয়াল নিন"
+  await expect(page.getByTestId('listing-detail').first()).toBeVisible();
+  await expect(page.getByText('অনলাইন (ভিডিও)').first()).toBeVisible();
+  await page.getByTestId('detail-bar').getByRole('button', { name: 'সিরিয়াল নিন' }).click();
   const dlg = page.getByRole('dialog');
   await expect(dlg.getByTestId('online-book-hint')).toContainText('bKash');
   await dlg.getByLabel('কী সমস্যা').fill('জ্বর আর কাশি');
@@ -231,6 +233,9 @@ for (const size of ['mobile', 'desktop @desktop']) {
   test(`ডাক্তার: বুকিংয়ে ফির অবস্থা, TrxID, "ফি পেয়েছি" নিশ্চিত ধাপসহ, কলের লিংক (${size})`, async ({ page }) => {
     const errs = watchErrors(page);
     const seen = await proBookings(page, 'claimed');
+    // ডেস্কটপে তালিকা-বিস্তারিত: সারি থেকে জসিমকে বাছা (ডানে তাঁর বিস্তারিত আর ফি)
+    const item = page.getByTestId('q-item').filter({ hasText: 'মো. জসিম উদ্দিন' });
+    if (await item.count()) await item.click();
     const pro = page.getByTestId('online-pay-pro');
     await expect(pro.getByTestId('pay-state')).toHaveText('রোগী ফি পাঠিয়েছেন');
     await expect(pro.getByTestId('pay-ref')).toContainText('TRX42AB');
@@ -401,7 +406,7 @@ test('ফিচার সুইচ বন্ধ: তালিকা, সেট�
   }, {});
   await open(page, def('appointment', 'list'));
   await expect(page.locator('.card', { hasText: 'ডা. মাহমুদা আক্তার' }).first()).toBeVisible();
-  await expect(page.locator('.appt-qchips').getByRole('button', { name: 'অনলাইন', exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('filter-chips').getByRole('button', { name: 'অনলাইন', exact: true })).toHaveCount(0);
   await expect(page.locator('.card .tag', { hasText: /^অনলাইন$/ })).toHaveCount(0);
   expect(seen.filter((c) => c.action === 'providers').every((c) => c.body.online === undefined)).toBe(true);
 

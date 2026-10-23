@@ -78,12 +78,8 @@ export async function run(J) {
     await go(page, '/services');
     await tap(page, 'ব্লাড ব্যাংক', { role: 'tab' }).catch(() => tap(page, 'ব্লাড ব্যাংক'));
     await J.shot('সেবা › ব্লাড ব্যাংক', '৩টা ডেমো: জীবনধারা (২৪ ঘণ্টা), সদর হাসপাতাল (সরকারি, ৮–৮, শুক্র বন্ধ), আলোর পথ (স্বেচ্ছাসেবী); ‘রক্তবন্ধু’ নেই।', { full: true });
-    await tap(page, 'ফিল্টার');
-    const sw = page.getByRole('dialog').last().getByText(/২৪ ঘণ্টা/).first();
-    await sw.click();
-    const show = page.getByRole('dialog').last().getByRole('button', { name: /দেখান|ঠিক আছে|প্রয়োগ/ });
-    if (await show.count()) await show.first().click();
-    else await page.keyboard.press('Escape');
+    // সেবার এক ছাঁচ: "২৪ ঘণ্টা" এখন ছাঁকনির চিপ (এক লাইন)
+    await page.getByTestId('filter-chips').getByRole('button', { name: '২৪ ঘণ্টা', exact: true }).click();
     await settle(page);
     await J.shot('শুধু ২৪ ঘণ্টা খোলা', 'শুধু ‘ডেমো জীবনধারা ব্লাড ব্যাংক’।');
   });
@@ -374,7 +370,7 @@ export async function run(J) {
   });
 
   await J.sc('B-24', 'খোলার সময় বদলানো আর ফোন নম্বর বদলানো', async () => {
-    const card = page.locator('article, .card, section').filter({ hasText: 'ডেমো জীবনধারা ব্লাড ব্যাংক' }).first();
+    const card = page.locator('article, .card, section').filter({ hasText: 'ডেমো জীবনধারা ব্লাড ব্যাংক' }).filter({ has: page.getByRole('link', { name: /বদলান/ }).or(page.getByRole('button', { name: /বদলান/ })) }).first(); // "রোগীরা আপনাকে যেভাবে দেখেন"-এর কার্ড নয়
     await card.getByRole('link', { name: /বদলান/ }).or(card.getByRole('button', { name: /বদলান/ })).first().click();
     await settle(page);
     await J.shot('ব্লাড ব্যাংকের তথ্য বদলান', 'নাম, ধরন, সময়, ফোন, শর্তের টিক।', { full: true });

@@ -1,14 +1,16 @@
 <script setup lang="ts">
 // প্যাথলজি — অনুরোধের তালিকা: কোড দিয়ে খোলা, নতুন · চলমান · রিপোর্ট · বাতিল (?s=), খোঁজা, নমুনা নেওয়া
 import { computed, ref } from 'vue';
-import { Button, ErrorBox, Icon, PillTabs, SkeletonCards, Tag, cx } from '@/ui/kit';
+import { Button, ErrorBox, Icon, SkeletonCards, Tag, cx } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { formatDateTime, timeAgo } from '@/lib/format';
 import { useNav, useSearchParams } from '@/lib/nav';
 import { useInvalidate, useWide } from './common';
-import { LAB_SEGS, ageText, genderText, labSegLabel, labSegOf, labStatusText, labTone, segCounts, type LabOrder, type LabOrders, type LabSeg } from './model';
+import { LAB_SEGS, ageText, genderText, labSegOf, labStatusText, labTone, segCounts, type LabOrder, type LabOrders, type LabSeg } from './model';
 import CodeBox from './CodeBox.vue';
+import BizPreview from '../../work/BizPreview.vue';
+import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
 import ModeTag from './ModeTag.vue';
 import HomeLabTag from './HomeLabTag.vue';
 import LabHomeContact from './LabHomeContact.vue';
@@ -29,13 +31,18 @@ const err = ref<string | null>(null);
 const openErr = ref<string | null>(null);
 const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(LAB_SEGS, props.orders.data?.counts, labSegOf as (x: never) => LabSeg, items.value));
-const view = computed<LabSeg>(() => {
-  const asked = (sp.value.get('s') ?? LEGACY_VIEW[sp.value.get('v') ?? '']) as LabSeg | null;
-  return asked && LAB_SEGS.includes(asked) ? asked : 'new';
+// ভাগ: নতুন / চলছে / শেষ (সেবার "আমার কাজ"-এর এক ছাঁচ, QueueSegs) — সার্ভারের new · active · (reported + closed = শেষ)
+const view = computed<QSeg>(() => {
+  const asked = (sp.value.get('s') ?? LEGACY_VIEW[sp.value.get('v') ?? '']) as string | null;
+  return asked === 'active' ? 'active' : asked === 'done' || asked === 'reported' || asked === 'closed' ? 'done' : 'new';
 });
+const segOf = (o: LabOrder): QSeg => {
+  const x = labSegOf(o);
+  return x === 'new' ? 'new' : x === 'active' ? 'active' : 'done';
+};
 const t = computed(() => q.value.trim().toLowerCase());
 const rows = computed(() => {
-  const inSeg = items.value.filter((o) => labSegOf(o) === view.value).sort((a, c) => c.createdAt - a.createdAt);
+  const inSeg = items.value.filter((o) => segOf(o) === view.value).sort((a, c) => c.createdAt - a.createdAt);
   const s = t.value;
   return s ? inSeg.filter((o) => o.patientName.toLowerCase().includes(s) || o.code.toLowerCase().includes(s) || o.tests.some((x) => x.toLowerCase().includes(s))) : inSeg;
 });
@@ -77,17 +84,15 @@ const onKey = (e: KeyboardEvent, o: LabOrder) => {
 <template>
   <div class="rxp-codewrap">
     <div class="col gap-16 rxp-codemain">
+      <BizPreview kind="lab" />
 
       <div class="row wrap gap-8">
-        <div class="rxp-sub-pills">
-          <PillTabs
-            secondary
-            :label="tr('Test requests', 'পরীক্ষার অনুরোধ')"
-            :value="view"
-            :tabs="LAB_SEGS.map((s) => ({ key: s, label: labSegLabel(s), count: counts[s] }))"
-            @change="(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })"
-          />
-        </div>
+        <QueueSegs
+          :label="tr('Test requests', 'পরীক্ষার অনুরোধ')"
+          :value="view"
+          :counts="{ new: counts.new, active: counts.active, done: counts.reported + counts.closed }"
+          @change="(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })"
+        />
         <span class="grow" />
         <div class="rxp-search rxp-search-sm">
           <Icon name="search" />
@@ -108,7 +113,7 @@ const onKey = (e: KeyboardEvent, o: LabOrder) => {
                 ? tr('No new requests now', 'এখন নতুন কোনো অনুরোধ নেই')
                 : view === 'active'
                   ? tr('No samples waiting', 'এখন কোনো নমুনা বা চলমান পরীক্ষা নেই')
-                  : view === 'reported'
+                  : view === 'done'
                     ? tr('No reports given yet', 'এখনো কোনো রিপোর্ট দেওয়া হয়নি')
                     : tr('Nothing cancelled', 'বাতিল হওয়া কোনো অনুরোধ নেই')
           }}

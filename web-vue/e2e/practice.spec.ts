@@ -100,28 +100,30 @@ test.describe('সুইচ চালু', () => {
       return { ...j, items: [...j.items.map((p: any) => ({ ...p, system: 'allopathy' })), HOMEO] };
     });
     await open(page, def('appointment', 'list'));
-    const chips = page.getByTestId('system-chips');
-    await expect(chips.getByRole('button')).toHaveText(['সব', 'এলোপ্যাথি', 'হোমিওপ্যাথি', 'ইউনানি', 'আয়ুর্বেদ']);
-    await expect(chips.getByRole('button', { name: 'সব' })).toHaveAttribute('aria-pressed', 'true');
-    const homeo = page.locator('.card', { hasText: 'মো. করিম উদ্দিন' });
-    await expect(homeo.locator('.title-tag')).toHaveText('হোমিওপ্যাথি');
+    // পদ্ধতির চিপ এখন ছাঁকনির এক লাইনে (সেবার এক ছাঁচ) — কোনোটা বাছা না থাকলে সব
+    const chips = page.getByTestId('filter-chips').locator('[data-chip^="sys-"]');
+    await expect(chips).toHaveText(['এলোপ্যাথি', 'হোমিওপ্যাথি', 'ইউনানি', 'আয়ুর্বেদ']);
+    for (const c of await chips.all()) await expect(c).toHaveAttribute('aria-pressed', 'false');
+    const homeo = page.getByTestId('listing-card').filter({ hasText: 'মো. করিম উদ্দিন' });
+    // মূল লাইনে পদ্ধতি: "বিশেষজ্ঞতা · পদ্ধতি · ফি"
+    await expect(homeo.getByTestId('key-line')).toContainText('হোমিওপ্যাথি');
     await expect(homeo).not.toContainText('ডা.');
-    await expect(page.locator('.card', { hasText: 'ডা. মাহমুদা আক্তার' }).locator('.title-tag')).toHaveText('এলোপ্যাথি');
+    await expect(page.getByTestId('listing-card').filter({ hasText: 'ডা. মাহমুদা আক্তার' }).getByTestId('key-line')).toContainText('এলোপ্যাথি');
 
-    await chips.getByRole('button', { name: 'হোমিওপ্যাথি' }).click();
+    await page.getByTestId('filter-chips').getByRole('button', { name: 'হোমিওপ্যাথি' }).click();
     await expect.poll(() => last(seen, 'providers')?.system).toBe('homeopathy');
     await expect(page.getByText('ডা. মাহমুদা আক্তার')).toHaveCount(0);
     // বিস্তারিত: নামের নিচে পদ্ধতি
     await homeo.click();
-    await expect(page.getByTestId('detail-system').first()).toHaveText('হোমিওপ্যাথি');
+    await expect(page.getByTestId('listing-detail').first()).toContainText('হোমিওপ্যাথি');
 
     // নতুন ট্যাব: ফিজিওথেরাপিস্ট — পদ্ধতির চিপ নেই, type: physio
     await page.goto('/appointment', { waitUntil: 'networkidle' });
     await page.getByRole('tab', { name: 'ফিজিওথেরাপিস্ট' }).click();
     await expect.poll(() => last(seen, 'providers')?.type).toBe('physio');
     expect(last(seen, 'providers').system).toBeUndefined();
-    await expect(page.getByTestId('system-chips')).toHaveCount(0);
-    await expect(page.locator('.card', { hasText: 'রিফাত হাসান' })).toContainText('কোমর ও ঘাড় ব্যথা');
+    await expect(page.getByTestId('filter-chips').locator('[data-chip^="sys-"]')).toHaveCount(0);
+    await expect(page.getByTestId('listing-card').filter({ hasText: 'রিফাত হাসান' })).toContainText('কোমর ও ঘাড় ব্যথা');
     await expect(page.getByRole('tab', { name: 'সাইকোলজিস্ট' })).toBeVisible();
     expect(errs).toEqual([]);
   });

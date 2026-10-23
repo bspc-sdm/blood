@@ -153,7 +153,7 @@ test.describe('পেশার নাম', () => {
     await mock(page, true, null, async (action, body) => (action === 'providers' && body.system === 'homeopathy' ? { items: [], facets: { specialties: [], systems: [] } } : undefined));
     await open(page, def('appointment', 'list'));
     await expect(page.getByRole('tab', { name: 'ডাক্তার ও চিকিৎসক' })).toBeVisible();
-    await page.getByTestId('system-chips').getByRole('button', { name: 'হোমিওপ্যাথি' }).click();
+    await page.getByTestId('filter-chips').getByRole('button', { name: 'হোমিওপ্যাথি' }).click();
     await expect(page.getByText('কোনো হোমিওপ্যাথিক চিকিৎসক পাওয়া যায়নি')).toBeVisible();
   });
 });

@@ -18,6 +18,8 @@ import { parseTaka, taka } from '@/sections/services/fare';
 import { mapLink, type DriverReq } from './ambcalls';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
+import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
+import { useMedia } from '@/shell/chrome';
 
 const props = defineProps<{ names: Record<string, string>; onChanged: () => void }>();
 // পাতা খোলা থাকলে ৫ সেকেন্ড পরপর (পেছনের ট্যাবে ব্রাউজার নিজেই থামায়)
@@ -28,7 +30,26 @@ const info = ref<string | null>(null);
 const cancel = ref<DriverReq | null>(null);
 // প্রতিটা ডাকের ভাড়ার ঘর (না লিখলে আনুমানিক ভাড়া)
 const fares = ref<Record<string, string>>({});
-const items = computed(() => q.data?.items ?? []);
+const all = computed(() => q.data?.items ?? []);
+// ভাগ (সেবার "আমার কাজ"-এর এক ছাঁচ): নতুন = খোলা ডাক, চলছে = নিজের নেওয়া (যাচ্ছি/পৌঁছেছি), শেষ = এই পাতায় শেষ করা ট্রিপ
+// (সার্ভার শুধু খোলা আর চলমান ডাক দেয়)। না বাছলে: চলমান থাকলে "চলছে", নইলে "নতুন"।
+const finished = ref<DriverReq[]>([]);
+const picked = ref<QSeg | null>(null);
+const segOf = (r: DriverReq): QSeg => (r.status === 'open' ? 'new' : 'active');
+const counts = computed(() => ({ new: all.value.filter((r) => segOf(r) === 'new').length, active: all.value.filter((r) => segOf(r) === 'active').length, done: finished.value.length }));
+const seg = computed<QSeg>(() => picked.value ?? (counts.value.active ? 'active' : 'new'));
+const items = computed(() => (seg.value === 'done' ? finished.value : all.value.filter((r) => segOf(r) === seg.value)));
+// ডেস্কটপে (৯০০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা ডাক (না বাছলে প্রথমটা)
+const md = useMedia('(min-width: 900px)');
+const pickedId = ref<string | null>(null);
+const sel = computed(() => items.value.find((r) => r.id === pickedId.value) ?? items.value[0] ?? null);
+const cards = computed(() => (md.value ? (sel.value ? [sel.value] : []) : items.value));
+const rowTitle = (r: DriverReq) => (seg.value === 'done' ? tr('Finished', 'শেষ হয়েছে') : r.status === 'arrived' ? tr('You arrived', 'আপনি পৌঁছেছেন') : r.status !== 'open' ? tr('You\'re going', 'আপনি যাচ্ছেন') : tr('Ambulance needed', 'অ্যাম্বুলেন্স দরকার'));
+const finish = (r: DriverReq) =>
+  act(r, async () => {
+    await call('ambreq_step', { id: r.id, step: 'done' });
+    finished.value = [r, ...finished.value.filter((x) => x.id !== r.id)];
+  }, true, tr('Trip finished. You\'re available again.', 'ট্রিপ শেষ। আপনি আবার খালি।'));
 
 async function act(r: DriverReq, f: () => Promise<unknown>, changed = false, done?: string) {
   busy.value = r.id;
@@ -66,10 +87,24 @@ async function pickReason(reason: string) {
 <template>
   <section class="col gap-8 amb-calls" :aria-label="tr('Calls', 'ডাক')">
     <h2 class="t-title-m row gap-8"><Icon name="notifications_active" />{{ tr('Calls', 'ডাক') }}</h2>
+    <QueueSegs :label="tr('Calls', 'ডাক')" :value="seg" :counts="counts" @change="(k) => (picked = k)" />
     <ErrorText :text="err" />
     <InfoText :text="info" />
-    <p v-if="q.data && !items.length" class="t-body-s muted">{{ tr('When a patient nearby calls an ambulance, it shows here. Keep "Available now" on.', 'কাছের কোনো রোগী অ্যাম্বুলেন্স ডাকলে এখানে আসবে। "এখন খালি আছি" চালু রাখুন।') }}</p>
-    <article v-for="r in items" :key="r.id" :class="r.status !== 'open' ? 'amb-call mine' : 'amb-call'" data-testid="amb-call">
+    <p v-if="q.data && !all.length && seg !== 'done'" class="t-body-s muted">{{ tr('When a patient nearby calls an ambulance, it shows here. Keep "Available now" on.', 'কাছের কোনো রোগী অ্যাম্বুলেন্স ডাকলে এখানে আসবে। "এখন খালি আছি" চালু রাখুন।') }}</p>
+    <p v-if="seg === 'done' && !finished.length" class="t-body-s muted">{{ tr('Trips you finish here show up in this list.', 'এখানে শেষ করা ট্রিপ এই তালিকায় থাকবে।') }}</p><!-- bn-ok -->
+    <div :class="md && items.length ? 'q-md' : 'col gap-8'">
+    <ul v-if="md && items.length" class="q-list" :aria-label="tr('Calls', 'ডাক')">
+      <li v-for="r in items" :key="r.id">
+        <button type="button" class="q-item" :aria-current="r.id === sel?.id" data-testid="q-item" @click="pickedId = r.id">
+          <span class="col gap-2 grow" :style="{ minWidth: 0 }">
+            <span class="t-title-s">{{ rowTitle(r) }}</span>
+            <span class="t-body-s muted">{{ [r.pickup, areaLabel(r.district, r.upazilaId, r.unionId)].filter(Boolean).join(' · ') }}</span>
+          </span>
+          <span class="t-body-s muted">{{ timeAgo(r.createdAt) }}</span>
+        </button>
+      </li>
+    </ul>
+    <article v-for="r in cards" :key="r.id" :class="[r.status !== 'open' ? 'amb-call mine' : 'amb-call', md && 'q-detail']" :data-testid="seg === 'done' ? 'amb-call-done' : 'amb-call'">
       <div class="row">
         <span class="t-title-m grow">
           {{ r.status !== 'open' ? (r.status === 'arrived' ? tr('You arrived', 'আপনি পৌঁছেছেন') : tr('You\'re going', 'আপনি যাচ্ছেন')) : tr('Ambulance needed', 'অ্যাম্বুলেন্স দরকার') }}
@@ -84,7 +119,8 @@ async function pickReason(reason: string) {
       <IconLine v-if="r.quote && r.destLabel" icon="local_hospital">{{ tr('Going to: ', 'যাবেন: ') + r.destLabel }}</IconLine>
       <div v-if="r.quote && r.status !== 'open' && r.agreedFare != null" class="amb-fare-agreed" data-testid="amb-agreed-fare">{{ tr('Agreed fare ', 'ঠিক হওয়া ভাড়া ') + taka(r.agreedFare) }}</div>
       <IconLine v-if="r.ambulanceId && names[r.ambulanceId]" icon="ambulance">{{ tr('Your vehicle: ', 'আপনার গাড়ি: ') + names[r.ambulanceId] }}</IconLine>
-      <template v-if="r.status !== 'open'">
+      <div v-if="seg === 'done'"><Tag tone="good">{{ tr('Finished', 'শেষ হয়েছে') }}</Tag></div>
+      <template v-else-if="r.status !== 'open'">
         <IconLine v-if="r.patientName" icon="person_outline">{{ r.patientName }}</IconLine>
         <div class="row wrap gap-8">
           <!-- নিজের ম্যাপ (খরচ নেই): ঠিক জায়গা থাকলে সেটা, নইলে ঠিকানা আর এলাকার লেখা দিয়ে খোঁজা -->
@@ -94,7 +130,7 @@ async function pickReason(reason: string) {
         <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="r.id" :peer-name="r.patientName" :phone="r.phone || null" :show="r.status === 'accepted' || r.status === 'arrived'" show-number />
         <div class="row wrap gap-8">
           <Button v-if="r.status === 'accepted'" :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'arrived' }))">{{ tr('Arrived', 'পৌঁছেছি') }}</Button>
-          <Button :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'done' }), true, tr('Trip finished. You\'re available again.', 'ট্রিপ শেষ। আপনি আবার খালি।'))">{{ tr('Finish', 'শেষ') }}</Button>
+          <Button :busy="busy === r.id" :disabled="!!busy" @click="finish(r)">{{ tr('Finish', 'শেষ') }}</Button>
           <span class="grow" />
           <Button variant="danger-text" :disabled="!!busy" @click="cancel = r">{{ tr('Cancel', 'বাতিল') }}</Button>
         </div>
@@ -122,6 +158,7 @@ async function pickReason(reason: string) {
         <Button variant="outline" :disabled="!!busy" @click="act(r, () => call('ambreq_decline', { id: r.id }))">{{ tr('Can\'t', 'পারব না') }}</Button>
       </div>
     </article>
+    </div>
     <ReasonDialog v-if="cancel" :title="tr('Why cancel?', 'কেন বাতিল করছেন?')" :reasons="DRIVER_REASONS()" :on-pick="pickReason" @close="cancel = null" />
   </section>
 </template>

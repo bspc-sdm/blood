@@ -19,9 +19,9 @@ function ambulances(b, { authed }) {
   if (empty(b)) return { items: [], busyCount: 0, busy: [] };
   const t = now();
   let items = [
-    { id: 'amb1', name: 'জননী অ্যাম্বুলেন্স সার্ভিস', phone: '01711000101', types: ['ac', 'icu'], district: D, upazilaId: SADAR, area: 'চরপাড়া মোড়', fare: 'শহরে ৮০০ টাকা, ঢাকা ৫৫০০', available: true, availableAt: t - 40 * 60 * 1000, rating: 4.6, ratingCount: 23, canRate: authed },
-    { id: 'amb2', name: 'মমতা অ্যাম্বুলেন্স', phone: '01811000202', types: ['general'], district: D, upazilaId: TRISHAL, area: 'ত্রিশাল বাসস্ট্যান্ড', fare: 'আলোচনা সাপেক্ষে', available: true, availableAt: t - 3 * H, rating: 4.1, ratingCount: 9, canRate: false },
-    { id: 'amb3', name: 'সেবা ফ্রিজার ভ্যান', phone: '01911000303', types: ['freezer'], district: D, upazilaId: SADAR, area: 'মেডিকেল কলেজ গেট', fare: '', available: false, availableAt: t - 20 * H, rating: 0, ratingCount: 0, canRate: false },
+    { id: 'amb1', name: 'জননী অ্যাম্বুলেন্স সার্ভিস', phone: '01711000101', types: ['ac', 'icu'], district: D, upazilaId: SADAR, area: 'চরপাড়া মোড়', fare: 'শহরে ৮০০ টাকা, ঢাকা ৫৫০০', available: true, availableAt: t - 40 * 60 * 1000, rating: 4.6, ratingCount: 23, ratingSummary: { avg: 4.6, count: 23 }, verified: true, canRate: authed },
+    { id: 'amb2', name: 'মমতা অ্যাম্বুলেন্স', phone: '01811000202', types: ['general'], district: D, upazilaId: TRISHAL, area: 'ত্রিশাল বাসস্ট্যান্ড', fare: 'আলোচনা সাপেক্ষে', available: true, availableAt: t - 3 * H, rating: 4.1, ratingCount: 9, ratingSummary: { avg: 4.1, count: 9 }, canRate: false },
+    { id: 'amb3', name: 'সেবা ফ্রিজার ভ্যান', phone: '01911000303', types: ['freezer'], district: D, upazilaId: SADAR, area: 'মেডিকেল কলেজ গেট', fare: '', available: false, availableAt: t - 20 * H, rating: 0, ratingCount: 0, ratingSummary: null, canRate: false },
   ];
   if (b.type) items = items.filter((a) => a.types.includes(b.type));
   // দূরত্ব (আসল GPS — gps: true — দিলে): খালিগুলো কাছেরটা আগে, পুরো কিমি (০ = ১ কিমির কম); ফ্রিজারের জায়গা দেওয়া নেই → "প্রায়"
@@ -41,9 +41,9 @@ function pharmacies(b, { authed } = {}) {
   if (empty(b)) return { items: [] };
   const gps = typeof b.lat === 'number';
   let items = [
-    { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01711000501', address: 'হাসপাতাল রোড, চরপাড়া', district: D, upazilaId: SADAR, openAt: '', closeAt: '', open24: true, openNow: true, closedUntil: 0, closedDays: [], delivery: true, deliveryNote: 'শহরের ভেতরে ৩০ টাকা', discount: 10, rating: 4.7, ratingCount: 31, km: gps ? 0.6 : null, canRate: !!authed, rateAspects: authed ? ['behaviour', 'price', 'delivery'] : [], aspects: { behaviour: { rating: 4.8, count: 31 }, price: { rating: 4.6, count: 24 }, delivery: { rating: 4.4, count: 15 } } },
-    { id: 'ph2', name: 'নিউ মডেল ড্রাগ হাউস', phone: '01811000602', address: 'গাঙ্গিনাপাড়, ছোটবাজার', district: D, upazilaId: SADAR, openAt: '09:00', closeAt: '23:00', open24: false, openNow: true, closedUntil: 0, closedDays: [5], delivery: false, deliveryNote: '', discount: 5, rating: 4.2, ratingCount: 12, km: gps ? 1.8 : null, aspects: { behaviour: { rating: 4.3, count: 12 }, price: { rating: 4.0, count: 7 } } },
-    { id: 'ph3', name: 'ত্রিশাল মেডিসিন কর্নার', phone: '01911000703', address: 'দরিরামপুর, ত্রিশাল', district: D, upazilaId: TRISHAL, openAt: '08:00', closeAt: '22:00', open24: false, openNow: false, closedUntil: now() + 3 * 24 * H, closedDays: [], delivery: true, deliveryNote: '', discount: 0, rating: 0, ratingCount: 0, km: gps ? 19.4 : null },
+    { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01711000501', address: 'হাসপাতাল রোড, চরপাড়া', district: D, upazilaId: SADAR, openAt: '', closeAt: '', open24: true, openNow: true, closedUntil: 0, closedDays: [], delivery: true, deliveryNote: 'শহরের ভেতরে ৩০ টাকা', discount: 10, rating: 4.7, ratingCount: 31, ratingSummary: { avg: 4.7, count: 31 }, km: gps ? 0.6 : null, distanceKm: gps ? 0.6 : 1.2, distanceApprox: !gps, is24h: true, verified: true, canRate: !!authed, rateAspects: authed ? ['behaviour', 'price', 'delivery'] : [], aspects: { behaviour: { rating: 4.8, count: 31 }, price: { rating: 4.6, count: 24 }, delivery: { rating: 4.4, count: 15 } } },
+    { id: 'ph2', name: 'নিউ মডেল ড্রাগ হাউস', phone: '01811000602', address: 'গাঙ্গিনাপাড়, ছোটবাজার', district: D, upazilaId: SADAR, openAt: '09:00', closeAt: '23:00', open24: false, openNow: true, closedUntil: 0, closedDays: [5], delivery: false, deliveryNote: '', discount: 5, rating: 4.2, ratingCount: 12, ratingSummary: { avg: 4.2, count: 12 }, km: gps ? 1.8 : null, distanceKm: gps ? 1.8 : 2.1, distanceApprox: !gps, is24h: false, opensAt: '09:00', closesAt: '23:00', aspects: { behaviour: { rating: 4.3, count: 12 }, price: { rating: 4.0, count: 7 } } },
+    { id: 'ph3', name: 'ত্রিশাল মেডিসিন কর্নার', phone: '01911000703', address: 'দরিরামপুর, ত্রিশাল', district: D, upazilaId: TRISHAL, openAt: '08:00', closeAt: '22:00', open24: false, openNow: false, closedUntil: now() + 3 * 24 * H, closedDays: [], delivery: true, deliveryNote: '', discount: 0, rating: 0, ratingCount: 0, ratingSummary: null, km: gps ? 19.4 : null, distanceKm: gps ? 19.4 : 18.9, distanceApprox: !gps, is24h: false },
   ];
   if (b.openNow) items = items.filter((p) => p.openNow);
   return { items };
@@ -52,9 +52,11 @@ function pharmacies(b, { authed } = {}) {
 function bloodbanks(b) {
   if (empty(b)) return { items: [] };
   let items = [
-    { id: 'bb1', name: 'জেলা সদর হাসপাতাল ব্লাড ব্যাংক', kind: 'govt', phone: '0912000001', district: D, upazilaId: SADAR, address: 'চরপাড়া, হাসপাতালের নিচতলা', open24: true, openAt: '', closeAt: '', openNow: true, services: ['whole_blood', 'components', 'platelets', 'screening'], closedDays: [] },
-    { id: 'bb2', name: 'সন্ধানী ডোনার ক্লাব', kind: 'org', phone: '01711000808', district: D, upazilaId: SADAR, address: 'মেডিকেল কলেজ ক্যাম্পাস', open24: false, openAt: '09:00', closeAt: '17:00', openNow: true, services: ['whole_blood', 'donate_here'], closedDays: [5] },
-    { id: 'bb3', name: 'প্রিমিয়ার ব্লাড সেন্টার', kind: 'private', phone: '01811000909', district: D, upazilaId: SADAR, address: 'সি.কে. ঘোষ রোড', open24: false, openAt: '08:00', closeAt: '20:00', openNow: false, services: ['whole_blood', 'screening'], closedDays: [] },
+    { id: 'bb1', name: 'জেলা সদর হাসপাতাল ব্লাড ব্যাংক', kind: 'govt', phone: '0912000001', district: D, upazilaId: SADAR, address: 'চরপাড়া, হাসপাতালের নিচতলা', open24: true, openAt: '', closeAt: '', openNow: true, services: ['whole_blood', 'components', 'platelets', 'screening'], closedDays: [], verified: true, distanceKm: 0.8, distanceApprox: true, ratingSummary: null,
+      stock: { 'A+': 'have', 'A-': 'low', 'B+': 'have', 'B-': 'none', 'O+': 'have', 'O-': 'none', 'AB+': 'low', 'AB-': null }, stockUpdatedAt: now() - 2 * H, stockStale: false },
+    { id: 'bb2', name: 'সন্ধানী ডোনার ক্লাব', kind: 'org', phone: '01711000808', district: D, upazilaId: SADAR, address: 'মেডিকেল কলেজ ক্যাম্পাস', open24: false, openAt: '09:00', closeAt: '17:00', openNow: true, services: ['whole_blood', 'donate_here'], closedDays: [5], distanceKm: 1.5, distanceApprox: true, ratingSummary: null,
+      stock: { 'A+': 'low', 'A-': null, 'B+': 'have', 'B-': null, 'O+': 'have', 'O-': null, 'AB+': null, 'AB-': null }, stockUpdatedAt: now() - 3 * 24 * H, stockStale: true },
+    { id: 'bb3', name: 'প্রিমিয়ার ব্লাড সেন্টার', kind: 'private', phone: '01811000909', district: D, upazilaId: SADAR, address: 'সি.কে. ঘোষ রোড', open24: false, openAt: '08:00', closeAt: '20:00', openNow: false, services: ['whole_blood', 'screening'], closedDays: [], distanceKm: 2.3, distanceApprox: true, ratingSummary: null, stock: null, stockUpdatedAt: null, stockStale: false },
   ];
   if (b.open24) items = items.filter((x) => x.open24);
   return { items };
@@ -79,11 +81,12 @@ function labs(b) {
   return {
     items: [
       {
-        id: 'lab1', name: 'নিরাময় ডায়াগনস্টিক সেন্টার', phone: '01711001001', address: 'নওমহল, ময়মনসিংহ', district: D, upazilaId: SADAR, facilityId: null, homeCollection: true, hours: 'সকাল ৭টা – রাত ১০টা',
+        id: 'lab1', name: 'নিরাময় ডায়াগনস্টিক সেন্টার', phone: '01711001001', address: 'নওমহল, ময়মনসিংহ', district: D, upazilaId: SADAR, facilityId: null, homeCollection: true, hours: 'সকাল ৭টা – রাত ১০টা', openNow: true, opensAt: '07:00', closesAt: '22:00', is24h: false, distanceKm: 1.1, distanceApprox: true, ratingSummary: null, verified: true,
         // এলাকার তালিকায় শুধু সারাংশ; পুরো তালিকা lab_prices_public
         prices: { count: LAB1_PRICES.items.length, from: 100, discountPct: 10, homeFee: 150, updatedAt: LAB1_PRICES.updatedAt },
       },
-      { id: 'lab2', name: 'ত্রিশাল প্যাথলজি সেন্টার', phone: '01811001102', address: 'ত্রিশাল পৌরসভা', district: D, upazilaId: TRISHAL, facilityId: null, homeCollection: false, hours: 'সকাল ৮টা – সন্ধ্যা ৭টা, শুক্রবার বন্ধ', prices: null },
+      { id: 'lab3', name: 'মেডিল্যাব পাথোলজি', phone: '01911001203', address: 'চরপাড়া মোড়', district: D, upazilaId: SADAR, facilityId: null, homeCollection: false, hours: '২৪ ঘণ্টা', openNow: true, opensAt: null, closesAt: null, is24h: true, distanceKm: 1.1, distanceApprox: true, ratingSummary: null, prices: null },
+      { id: 'lab2', name: 'ত্রিশাল প্যাথলজি সেন্টার', phone: '01811001102', address: 'ত্রিশাল পৌরসভা', district: D, upazilaId: TRISHAL, facilityId: null, homeCollection: false, hours: 'সকাল ৮টা – সন্ধ্যা ৭টা, শুক্রবার বন্ধ', openNow: false, opensAt: '08:00', closesAt: '19:00', is24h: false, distanceKm: 18.6, distanceApprox: true, ratingSummary: null, prices: null },
     ],
   };
 }

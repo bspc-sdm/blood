@@ -9,7 +9,15 @@ import { adminLogin } from './00-seed.mjs';
 export const meta = { no: 5, slug: 'services', titleBn: 'সেবা: ফার্মেসি, প্যাথলজি, নার্স, দোকানের হিসাব' };
 
 async function area(page) {
+  // সেবার তালিকা (এক ছাঁচ): এলাকার চিপ ("এলাকা বদলান: …") বা খালি অবস্থার "এলাকা বদলান"; বাসায় সেবা: "এলাকা বেছে নিন"
   const choose = page.getByRole('button', { name: /এলাকা বেছে নিন/ }).first();
+  if (await page.getByTestId('area-chip').count()) {
+    if (!(await page.getByTestId('listing-card').count()) && (await page.getByTestId('listing-empty').count())) {
+      await page.getByTestId('area-chip').click();
+      await pickDistrict(page);
+    }
+    return;
+  }
   if (await choose.count()) {
     await choose.click();
     await pickDistrict(page);
@@ -33,6 +41,19 @@ async function clearFilters(page) {
   }
 }
 const card = (page, name) => page.locator('article').filter({ hasText: name }).first();
+/** সেবার তালিকার ছাঁকনির চিপ (এক লাইন) — চাপলে চালু/বন্ধ */
+async function chip(page, label) {
+  await page.getByTestId('filter-chips').getByRole('button', { name: label, exact: true }).first().click();
+  await settle(page);
+}
+/** চালু চিপগুলো মুছুন */
+async function clearChips(page) {
+  const x = page.getByTestId('filter-clear');
+  if (await x.count()) {
+    await x.first().click();
+    await settle(page);
+  }
+}
 
 /** আমার কাজ › ফার্মেসি › প্রেসক্রিপশন ও অর্ডার › ট্যাব */
 async function shop(page, tab) {
@@ -92,9 +113,9 @@ export async function run(J) {
   });
 
   await J.sc('S-02', 'অ্যাম্বুলেন্সের ধরন ফিল্টার আর ফোন', async () => {
-    await filter(page, 'ফ্রিজার ভ্যান');
+    await chip(page, 'ফ্রিজার ভ্যান');
     await J.shot('ফিল্টার: ফ্রিজার ভ্যান', 'শুধু ‘ডেমো শেষ যাত্রা ফ্রিজার ভ্যান’।', { full: true });
-    await clearFilters(page);
+    await clearChips(page);
     await card(page, 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস').click();
     await settle(page);
     const copied = await copyIfThere(page);
@@ -114,15 +135,15 @@ export async function run(J) {
   await J.sc('S-04', '‘এখন খোলা’ আর ‘২৪ ঘণ্টা’ দিয়ে ছাঁকা', async () => {
     await go(page, '/services/pharmacy');
     await inStore(page);
-    await filter(page, 'শুধু এখন খোলা');
+    await chip(page, 'এখন খোলা');
     await J.shot('শুধু এখন খোলা', '‘ডেমো সেবা ড্রাগ হাউস’ নেই।', { full: true });
-    await clearFilters(page);
+    await clearChips(page);
     // ২.২৬.২: ফার্মেসিতেও ‘শুধু ২৪ ঘণ্টা খোলা’ (সার্ভারে open24)। ডেমো লাইফ ফার্মেসিও ২৪ ঘণ্টা (রাতে ডেমো চালাতে, ২.২৬.১)
-    await filter(page, 'শুধু ২৪ ঘণ্টা খোলা');
+    await chip(page, '২৪ ঘণ্টা');
     const n24 = await page.locator('article').count();
     const others = await page.locator('article').filter({ hasText: /নিউ মডেল|সেবা ড্রাগ|কালিয়াকৈর/ }).count();
     await J.shot('শুধু ২৪ ঘণ্টা খোলা', '‘ডেমো ২৪ ঘণ্টা ফার্মেসি’ আর ‘ডেমো লাইফ ফার্মেসি’ — দুটোতেই ‘২৪ ঘণ্টা’ ট্যাগ; নিউ মডেল, সেবা, কালিয়াকৈর নেই।', { full: true, ...(n24 === 2 && !others ? {} : { status: 'bug', noteBn: `‘শুধু ২৪ ঘণ্টা খোলা’-তে ${n24}টা দোকান (২টা হওয়ার কথা)।` }) });
-    await clearFilters(page);
+    await clearChips(page);
   });
 
   await J.sc('S-05 S-60', 'প্যাথলজির তালিকা আর দাম (S-60)', async () => {
@@ -477,7 +498,7 @@ export async function run(J) {
   });
 
   await J.sc('S-21', 'অ্যাম্বুলেন্সের তথ্য বদলানো (ভাড়া)', async () => {
-    const c = page.locator('article, .card').filter({ hasText: 'ডেমো জীবন অ্যাম্বুলেন্স (এসি)' }).first();
+    const c = page.locator('article, .card').filter({ hasText: 'ডেমো জীবন অ্যাম্বুলেন্স (এসি)' }).filter({ has: page.getByRole('link', { name: /বদলান/ }).or(page.getByRole('button', { name: /বদলান/ })) }).first(); // "রোগীরা আপনাকে যেভাবে দেখেন"-এর কার্ড নয়
     await c.getByRole('link', { name: /বদলান/ }).or(c.getByRole('button', { name: /বদলান/ })).first().click();
     await settle(page);
     const fare = page.getByLabel(/ভাড়া নিয়ে নোট/).first();

@@ -1,37 +1,47 @@
 <script setup lang="ts">
-// অ্যাপয়েন্টমেন্ট: ডাক্তার / পুষ্টিবিদ / ফিটনেস ট্রেইনারের তালিকা আর বিস্তারিত (অ্যাপের AppointmentTab, ProviderList,
-// ProviderCard, ProviderDetailDialog, BookDialog)। বাছা মানুষ URL-এ: /appointment/doctor/:id?t=doctor
+// ডাক্তার / পুষ্টিবিদ / ফিটনেস ট্রেইনার … — সেবার পাঁচ তালিকার এক ছাঁচে (src/ui/listing, listings CONTRACT §১): "সেবা"-র ভেতরে
+// (/services/doctor, base="services") আর "অ্যাপয়েন্টমেন্ট"-এ (/appointment) — একই পাতা। উপরে খোঁজা + এলাকা, সাজানো,
+// এক লাইনের ছাঁকনির চিপ (চিকিৎসা পদ্ধতি, আজ/আগামীকাল, অনলাইন, এখন চেম্বারে, ফি, বিশেষজ্ঞতা) আর "আরও" (বাকি ছাঁকনির শিট)।
+// কার্ড: বিশেষজ্ঞতা · পদ্ধতি · ফি, "আজ সিরিয়াল আছে", রেটিং, "সিরিয়াল নিন" + যোগাযোগ। ডেস্কটপে ডানে বাছা (না হলে প্রথম) ডাক্তার।
 import { computed, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Button, ChoiceChips, EmptyState, ErrorBox, FilterBar, Icon, InfoText, PillTabs, SkeletonCards, Switch } from '@/ui/kit';
+import { Button, ChoiceChips, ErrorBox, Icon, InfoText, PillTabs, Switch, toast } from '@/ui/kit';
 import { useFilterArea } from '@/ui/areaFilter';
 import DetailPane from '@/shell/DetailPane.vue';
 import ListDetail from '@/shell/ListDetail.vue';
-import { usePageTitle } from '@/shell/chrome';
+import { usePageTitle, useTwoPane } from '@/shell/chrome';
 import { errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { store } from '@/lib/store';
-import { tr } from '@/lib/i18n';
+import { num, tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import { useNav, useSearchParams } from '@/lib/nav';
-import { FEE_STEPS, badgeIcon, chamberTypes, chamberLabel, parseProvider, specialtiesOf, specialtyLabel, useCatalog, type Hospital, type SpecialtyFacet } from './model';
+import ListingCard from '@/ui/listing/ListingCard.vue';
+import ListingTop, { type FilterChip } from '@/ui/listing/ListingTop.vue';
+import ListingSkeleton from '@/ui/listing/ListingSkeleton.vue';
+import ListingEmpty from '@/ui/listing/ListingEmpty.vue';
+import ListingDetail from '@/ui/listing/ListingDetail.vue';
+import { LT, isSort, matchesSearch, sortListings, type SortKey } from '@/ui/listing/model';
+import ServiceTabs from '@/sections/services/ServiceTabs.vue';
+import { FEE_STEPS, badgeIcon, badgeLabel, chamberTypes, chamberLabel, parseProvider, specialtiesOf, specialtyLabel, useCatalog, type Hospital, type SpecialtyFacet } from './model';
 import { NO_FILTERS, TAB_ICON, dayLabel, feeLabel, filterKey, genderLabel, loadFilters, tabLabel, useDebounced, type SavedFilters } from './doctors';
 import { useAreasReady, type AreaSel } from './shared';
+import { bookableOf, doctorListing } from './listing';
 import AreaSheet from './AreaSheet.vue';
 import FilterSheet from './FilterSheet.vue';
 import HospitalPickerDialog from './HospitalPickerDialog.vue';
 import SpecialtyPicker from './SpecialtyPicker.vue';
-import ProviderCard from './ProviderCard.vue';
 import ProviderDetail from './ProviderDetail.vue';
+import BookDialog from './BookDialog.vue';
 import { T as OT } from './online';
 import { onlineOn } from './online/flags';
-import { isSystem, newTypeEmpty, systemsOn } from '@/lib/practice';
-import SystemChips from '../practice/SystemChips.vue';
-import { TG, practitionerName, titleGuardOn } from '@/lib/titleGuard';
+import { SYSTEMS, isSystem, newTypeEmpty, systemLabel, systemsOn } from '@/lib/practice';
+import { TG, practitionerLabel, practitionerName, titleGuardOn } from '@/lib/titleGuard';
 
-const props = defineProps<{ detailId: string | null }>();
-usePageTitle(() => tr('Appointment', 'অ্যাপয়েন্টমেন্ট'));
+const props = withDefaults(defineProps<{ detailId: string | null; base?: 'appointment' | 'services' }>(), { base: 'appointment' });
+usePageTitle(() => (props.base === 'services' ? tr('Services', 'সেবা') : tr('Appointment', 'অ্যাপয়েন্টমেন্ট')));
+const two = useTwoPane();
 useCatalog();
 useAreasReady();
 const nav = useNav();
@@ -87,8 +97,21 @@ const body = computed(() => {
   return b;
 });
 type Facets = { specialties: SpecialtyFacet[]; gender: boolean; systems?: { code: string; n: number }[] };
-const q = useCall<{ items: any[]; facets?: Facets }>('providers', body);
-const list = computed(() => (q.data?.items ?? []).map((o) => ({ p: parseProvider(o), matched: Array.isArray(o?.matched) ? (o.matched as number[]) : null })));
+// সাজানো (URL-এ): জায়গা জানা থাকলে নিকটতম, নইলে রেটিং — সার্ভার সাজায় (sort), পুরোনো সার্ভারে এখানে
+const located = computed(() => s.place?.source === 'gps' || cur.value.upazilaId != null);
+const sort = computed<SortKey>(() => (isSort(sp.value.get('sort')) ? (sp.value.get('sort') as SortKey) : located.value ? 'near' : 'rating'));
+const setSort = (k: SortKey) => {
+  const n = new URLSearchParams(sp.value);
+  n.set('sort', k);
+  setSp(n, { replace: true });
+};
+const fullBody = computed(() => {
+  const b: Record<string, unknown> = { ...body.value, sort: sort.value };
+  if (s.place?.source === 'gps') Object.assign(b, { lat: s.place.lat, lng: s.place.lng });
+  return b;
+});
+const q = useCall<{ items: any[]; facets?: Facets }>('providers', fullBody);
+const list = computed(() => (q.data?.items ?? []).map((o) => ({ p: parseProvider(o), raw: o, matched: Array.isArray(o?.matched) ? (o.matched as number[]) : null })));
 // বিশেষজ্ঞতার চিপ: সার্ভার যা বলে (এই এলাকায় যেগুলো আছে); নতুন তালিকা আসার সময় আগেরটা থাকে
 const lastFacets = reactive<Record<string, Facets>>({});
 watch(
@@ -99,48 +122,56 @@ watch(
   { immediate: true },
 );
 const facets = computed(() => q.data?.facets ?? lastFacets[type.value] ?? null);
-const shown = computed(() => {
-  const t = query.value.trim().toLowerCase();
-  return list.value
-    .filter(({ p }) => p.uid !== s.uid)
-    .filter(({ p }) => !t || p.name.toLowerCase().includes(t) || p.degrees.toLowerCase().includes(t) || p.chambers.some((c) => chamberLabel(c).toLowerCase().includes(t)));
-});
+const cards = computed(() => list.value.filter(({ p }) => p.uid !== s.uid).map((x) => ({ ...x, l: doctorListing(x.p, x.raw) })));
+const shown = computed(() => sortListings(cards.value.filter((x) => matchesSearch(x.l, query.value)).map((x) => Object.assign(x.l, { _x: x })), sort.value).map((l) => (l as any)._x as (typeof cards.value)[number]));
 
-// সরাসরি খোলা লিংক: এখনকার তালিকায় না থাকলে পুরো দেশের তালিকা থেকে
-const inList = computed(() => (props.detailId ? list.value.find(({ p }) => p.uid === props.detailId)?.p ?? null : null));
+// বাছা: URL-এর ডাক্তার; ডেস্কটপে কিছু বাছা না থাকলে প্রথমজন। সরাসরি খোলা লিংক এখনকার তালিকায় না থাকলে পুরো দেশের তালিকা থেকে
+const inList = computed(() => (props.detailId ? list.value.find(({ p }) => p.uid === props.detailId) ?? null : null));
 const fb = useCall<{ items: any[] }>('providers', () => ({ type: type.value, homeVisit: false }), () => ({ enabled: !!props.detailId && !inList.value && !q.isLoading }));
-const selected = computed(() => inList.value ?? (props.detailId ? (fb.data?.items ?? []).map(parseProvider).find((p) => p.uid === props.detailId) ?? null : null));
+const selected = computed(() => {
+  if (props.detailId) {
+    if (inList.value) return inList.value;
+    const o = (fb.data?.items ?? []).find((x) => x?.uid === props.detailId);
+    return o ? { p: parseProvider(o), raw: o, matched: null } : null;
+  }
+  return two.value ? shown.value[0] ?? null : null;
+});
+const selListing = computed(() => (selected.value ? doctorListing(selected.value.p, selected.value.raw) : null));
+const detailRef = ref<InstanceType<typeof ProviderDetail> | null>(null);
 
 const qs = computed(() => sp.value.toString());
-const listPath = computed(() => '/appointment' + (qs.value ? `?${qs.value}` : ''));
-const open = (id: string) => nav(`/appointment/doctor/${id}${qs.value ? `?${qs.value}` : ''}`);
+const root = computed(() => (props.base === 'services' ? '/services/doctor' : '/appointment'));
+const listPath = computed(() => root.value + (qs.value ? `?${qs.value}` : ''));
+const open = (id: string) => nav(`${props.base === 'services' ? '/services/doctor' : '/appointment/doctor'}/${id}${qs.value ? `?${qs.value}` : ''}`);
 const hospitalName = (h: Hospital) => chamberLabel({ hospitalName: h.nameEn, hospitalNameBn: h.nameBn });
-const active = computed(() => {
+// ---------- ছাঁকনির চিপ (এক লাইন) — চালুগুলো বাছা দেখায়; "আরও" = বাকি ছাঁকনির শিট ----------
+const chips = computed<FilterChip[]>(() => {
   const ff = f.value;
-  return [
-    ...(ff.day ? [{ label: dayLabel(ff.day), onRemove: () => setF({ day: null }) }] : []),
-    ...(ff.openNow ? [{ label: tr('In chamber now', 'এখন চেম্বারে'), onRemove: () => setF({ openNow: false }) }] : []),
-    ...(ff.specialty ? [{ label: specialtyLabel(ff.specialty), onRemove: () => setF({ specialty: null }) }] : []),
-    ...(ff.maxFee ? [{ label: feeLabel(ff.maxFee), onRemove: () => setF({ maxFee: null }) }] : []),
-    ...(ff.hospital ? [{ label: hospitalName(ff.hospital), onRemove: () => setF({ hospital: null }) }] : []),
-    ...(ff.hospitalQ.trim() ? [{ label: tr('Hospital: ', 'হাসপাতাল: ') + ff.hospitalQ.trim(), onRemove: () => setF({ hospitalQ: '' }) }] : []),
-    ...(ff.gender ? [{ label: genderText(ff.gender), onRemove: () => setF({ gender: null }) }] : []),
-    ...(ff.homeOnly ? [{ label: tr('Home visit', 'বাসায় যান'), onRemove: () => setF({ homeOnly: false }) }] : []),
-    ...(ff.online && onlineOn() ? [{ label: OT.online(), onRemove: () => setF({ online: false }) }] : []),
-  ];
+  const out: FilterChip[] = [];
+  if (systemsOn() && type.value === 'doctor') {
+    for (const x of SYSTEMS) {
+      const n = facets.value?.systems?.find((y) => y.code === x)?.n;
+      out.push({ key: 'sys-' + x, label: systemLabel(x) + (n != null ? ` (${num(n)})` : ''), on: sysFilter.value === x, toggle: () => setSys(sysFilter.value === x ? null : x) });
+    }
+  }
+  out.push({ key: 'today', label: dayLabel('today'), on: ff.day === 'today', toggle: () => setF({ day: ff.day === 'today' ? null : 'today' }) });
+  out.push({ key: 'tomorrow', label: dayLabel('tomorrow'), on: ff.day === 'tomorrow', toggle: () => setF({ day: ff.day === 'tomorrow' ? null : 'tomorrow' }) });
+  if (type.value === 'doctor' && onlineOn()) out.push({ key: 'online', label: OT.online(), on: ff.online, toggle: () => setF({ online: !ff.online }) });
+  out.push({ key: 'now', label: tr('In chamber now', 'এখন চেম্বারে'), on: ff.openNow, toggle: () => setF({ openNow: !ff.openNow }) });
+  out.push({ key: 'fee', label: feeLabel(ff.maxFee && ff.maxFee !== 500 ? ff.maxFee : 500), on: !!ff.maxFee, toggle: () => setF({ maxFee: ff.maxFee ? null : 500 }) });
+  const top = facets.value ? facets.value.specialties.slice(0, 3).map((x) => x.code) : [];
+  if (ff.specialty && !top.includes(ff.specialty)) top.unshift(ff.specialty);
+  for (const c of top) out.push({ key: 'sp-' + c, label: specialtyLabel(c), on: ff.specialty === c, toggle: () => setF({ specialty: ff.specialty === c ? null : c }) });
+  return out;
 });
-// এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
-const quick = computed(() => {
-  const ff = f.value;
-  return [
-    ...(!ff.day ? [{ key: 'today', label: dayLabel('today'), on: () => setF({ day: 'today' }) }, { key: 'tomorrow', label: dayLabel('tomorrow'), on: () => setF({ day: 'tomorrow' }) }] : []),
-    ...(!ff.online && type.value === 'doctor' && onlineOn() ? [{ key: 'online', label: OT.online(), on: () => setF({ online: true }) }] : []),
-    ...(!ff.openNow ? [{ key: 'now', label: tr('In chamber now', 'এখন চেম্বারে'), on: () => setF({ openNow: true }) }] : []),
-    ...(!ff.maxFee ? [{ key: 'fee', label: feeLabel(500), on: () => setF({ maxFee: 500 }) }] : []),
-    ...(!ff.specialty && facets.value ? facets.value.specialties.slice(0, 3).map((x) => ({ key: 'sp-' + x.code, label: specialtyLabel(x.code), on: () => setF({ specialty: x.code }) })) : []),
-  ];
-});
-const isEmptyFilter = computed(() => !cur.value.district && !active.value.length);
+// শিটের বাকি ছাঁকনি (চিপে নেই): হাসপাতাল, হাসপাতালের নাম, লিঙ্গ, বাসায় যান
+const moreCount = computed(() => [f.value.hospital, f.value.hospitalQ.trim(), f.value.gender, f.value.homeOnly].filter(Boolean).length);
+const anyFilter = computed(() => chips.value.some((c) => c.on) || moreCount.value > 0 || !!query.value.trim());
+function clearAll() {
+  clearF();
+  setSys(null);
+  query.value = '';
+}
 const barLabel = computed(() => {
   const h = f.value.hospital;
   const c = cur.value;
@@ -155,17 +186,33 @@ const genderText = (g: string) => (practWord.value ? (g === 'female' ? TG.female
 const emptyTitle = computed(() =>
   (practWord.value ? TG.noneFound(practWord.value) : null) ??
   newTypeEmpty(type.value) ??
-  (type.value === 'nutritionist' ? tr('No nutritionists found', 'কোনো পুষ্টিবিদ পাওয়া যায়নি') : type.value === 'trainer' ? tr('No fitness trainers found', 'কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি') : tr('No doctors found', 'কোনো ডাক্তার পাওয়া যায়নি')),
+  (type.value === 'nutritionist' ? tr('No nutritionists found', 'কোনো পুষ্টিবিদ পাওয়া যায়নি') : type.value === 'trainer' ? tr('No fitness trainers found', 'কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি') : LT.empty('doctor')),
 );
+
+// ---------- "সিরিয়াল নিন" ----------
+const booking = ref<{ p: (typeof list.value)[number]['p']; i: number } | null>(null);
+function bookFromCard(x: (typeof cards.value)[number]) {
+  const b = bookableOf(x.p);
+  const i = x.l.slotChamber != null && b.includes(x.l.slotChamber) ? x.l.slotChamber : b.length === 1 ? b[0] : null;
+  if (i == null) return open(x.p.uid);
+  s.requireLogin(tr('Log in to request an appointment', 'অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন'), () => (booking.value = { p: x.p, i }));
+}
+function booked() {
+  booking.value = null;
+  const m = tr("Request sent. You'll be notified when it's confirmed.", 'অনুরোধ পাঠানো হয়েছে। নিশ্চিত হলে নোটিফিকেশন পাবেন।');
+  info.value = m;
+  toast(m);
+}
+const detailFacts = computed<[string, string][]>(() => {
+  const p = selected.value?.p;
+  if (!p) return [];
+  return [['school', p.degrees], ['badge', practitionerLabel(p) ?? badgeLabel(p.type)], ['local_hospital', p.chambers.length > 1 ? tr(`${p.chambers.length} chambers`, `${num(p.chambers.length)}টা চেম্বার`) : '']];
+});
 
 function changeTab(k: string) {
   // ধরনপ্রতি নিজের শেষ ছাঁকনি (store-এ) — বদলালে সেটা ফিরে আসে
   setSp(k === 'doctor' ? {} : { t: k }, { replace: true });
-  if (props.detailId) nav(k === 'doctor' ? '/appointment' : `/appointment?t=${k}`, { replace: true });
-}
-function searchEverywhere() {
-  area.value = { district: null, upazilaId: null, unionId: null };
-  clearF();
+  if (props.detailId) nav(k === 'doctor' ? root.value : `${root.value}?t=${k}`, { replace: true });
 }
 function areaPicked(v: AreaSel) {
   // এলাকা বদলালে আগের হাসপাতাল আর মেলে না
@@ -182,9 +229,10 @@ function hospitalPicked(h: Hospital) {
 </script>
 
 <template>
-  <ListDetail :has-detail="!!detailId">
-    <div class="list-inner appt-pre">
-      <div class="row appt-title">
+  <ListDetail :has-detail="!!detailId" :auto="two">
+    <div class="list-inner lst-page appt-pre">
+      <ServiceTabs v-if="base === 'services'" kind="doctor" />
+      <div v-else class="row appt-title">
         <h1 class="t-headline grow appt-h1">{{ tr('Appointment', 'অ্যাপয়েন্টমেন্ট') }}</h1>
         <div class="row appt-title-end">
           <RouterLink v-if="!s.guest" class="btn text small has-icon appt-my-link" to="/my-appointments" :aria-label="tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')" :title="tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')">
@@ -194,44 +242,70 @@ function hospitalPicked(h: Hospital) {
           <RouterLink class="appt-home-btn" to="/appointment/home-care"><Icon name="home_health" />{{ tr('Home care', 'বাসায় সেবা') }}</RouterLink>
         </div>
       </div>
-      <div class="appt-bleed">
-        <PillTabs :tabs="chamberTypes().map((k) => ({ key: k, label: tabLabel(k), icon: TAB_ICON[k] }))" :value="type" @change="changeTab" />
+      <div v-if="chamberTypes().length > 1" class="lst-tabs">
+        <PillTabs secondary :label="tr('Type', 'ধরন')" :tabs="chamberTypes().map((k) => ({ key: k, label: tabLabel(k), icon: TAB_ICON[k] }))" :value="type" @change="changeTab" />
       </div>
-      <SystemChips v-if="systemsOn() && type === 'doctor'" :value="sysFilter" :counts="facets?.systems" @change="setSys" />
-      <FilterBar
+      <ListingTop
+        v-model:search="query"
+        kind="doctor"
         :area-label="barLabel"
         :on-area="() => (showArea = true)"
-        :filter-count="active.length"
-        :on-filter="() => (showFilter = true)"
-        :search="query"
-        :on-search="(v: string) => (query = v)"
-      >
-        <div v-if="active.length || quick.length" class="chips scroll appt-qchips" role="group" :aria-label="tr('Filters', 'ছাঁকনি')">
-          <button v-for="a in active" :key="'a-' + a.label" type="button" class="chip on" :aria-label="tr('Remove', 'সরান') + ': ' + a.label" @click="a.onRemove()">{{ a.label }}<Icon name="close" /></button>
-          <button v-for="x in quick" :key="x.key" type="button" class="chip" @click="x.on()">{{ x.label }}</button>
-        </div>
-      </FilterBar>
+        :sort="sort"
+        :sorts="['near', 'rating', 'open']"
+        :chips="chips"
+        :on-clear="clearAll"
+        :on-more="() => (showFilter = true)"
+        :more-count="moreCount"
+        @sort="setSort"
+      />
       <InfoText :text="info" />
-      <SkeletonCards v-if="q.isLoading" :n="4" :h="150" />
+      <ListingSkeleton v-if="q.isLoading" :n="4" />
       <ErrorBox v-else-if="q.error" :error="errorText(q.error)" :on-retry="() => q.refetch()" />
-      <EmptyState v-else-if="!shown.length" :icon="badgeIcon(type)" :title="emptyTitle" :text="tr('Try a wider area or remove a filter.', 'বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।')">
-        <Button v-if="active.length" variant="text" @click="clearF">{{ tr('Remove all filters', 'সব ছাঁকনি সরান') }}</Button>
-        <Button v-if="!isEmptyFilter && !active.length" variant="text" @click="searchEverywhere">{{ tr('Search everywhere', 'সব জায়গায় খুঁজুন') }}</Button>
-      </EmptyState>
-      <template v-else>
-        <ProviderCard v-for="{ p, matched } in shown" :key="p.uid" :p="p" :matched="matched" :area="cur" :online="f.online && onlineOn()" :hospital="f.hospital" :selected="p.uid === detailId" :on-click="() => open(p.uid)" />
-      </template>
+      <ListingEmpty v-else-if="!shown.length" :icon="badgeIcon(type)" :title="anyFilter && !practWord ? LT.noMatch() : emptyTitle" :on-clear="anyFilter ? clearAll : undefined" :on-area="() => (showArea = true)" />
+      <div v-else class="lst-list">
+        <ListingCard
+          v-for="x in shown"
+          :key="x.p.uid"
+          :l="x.l"
+          :selected="x.p.uid === selected?.p.uid"
+          :on-open="() => open(x.p.uid)"
+          :no-primary="!bookableOf(x.p).length"
+        >
+          <template #primary>
+            <Button square icon="calendar_month" data-testid="book-serial" @click="bookFromCard(x)">{{ LT.book() }}</Button>
+          </template>
+        </ListingCard>
+      </div>
     </div>
     <template #detail>
-      <DetailPane v-if="selected" :title="selected.name" :back-to="listPath" hide-title-wide>
-        <ProviderDetail :key="selected.uid" :p="selected" :on-close="() => nav(listPath)" :on-booked="(m: string) => (info = m)" />
+      <ListingDetail
+        v-if="selected && selListing"
+        :key="selected.p.uid"
+        :l="selListing"
+        :title="selected.p.name"
+        :back-to="listPath"
+        :facts="detailFacts"
+        :no-primary="!bookableOf(selected.p).length"
+        :on-report="!s.guest && selected.p.uid !== s.uid ? () => detailRef?.askReport() : undefined"
+        :closable="!!detailId"
+        @close="nav(listPath)"
+      >
+        <template #type>
+          <ProviderDetail ref="detailRef" :p="selected.p" embedded :on-booked="(m: string) => (info = m)" />
+        </template>
+        <template #primary>
+          <Button icon="calendar_month" data-testid="book-serial" @click="detailRef?.mainBook()">{{ LT.book() }}</Button>
+        </template>
+      </ListingDetail>
+      <DetailPane v-else-if="detailId" :title="tr('Doctor', 'ডাক্তার')" :back-to="listPath">
+        <ListingSkeleton v-if="fb.isLoading || q.isLoading" :n="1" />
+        <ListingEmpty v-else icon="stethoscope" :title="tr('Not found', 'পাওয়া যায়নি')" />
       </DetailPane>
-      <DetailPane v-else :title="tr('Doctor', 'ডাক্তার')" :back-to="listPath">
-        <SkeletonCards v-if="fb.isLoading || q.isLoading" :n="2" :h="160" />
-        <EmptyState v-else icon="stethoscope" :title="tr('Not found', 'পাওয়া যায়নি')" />
+      <DetailPane v-else :title="tabLabel(type)" :back-to="listPath">
+        <ListingSkeleton v-if="q.isLoading" :n="1" />
+        <ListingEmpty v-else :icon="badgeIcon(type)" :title="emptyTitle" :on-area="() => (showArea = true)" />
       </DetailPane>
     </template>
-    <template #placeholder><EmptyState :icon="badgeIcon(type)" :title="tabLabel(type)" /></template>
   </ListDetail>
   <AreaSheet
     v-if="showArea"
@@ -241,7 +315,7 @@ function hospitalPicked(h: Hospital) {
     @pick="areaPicked"
     @close="showArea = false"
   />
-  <FilterSheet v-if="showFilter" :title="tr('Filter', 'ফিল্টার')" :on-clear="active.length ? clearF : undefined" @close="showFilter = false">
+  <FilterSheet v-if="showFilter" :title="tr('Filter', 'ফিল্টার')" :on-clear="anyFilter ? clearAll : undefined" @close="showFilter = false">
     <div class="col gap-6">
       <span class="t-title-s">{{ tr('Day', 'দিন') }}</span>
       <ChoiceChips
@@ -287,5 +361,6 @@ function hospitalPicked(h: Hospital) {
     <Switch v-if="type === 'doctor'" :label="tr('Home visit', 'বাসায় যান')" :model-value="f.homeOnly" @update:model-value="(v) => setF({ homeOnly: v })" />
     <Switch v-if="type === 'doctor' && onlineOn()" :label="OT.modeLabel('online')" :sub="OT.filterSub()" data-testid="filter-online" :model-value="f.online" @update:model-value="(v) => setF({ online: v })" />
   </FilterSheet>
+  <BookDialog v-if="booking" :provider="booking.p" :index="booking.i" @close="booking = null" @booked="booked" />
   <HospitalPickerDialog v-if="pickHospital" :initial-district="cur.district" :initial-upazila-id="cur.upazilaId" @pick="hospitalPicked" @close="pickHospital = false" />
 </template>

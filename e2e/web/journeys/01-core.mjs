@@ -1,5 +1,5 @@
 // রোগীর পুরো যাত্রা (গাইড journey.json J-01…J-25): সিরিয়াল → সারি → প্রেসক্রিপশন → ফার্মেসি → ল্যাব → রিপোর্ট দেখানোর টাকা → ডাক্তার
-import { tap, has, see, go, settle, dhakaISO, bn, bookBtn, bookSent, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
+import { pickQueueItem, tap, has, see, go, settle, dhakaISO, bn, bookBtn, bookSent, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
 
 export const meta = { no: 1, slug: 'core-journey', titleBn: 'রোগীর পুরো যাত্রা: সিরিয়াল থেকে রিপোর্ট' };
 
@@ -15,11 +15,12 @@ async function openMyAppt(page) {
 }
 
 /** আমার কাজ › আমার চেম্বার › বুকিং › আজ */
-async function chamberToday(page) {
+/** আমার চেম্বার › বুকিং › ভাগ (নতুন / চলছে / শেষ — সেবার "আমার কাজ"-এর এক ছাঁচ); "চলছে"-তে আজকের সিরিয়ালের বাক্স */
+async function chamberToday(page, seg = /^চলছে/) {
   await go(page, '/work');
   await tap(page, 'আমার চেম্বার');
   await tap(page, 'বুকিং', { role: 'tab' });
-  await tap(page, /^আজ/, { role: 'tab' });
+  await tap(page, seg, { role: 'tab' });
 }
 
 export async function run(J) {
@@ -48,8 +49,9 @@ export async function run(J) {
 
   await J.sc('J-02', 'ডাক্তার: আজকের সিরিয়ালে রোগীকে নিশ্চিত করা', async () => {
     page = await J.as('doctor');
-    await chamberToday(page);
-    await J.shot('ডাক্তার: আমার চেম্বার › বুকিং › আজ', 'আজকের সিরিয়াল কার্ড (এখন দেখছি ২, পরের ৩, গড় ৮ মি.), সালমা, করিম, রাশেদুল, মরিয়ম (২০ মিনিট দেরি), অপেক্ষায় হাবিবুর আর রহিম।', { full: true });
+    await chamberToday(page, /^নতুন/);
+    await J.shot('ডাক্তার: আমার চেম্বার › বুকিং › নতুন', 'ওপরে "রোগীরা আপনাকে যেভাবে দেখেন" কার্ড আর চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ"; "নতুন"-এ অপেক্ষায় হাবিবুর আর রহিম — বাঁয়ে সারি, ডানে বাছা সিরিয়াল।', { full: true });
+    await pickQueueItem(page, ME);
     const row = page.locator('tr, .row, article, li').filter({ hasText: ME }).filter({ has: page.getByRole('button', { name: 'নিশ্চিত করুন' }) }).last();
     await row.getByRole('button', { name: 'নিশ্চিত করুন' }).click();
     const dlg = page.getByRole('dialog');

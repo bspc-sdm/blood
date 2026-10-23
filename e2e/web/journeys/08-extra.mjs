@@ -242,7 +242,7 @@ export async function run(J) {
 
   await J.sc('S-85', 'চালক: গাড়ি যেখানে অপেক্ষা করে (GPS)', async () => {
     await go(page, '/work/ambulance');
-    const c = page.locator('article, .card').filter({ hasText: 'ডেমো জীবন মিনি অ্যাম্বুলেন্স' }).first();
+    const c = page.locator('article, .card').filter({ hasText: 'ডেমো জীবন মিনি অ্যাম্বুলেন্স' }).filter({ has: page.getByRole('link', { name: /বদলান/ }).or(page.getByRole('button', { name: /বদলান/ })) }).first(); // "রোগীরা আপনাকে যেভাবে দেখেন"-এর কার্ড নয়
     await c.getByRole('link', { name: /বদলান/ }).or(c.getByRole('button', { name: /বদলান/ })).first().click();
     await settle(page);
     await page.getByRole('button', { name: 'বর্তমান লোকেশন ধরুন' }).click();
@@ -271,7 +271,8 @@ export async function run(J) {
     await page.getByRole('dialog').last().getByRole('button', { name: 'পাঠান', exact: true }).click();
     await see(page, 'রোগীর কাছে রিপোর্ট গেছে');
     await labWork(page, 'পরীক্ষার অনুরোধ');
-    await page.getByRole('button', { name: /^রিপোর্ট দেওয়া/ }).or(page.getByRole('tab', { name: /^রিপোর্ট দেওয়া/ })).first().click();
+    // সেবার "আমার কাজ"-এর এক ছাঁচ: রিপোর্ট দেওয়া অনুরোধ "শেষ" ভাগে
+    await page.getByRole('tab', { name: /^শেষ/ }).first().click();
     await settle(page);
     const r = page.locator('tr').filter({ hasText: 'Lipid profile, S. Creatinine' }).first();
     await r.getByRole('button', { name: 'দেখুন' }).click();
