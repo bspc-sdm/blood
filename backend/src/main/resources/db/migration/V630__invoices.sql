@@ -34,7 +34,9 @@ CREATE TABLE invoices (
     paid           NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (paid >= 0),
     due            NUMERIC(12, 2) NOT NULL CHECK (due >= 0),
     status         TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued', 'void')),
-    void_reason    TEXT CHECK (length(void_reason) <= 200),
+    -- a fixed reason (security review I2) + an optional note ("other" needs one)
+    void_reason    TEXT CHECK (void_reason IN ('wrong_item', 'returned', 'wrong_price', 'duplicate', 'other')),
+    void_note      TEXT CHECK (length(void_note) <= 200),
     voided_at      TIMESTAMPTZ,
     voided_by      TEXT,
     issued_at      TIMESTAMPTZ NOT NULL,
@@ -92,7 +94,7 @@ CREATE TABLE invoice_events (
     id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     invoice_id  TEXT NOT NULL REFERENCES invoices (id) ON DELETE CASCADE,
     at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    action      TEXT NOT NULL CHECK (action IN ('issue', 'pay', 'void', 'anonymise')),
+    action      TEXT NOT NULL CHECK (action IN ('issue', 'pay', 'void', 'anonymise', 'report')),
     by_uid      TEXT,
     device_id   TEXT,
     detail      JSONB NOT NULL DEFAULT '{}'
@@ -127,6 +129,9 @@ BEGIN
         RAISE EXCEPTION 'invoice % is immutable', OLD.id USING ERRCODE = 'check_violation';
     END IF;
     -- void is final; paid only grows
+    IF NEW.void_note IS DISTINCT FROM OLD.void_note AND NEW.void_note IS NOT NULL AND OLD.void_note IS NOT NULL THEN
+        RAISE EXCEPTION 'invoice % is immutable', OLD.id USING ERRCODE = 'check_violation';
+    END IF;
     IF OLD.status = 'void' AND (NEW.status <> 'void' OR NEW.void_reason IS DISTINCT FROM OLD.void_reason
         OR NEW.voided_at IS DISTINCT FROM OLD.voided_at OR NEW.paid IS DISTINCT FROM OLD.paid) THEN
         RAISE EXCEPTION 'invoice % is void', OLD.id USING ERRCODE = 'check_violation';
@@ -152,6 +157,38 @@ BEGIN
 END
 $$;
 CREATE TRIGGER invoice_payments_append_only BEFORE UPDATE ON invoice_payments FOR EACH ROW EXECUTE FUNCTION invoice_payments_append_only();
+
+-- the patient says the business took more than the receipt shows (security review I8: "রসিদের চেয়ে বেশি নিয়েছে")
+CREATE TABLE invoice_reports (
+    invoice_id  TEXT NOT NULL REFERENCES invoices (id) ON DELETE CASCADE,
+    uid         TEXT NOT NULL,
+    paid        NUMERIC(12, 2),
+    note        TEXT CHECK (length(note) <= 300),
+    at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (invoice_id, uid)
+);
+
+-- a purged receipt (6 years after an account deletion) still answers the verify page (security review I1)
+CREATE TABLE invoice_tombstones (
+    verify_code  TEXT PRIMARY KEY,
+    kind         TEXT NOT NULL,
+    biz_name     TEXT NOT NULL DEFAULT '',
+    no           TEXT NOT NULL,
+    issued_at    TIMESTAMPTZ NOT NULL,
+    total        NUMERIC(12, 2) NOT NULL,
+    line_count   INTEGER NOT NULL,
+    status       TEXT NOT NULL,
+    purged_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- "call an ambulance": the fare the patient agreed to, frozen when the trip is accepted (security review I8) — the
+-- chart estimate and the chart's extras that apply (null = not in the chart); ambreq_finish compares with these, never
+-- with the chart as it is at the end of the trip
+ALTER TABLE ambulance_requests ADD COLUMN snap_at TIMESTAMPTZ;
+ALTER TABLE ambulance_requests ADD COLUMN snap_fare INTEGER;
+ALTER TABLE ambulance_requests ADD COLUMN snap_oxygen INTEGER;
+ALTER TABLE ambulance_requests ADD COLUMN snap_icu INTEGER;
+ALTER TABLE ambulance_requests ADD COLUMN snap_night INTEGER;
 
 -- online prescription orders: the pharmacy's priced lines (rx_order_update accepted + lines) and the new `delivered`
 ALTER TABLE rx_orders ADD COLUMN invoice_lines JSONB;

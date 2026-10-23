@@ -108,7 +108,7 @@ object ActionPolicy {
         // online chamber fee: the caregiver may say "টাকা পাঠিয়েছি" for the patient
         "appt_pay_claim", "appt_report",
         // receipts (docs/INVOICES.md): the patient's side only
-        "invoice_get", "my_invoices", "my_expenses",
+        "invoice_get", "my_invoices", "my_expenses", "invoice_report",
     )
 
     /**

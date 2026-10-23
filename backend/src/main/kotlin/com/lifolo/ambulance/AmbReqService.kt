@@ -1036,8 +1036,11 @@ class AmbReqService(
             }
             updateReq(
                 id,
-                SqlSet().value("status", "accepted").value("accepted_by", uid).value("ambulance_id", ambulanceId).value("ambulance_name", amb.name)
-                    .value("driver_phone", Phones.fixPhone(amb.phone)).ms("accepted_at", now),
+                fareSnap(
+                    SqlSet().value("status", "accepted").value("accepted_by", uid).value("ambulance_id", ambulanceId).value("ambulance_name", amb.name)
+                        .value("driver_phone", Phones.fixPhone(amb.phone)).ms("accepted_at", now),
+                    x, amb, now,
+                ),
             )
             jdbc.update("UPDATE ambreq_targets SET active = (owner_uid = ?) WHERE request_id = ?", uid, id)
             // on a trip (list: "busy"); free again at the end — reqBusy tells it was this request
@@ -1094,8 +1097,11 @@ class AmbReqService(
             }
             updateReq(
                 id,
-                SqlSet().value("status", "accepted").value("accepted_by", owner).value("ambulance_id", target).value("ambulance_name", amb.name)
-                    .value("driver_phone", Phones.fixPhone(amb.phone)).ms("accepted_at", now).value("agreed_fare", q.fare),
+                fareSnap(
+                    SqlSet().value("status", "accepted").value("accepted_by", owner).value("ambulance_id", target).value("ambulance_name", amb.name)
+                        .value("driver_phone", Phones.fixPhone(amb.phone)).ms("accepted_at", now).value("agreed_fare", q.fare),
+                    x, amb, now,
+                ),
             )
             jdbc.update("UPDATE ambreq_targets SET active = (owner_uid = ?) WHERE request_id = ?", owner, id)
             repo.markBusy(target!!, id, now)
@@ -1239,6 +1245,26 @@ class AmbReqService(
             else -> pushPatient(id, x.uid, "$name cancelled", "$name বাতিল করেছে", "Please call another ambulance from the list.", "তালিকা থেকে অন্য অ্যাম্বুলেন্সে ফোন করুন।")
         }
     }
+
+    /**
+     * The fare chart as it was when the trip was accepted (docs/INVOICES.md, security review I8): the estimate for this
+     * trip and the chart's extras that apply. ambreq_finish compares the receipt with these, not with a chart edited later.
+     */
+    private fun fareSnap(set: SqlSet, x: Req, amb: Amb, now: Long): SqlSet {
+        val chart = amb.chart
+        return set.ms("snap_at", now)
+            .value("snap_fare", AmbFare.estimate(chart, amb.veh, x.dest, x.type, x.oxygen, x.night))
+            .value("snap_oxygen", if (x.oxygen) chart?.oxygen else null)
+            .value("snap_icu", if (x.type == "icu") chart?.icu else null)
+            .value("snap_night", if (x.night) chart?.night else null)
+    }
+
+    /** the fare snapshot of [fareSnap] (null when the trip was accepted before it existed): fare, oxygen, icu, night */
+    fun fareSnapOf(id: String): List<Int?>? = jdbc.query(
+        "SELECT snap_at, snap_fare, snap_oxygen, snap_icu, snap_night FROM ambulance_requests WHERE id = ?",
+        { rs, _ -> if (rs.getTimestamp(1) == null) null else listOf(rs.intOrNull("snap_fare"), rs.intOrNull("snap_oxygen"), rs.intOrNull("snap_icu"), rs.intOrNull("snap_night")) },
+        id,
+    ).firstOrNull()
 
     /** ambreq_finish (InvoiceCreators): the driver closes the trip they took, like step "done" */
     fun finishTrip(lang: String?, id: String, uid: String) = driverStep(lang, id, uid, "done", "other", AmbClock.now())

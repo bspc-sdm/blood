@@ -69,6 +69,9 @@ class InvoiceService(
         const val MASK_AFTER_MS = 30L * 24 * 3600 * 1000
         val PERIODS = listOf("today", "7d", "30d", "month", "365d")
 
+        /** an assistant voids their own receipt within this time */
+        const val ASSISTANT_VOID_MS = 2L * 3600 * 1000
+
         /** issues per business a minute (online; the desktop sync is not limited here) */
         const val ISSUE_PER_MINUTE = 60L
 
@@ -154,6 +157,18 @@ class InvoiceService(
         val b = biz(kind, bizId) ?: throw notFound(lang)
         if (roleOf(actor, kind, b.id, b.ownerUid) == null) {
             throw err(lang, 403, "Only the business can do this", "শুধু প্রতিষ্ঠান নিজে এটা করতে পারে", "not_issuer") // bn-ok
+        }
+        return b
+    }
+
+    /**
+     * The business owner only — not a doctor's assistant (security review I7): desktop_register / desktop_revoke,
+     * invoice_export_csv. 403 `owner_only` for an assistant.
+     */
+    fun requireOwner(lang: String?, actor: AuthUser, kind: String?, bizId: String?): Biz {
+        val b = requireIssuer(lang, actor, kind, bizId)
+        if (roleOf(actor, b.kind, b.id, b.ownerUid) != "owner") {
+            throw err(lang, 403, "Only the owner can do this", "শুধু মালিক এটা করতে পারেন", "owner_only") // bn-ok
         }
         return b
     }
@@ -282,9 +297,11 @@ class InvoiceService(
     private fun notifyPatient(inv: Invoice) {
         try {
             val total = InvoiceMath.num(inv.total).toString()
+            // an ambulance fare above what was agreed says so (security review I8)
+            val over = if (inv.kind == "ambulance" && inv.overFare == true && inv.chartFare != null) " — রাজি হয়েছিলেন ৳${inv.chartFare}-এ" else "" // bn-ok
             push.pushPatient(
                 inv.patientUid, "New receipt from ${inv.bizName}", "${inv.bizName} থেকে নতুন রসিদ", // bn-ok
-                "${inv.no} · ৳$total", // bn-ok
+                "${inv.no} · ৳$total$over", // bn-ok
                 mapOf("type" to "invoice_new", "cat" to NotifyCats.MY_REQUEST, "invoiceId" to inv.id),
             )
         } catch (e: Exception) {
@@ -310,7 +327,7 @@ class InvoiceService(
             refType = rs.getString("ref_type"), refId = rs.getString("ref_id"), lines = lines,
             subtotal = rs.getBigDecimal("subtotal"), disc = rs.getBigDecimal("disc"), fees = fees, total = rs.getBigDecimal("total"),
             paid = rs.getBigDecimal("paid"), due = rs.getBigDecimal("due"), payments = payments, status = rs.getString("status"),
-            voidReason = rs.getString("void_reason"), issuedAt = rs.ms("issued_at")!!, issuedBy = rs.getString("issued_by"),
+            voidReason = rs.getString("void_reason"), voidNote = rs.getString("void_note"), voidedAt = rs.ms("voided_at"), issuedAt = rs.ms("issued_at")!!, issuedBy = rs.getString("issued_by"),
             deviceId = rs.getString("device_id"), deviceNo = rs.getString("device_no"), offline = rs.getBoolean("offline"), verifyCode = rs.getString("verify_code"),
             overFare = rs.getObject("over_fare") as Boolean?, chartFare = rs.getObject("chart_fare") as Int?, isDemo = rs.getBoolean("is_demo"),
         )
@@ -372,19 +389,43 @@ class InvoiceService(
         return load(inv.id)!!
     }
 
+    /**
+     * invoice_void: a reason from [InvoiceMath.VOID_REASONS] (+ a note; "other" needs one). The owner (doctor) may void
+     * any receipt; a doctor's assistant only their own and within 2 hours — and the doctor is told (security review I7).
+     */
     @Transactional
-    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, stamp: DeviceStamp? = null): Invoice {
+    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, note: String? = null, stamp: DeviceStamp? = null): Invoice {
         val inv = load(invoiceId, lock = true) ?: throw notFound(lang)
-        requireIssuerOf(lang, actor, inv)
-        val why = Rules.cleanText(reason, 200) ?: throw InvoiceMath.bad(lang, "Write why it is void", "বাতিলের কারণ লিখুন", "reason") // bn-ok
+        val role = roleOf(actor, inv.kind, inv.bizId, inv.ownerUid) ?: throw notFound(lang)
+        if (reason !in InvoiceMath.VOID_REASONS) throw InvoiceMath.bad(lang, "Choose why it is void", "বাতিলের কারণ বেছে নিন", "reason") // bn-ok
+        val text = Rules.cleanText(note, 200)
+        if (reason == "other" && text == null) throw InvoiceMath.bad(lang, "Write why it is void", "বাতিলের কারণ লিখুন", "reason") // bn-ok
         if (inv.status == "void") throw err(lang, 409, "This receipt is already void", "এই রসিদ আগেই বাতিল", "already_void") // bn-ok
         val at = stamp?.at ?: System.currentTimeMillis()
+        if (role == "assistant" && (inv.issuedBy != actor.uid || at - inv.issuedAt > ASSISTANT_VOID_MS)) {
+            throw err(
+                lang, 403, "An assistant can void only their own receipts, within 2 hours — ask the doctor",
+                "সহকারী শুধু নিজের দেওয়া রসিদ ২ ঘণ্টার মধ্যে বাতিল করতে পারেন — ডাক্তারকে বলুন", "assistant_void", // bn-ok
+            )
+        }
         voidHooks.orderedStream().forEach { it.onVoid(lang, inv) }
         jdbc.update(
-            "UPDATE invoices SET status = 'void', void_reason = ?, voided_at = ?, voided_by = ? WHERE id = ?",
-            why, Sql.ts(at), actor.id, inv.id,
+            "UPDATE invoices SET status = 'void', void_reason = ?, void_note = ?, voided_at = ?, voided_by = ? WHERE id = ?",
+            reason, text, Sql.ts(at), actor.id, inv.id,
         )
-        event(inv.id, "void", actor.id, stamp?.deviceId, mapOf("reason" to why))
+        event(inv.id, "void", actor.id, stamp?.deviceId, mapOf("reason" to reason, "note" to text, "role" to role))
+        if (role == "assistant" && inv.ownerUid != null) {
+            val label = InvoiceMath.VOID_REASONS[reason]
+            afterCommit {
+                push.pushUsers(listOf(inv.ownerUid)) { _, l ->
+                    com.lifolo.notify.PushText(
+                        Lang.pick(l, "Your assistant voided receipt ${inv.no}", "সহকারী রসিদ ${inv.no} বাতিল করেছেন"), // bn-ok
+                        "৳${InvoiceMath.num(inv.total)} · $label${if (text != null) " · $text" else ""}", // bn-ok
+                        mapOf("type" to "invoice_void", "invoiceId" to inv.id),
+                    )
+                }
+            }
+        }
         return load(inv.id)!!
     }
 
@@ -403,8 +444,23 @@ class InvoiceService(
             throw err(lang, 429, "Too many requests. Wait a minute and try again.", "অনেক বেশি অনুরোধ। এক মিনিট পর আবার চেষ্টা করুন।")
         }
         if (code == null || !Regex("^[A-Za-z0-9]{10}$").matches(code)) throw notFound(lang)
-        val inv = query("verify_code = ?", code).firstOrNull() ?: throw notFound(lang)
-        return inv.publicView()
+        val inv = query("verify_code = ?", code).firstOrNull()
+        if (inv == null) {
+            // purged after the 6 years: the page still answers (never "not found" for a real code)
+            return jdbc.query(
+                "SELECT * FROM invoice_tombstones WHERE verify_code = ?",
+                { rs, _ ->
+                    linkedMapOf<String, Any?>(
+                        "bizName" to rs.getString("biz_name"), "kind" to rs.getString("kind"), "no" to rs.getString("no"),
+                        "date" to rs.ms("issued_at"), "total" to InvoiceMath.num(rs.getBigDecimal("total")), "lines" to rs.getInt("line_count"),
+                        "status" to rs.getString("status"), "archived" to true, "demo" to false, "footer" to InvoiceMath.FOOTER,
+                    )
+                },
+                code,
+            ).firstOrNull() ?: throw notFound(lang)
+        }
+        val b = if (inv.ownerUid != null) biz(inv.kind, inv.bizId) else null
+        return inv.publicView(sanctioned = b != null && (b.status == "suspended" || banned(b)))
     }
 
     private fun periodStart(period: String, now: Long): Long {
@@ -436,8 +492,9 @@ class InvoiceService(
         val text = q?.trim()?.take(40)?.takeIf { it.isNotEmpty() }
         if (text != null) {
             val like = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            where.append(" AND (no ILIKE ? OR customer_name ILIKE ? OR customer_phone LIKE ?)")
-            args.addAll(listOf(like, like, like))
+            // a phone finds only receipts of the last 30 days (after that the number is masked — no confirmation oracle)
+            where.append(" AND (no ILIKE ? OR customer_name ILIKE ? OR (customer_phone LIKE ? AND issued_at > ?))")
+            args.addAll(listOf(like, like, like, Sql.ts(now - MASK_AFTER_MS)))
         }
         val sums = jdbc.queryForMap(
             "SELECT count(*) AS n, coalesce(sum(total), 0) AS total, coalesce(sum(paid), 0) AS paid, coalesce(sum(due), 0) AS due FROM invoices WHERE $where AND status = 'issued'",
@@ -475,12 +532,7 @@ class InvoiceService(
 
     /** my_expenses: a Dhaka month's receipts (not void) → {month, total, byKind, count} */
     fun expenses(lang: String?, actor: AuthUser, month: String?): Map<String, Any?> {
-        val ym = if (month.isNullOrEmpty()) {
-            YearMonth.from(DhakaTime.day())
-        } else {
-            if (!Regex("^20[0-9]{2}-(0[1-9]|1[0-2])$").matches(month)) throw InvoiceMath.bad(lang, "Check the month", "মাস দেখে নিন") // bn-ok
-            YearMonth.parse(month)
-        }
+        val ym = monthOf(lang, month)
         val from = ym.atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
         val to = ym.plusMonths(1).atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
         val byKind = linkedMapOf<String, Any?>()
@@ -501,6 +553,68 @@ class InvoiceService(
             actor.id, Sql.ts(from), Sql.ts(to),
         )
         return linkedMapOf("month" to ym.toString(), "total" to InvoiceMath.num(total), "byKind" to byKind, "count" to count)
+    }
+
+    /**
+     * invoice_export_csv {kind, bizId, month}: the owner's receipts of a Dhaka month for the accountant (security review
+     * I15) — no customer phone, no VAT columns. UTF-8 with a BOM (Excel).
+     */
+    fun exportCsv(lang: String?, actor: AuthUser, kind: String?, bizId: String?, month: String?): Map<String, Any?> {
+        val b = requireOwner(lang, actor, kind, bizId)
+        val ym = monthOf(lang, month)
+        val from = ym.atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
+        val to = ym.plusMonths(1).atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
+        val rows = query("kind = ? AND biz_id = ? AND issued_at >= ? AND issued_at < ? ORDER BY issued_at, id LIMIT 20000", b.kind, b.id, Sql.ts(from), Sql.ts(to))
+        fun cell(v: Any?): String {
+            val t = v?.toString() ?: ""
+            // no formula injection in spreadsheets; quotes doubled
+            val safe = if (t.isNotEmpty() && t[0] in "=+-@\t") "'$t" else t
+            return if (safe.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + safe.replace("\"", "\"\"") + "\"" else safe
+        }
+        val sb = StringBuilder("\uFEFF")
+        sb.append("no,date,status,customer,lines,subtotal,discount,fees,total,paid,due,methods,void_reason,device\r\n")
+        for (inv in rows) {
+            val date = java.time.Instant.ofEpochMilli(inv.issuedAt).atOffset(DhakaTime.OFFSET).toLocalDateTime().toString().take(16).replace('T', ' ')
+            sb.append(
+                listOf(
+                    inv.no, date, inv.status, inv.customer.name, inv.lines.size, InvoiceMath.num(inv.subtotal), InvoiceMath.num(inv.disc),
+                    InvoiceMath.num(inv.fees.fold(BigDecimal.ZERO) { a, f -> a + f.amount }), InvoiceMath.num(inv.total), InvoiceMath.num(inv.paid),
+                    InvoiceMath.num(inv.due), inv.payments.map { it.method }.distinct().joinToString("+"), inv.voidReason, inv.deviceNo ?: inv.deviceId,
+                ).joinToString(",") { cell(it) },
+            )
+            sb.append("\r\n")
+        }
+        return linkedMapOf("filename" to "lifolo-${b.kind}-$ym.csv", "mime" to "text/csv", "count" to rows.size, "csv" to sb.toString())
+    }
+
+    private fun monthOf(lang: String?, month: String?): YearMonth {
+        if (month.isNullOrEmpty()) return YearMonth.from(DhakaTime.day())
+        if (!Regex("^20[0-9]{2}-(0[1-9]|1[0-2])$").matches(month)) throw InvoiceMath.bad(lang, "Check the month", "মাস দেখে নিন") // bn-ok
+        return YearMonth.parse(month)
+    }
+
+    /**
+     * invoice_report {id, paid?, note?}: the patient says the business took more than the receipt shows ("রসিদের চেয়ে বেশি
+     * নিয়েছে", security review I8). Once per receipt, within 30 days; an ambulance's overcharge count goes up (the
+     * listing review sees it).
+     */
+    @Transactional
+    fun report(lang: String?, actor: AuthUser, id: String?, paidNode: com.fasterxml.jackson.databind.JsonNode?, note: String?): Map<String, Any?> {
+        val inv = load(id, lock = true) ?: throw notFound(lang)
+        if (inv.patientUid == null || inv.patientUid != actor.uid) throw notFound(lang)
+        if (System.currentTimeMillis() - inv.issuedAt > 30L * 24 * 3600 * 1000) {
+            throw err(lang, 409, "This receipt is too old to report", "এই রসিদ অনেক পুরোনো — এখন জানানো যায় না", "too_old") // bn-ok
+        }
+        val paid = InvoiceMath.money(lang, paidNode, "amount", "টাকার পরিমাণ") // bn-ok
+        if (paid != null && paid <= inv.total) throw InvoiceMath.bad(lang, "Write how much you really paid", "আসলে কত দিয়েছেন লিখুন", "paid") // bn-ok
+        val n = jdbc.update(
+            "INSERT INTO invoice_reports (invoice_id, uid, paid, note) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
+            inv.id, actor.id, paid, Rules.cleanText(note, 300),
+        )
+        if (n == 0) throw err(lang, 409, "You already reported this receipt", "এই রসিদ নিয়ে আগেই জানিয়েছেন", "already_reported") // bn-ok
+        if (inv.kind == "ambulance") jdbc.update("UPDATE ambulances SET overcharge_count = overcharge_count + 1 WHERE id = ?", inv.bizId)
+        event(inv.id, "report", actor.actingBy ?: actor.id, null, mapOf("paid" to paid?.let { InvoiceMath.num(it) }))
+        return linkedMapOf("ok" to true)
     }
 
     // ------------------------------------------------------------------ retention (account deletion)
@@ -524,7 +638,7 @@ class InvoiceService(
         val marks = ids.joinToString(",") { "?" }
         jdbc.update(
             """
-            UPDATE invoices SET patient_uid = NULL, customer_name = NULL, customer_phone = NULL,
+            UPDATE invoices SET patient_uid = NULL, customer_name = NULL, customer_phone = NULL, void_note = NULL,
               anonymised_at = coalesce(anonymised_at, now()), purge_after = GREATEST(coalesce(purge_after, ?), ?)
             WHERE id IN ($marks) AND patient_uid = ?
             """.trimIndent(),
@@ -533,7 +647,7 @@ class InvoiceService(
         jdbc.update(
             """
             UPDATE invoices SET owner_uid = NULL, issued_by = NULL, biz_phone = NULL, customer_name = NULL, customer_phone = NULL,
-              voided_by = NULL, anonymised_at = coalesce(anonymised_at, now()), purge_after = GREATEST(coalesce(purge_after, ?), ?)
+              voided_by = NULL, void_note = NULL, anonymised_at = coalesce(anonymised_at, now()), purge_after = GREATEST(coalesce(purge_after, ?), ?)
             WHERE id IN ($marks) AND owner_uid = ?
             """.trimIndent(),
             keep, keep, *ids.toTypedArray(), uid,
@@ -551,7 +665,19 @@ class InvoiceService(
     }
 
     /** the 6 years are over */
-    fun purge(nowMs: Long): Int = jdbc.update("DELETE FROM invoices WHERE purge_after IS NOT NULL AND purge_after <= ?", Sql.ts(nowMs))
+    @Transactional
+    fun purge(nowMs: Long): Int {
+        jdbc.update(
+            """
+            INSERT INTO invoice_tombstones (verify_code, kind, biz_name, no, issued_at, total, line_count, status)
+            SELECT verify_code, kind, biz_name, no, issued_at, total, jsonb_array_length(lines), CASE WHEN status = 'void' THEN 'void' ELSE 'valid' END
+            FROM invoices WHERE purge_after IS NOT NULL AND purge_after <= ? AND NOT is_demo
+            ON CONFLICT (verify_code) DO NOTHING
+            """.trimIndent(),
+            Sql.ts(nowMs),
+        )
+        return jdbc.update("DELETE FROM invoices WHERE purge_after IS NOT NULL AND purge_after <= ?", Sql.ts(nowMs))
+    }
 
     private val RETAIN_MS: Long get() = RETAIN_YEARS * 365L * 24 * 3600 * 1000 + 2L * 24 * 3600 * 1000
 }

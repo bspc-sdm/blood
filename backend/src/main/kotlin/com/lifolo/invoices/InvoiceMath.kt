@@ -100,6 +100,8 @@ data class Invoice(
     val payments: List<Payment>,
     val status: String,
     val voidReason: String?,
+    val voidNote: String?,
+    val voidedAt: Long?,
     val issuedAt: Long,
     val issuedBy: String?,
     val deviceId: String?,
@@ -134,6 +136,8 @@ data class Invoice(
         m["payments"] = payments.map { it.toMap() }
         m["status"] = status
         if (voidReason != null) m["voidReason"] = voidReason
+        if (voidNote != null) m["voidNote"] = voidNote
+        if (voidedAt != null) m["voidedAt"] = voidedAt
         m["issuedAt"] = issuedAt
         m["issuedBy"] = issuedBy
         if (deviceId != null) m["deviceId"] = deviceId
@@ -145,19 +149,38 @@ data class Invoice(
             m["overFare"] = overFare ?: false
             if (chartFare != null) m["chartFare"] = chartFare
         }
+        if (isDemo) m["demo"] = true
+        // a payment receipt, never a VAT invoice (security review I15) — every client prints this line
+        m["footer"] = InvoiceMath.FOOTER
         return m
     }
 
-    /** invoice_verify: only what the public page shows — never the patient/customer, lines or who issued it */
-    fun publicView(): Map<String, Any?> = linkedMapOf(
+    /**
+     * invoice_verify: only what the public page shows (security review I1, I9, I14): business, kind, no, date, total,
+     * paid/due, the number of lines (not their names), valid/void (+ when), demo, and whether the business is suspended
+     * now. Never the patient/customer, the lines or who issued it.
+     */
+    fun publicView(sanctioned: Boolean): Map<String, Any?> = linkedMapOf<String, Any?>(
         "bizName" to bizName, "kind" to kind, "no" to no, "date" to issuedAt, "total" to InvoiceMath.num(total),
-        "paid" to InvoiceMath.num(paid), "due" to InvoiceMath.num(due), "status" to if (status == "void") "void" else "valid",
-    )
+        "paid" to InvoiceMath.num(paid), "due" to InvoiceMath.num(due), "lines" to lines.size,
+        "status" to if (status == "void") "void" else "valid",
+    ).apply {
+        if (voidedAt != null) put("voidedAt", voidedAt)
+        put("demo", isDemo)
+        if (sanctioned) put("sanctioned", true)
+        put("footer", InvoiceMath.FOOTER)
+    }
 }
 
 /** money and number rules of the receipts (BDT, 2 decimals; the server recomputes every total) */
 object InvoiceMath {
     const val VERIFY_BASE = "https://lifolo.com/v/"
+
+    /** printed on every receipt: a money receipt, not a VAT (Mushak) invoice */
+    const val FOOTER = "টাকা প্রাপ্তির রসিদ — মূসক চালানপত্র নয়" // bn-ok
+
+    /** invoice_void reasons (security review I2); "other" needs a note */
+    val VOID_REASONS = linkedMapOf("wrong_item" to "ভুল পণ্য", "returned" to "ক্রেতা ফেরত দিয়েছেন", "wrong_price" to "ভুল দাম", "duplicate" to "একই রসিদ দুবার", "other" to "অন্যান্য") // bn-ok
     val KINDS = listOf("pharmacy", "lab", "chamber", "ambulance")
     val METHODS = listOf("cash", "bkash", "nagad", "card", "other")
     val REF_TYPES = listOf("book_sale", "rx_order", "lab_order", "appointment", "ambreq")

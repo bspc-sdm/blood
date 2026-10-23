@@ -137,6 +137,7 @@ class PharmacyService(
         val upazilaId = Places.upazilaIn(district, b.int("upazilaId"))
         val address = Rules.cleanText(b.string("address"), 200) ?: throw bad(ctx, "Write the shop address", "দোকানের ঠিকানা লিখুন")
         val s = shops.get(uid, forUpdate = true)
+        com.lifolo.demo.DemoLock.checkRename(lang, uid, s != null && s.name != name)
         var lat = b.number("lat")?.takeIf { it > 20.3 && it < 26.8 }?.let { Js.round(it * 1000) / 1000 }
         var lng = b.number("lng")?.takeIf { it > 87.9 && it < 92.8 }?.let { Js.round(it * 1000) / 1000 }
         if ((lat == null || lng == null) && s?.lat != null) {

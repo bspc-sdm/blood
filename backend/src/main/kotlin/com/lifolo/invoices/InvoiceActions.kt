@@ -28,6 +28,11 @@ class InvoiceActions(private val invoices: InvoiceService, private val creators:
         },
         "invoice_pay" to ActionHandler(::pay),
         "invoice_void" to ActionHandler(::void),
+        "invoice_report" to ActionHandler { ctx -> invoices.report(ctx.lang, ctx.user, ctx.body.string("id"), ctx.body["paid"], ctx.body.string("note")) },
+        "invoice_export_csv" to ActionHandler { ctx ->
+            val b = ctx.body
+            invoices.exportCsv(ctx.lang, ctx.user, b.string("kind"), b.string("bizId"), b.string("month"))
+        },
         "my_invoices" to ActionHandler { ctx -> invoices.mine(ctx.user, ctx.body.string("cursor")) },
         "my_expenses" to ActionHandler { ctx -> invoices.expenses(ctx.lang, ctx.user, ctx.body.string("month")) },
         "lab_bill_create" to ActionHandler { ctx -> creators.labBill(ctx.lang, ctx.user, ctx.body) },
@@ -51,7 +56,7 @@ class InvoiceActions(private val invoices: InvoiceService, private val creators:
 
     private fun void(ctx: ActionContext): Any {
         val id = id(ctx)
-        return mapOf("invoice" to invoices.void(ctx.lang, ctx.user, id, ctx.body.string("reason") ?: "").toMap())
+        return mapOf("invoice" to invoices.void(ctx.lang, ctx.user, id, ctx.body.string("reason") ?: "", ctx.body.string("note")).toMap())
     }
 }
 

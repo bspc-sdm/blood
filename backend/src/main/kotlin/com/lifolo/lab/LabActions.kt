@@ -224,6 +224,7 @@ class LabActions(
             .value("name", name).value("facility_id", fac?.id).value("district", district).value("upazila_id", upazilaId)
             .value("address", address).value("license_no", licenseNo).value("phone", Phones.localBd(phone))
             .value("hours", data["hours"]).value("home_collection", data["homeCollection"]).ms("updated_at", now)
+        com.lifolo.demo.DemoLock.checkRename(ctx.lang, uid, cur != null && cur["name"] != name)
         if (cur != null) {
             if (cur["status"] == "suspended") {
                 throw ctx.err(403, "Your lab is suspended. You can appeal from Profile → Help & appeals.", "আপনার প্যাথলজি বন্ধ করা আছে। প্রোফাইলের \"সাহায্য ও আপিল\" থেকে আপিল করুন।")

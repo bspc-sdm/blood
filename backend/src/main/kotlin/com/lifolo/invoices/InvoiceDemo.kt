@@ -46,7 +46,7 @@ class InvoiceDemo(private val invoices: InvoiceService) : DemoSeedPart {
             )
         }
         issue("pharmacy", shop, shop) { IssueCmd("pharmacy", it, listOf(line("ওআরএস", 5, 6)), customer = Customer("ভুল বিক্রি")) } // bn-ok
-            ?.let { invoices.void("bn", AuthUser(shop), it.id, "ভুল করে লেখা হয়েছিল") } // bn-ok
+            ?.let { invoices.void("bn", AuthUser(shop), it.id, "wrong_item", "ভুল করে লেখা হয়েছিল") } // bn-ok
 
         // lab: the patient's tests with the home-collection fee, paid by bKash
         val lab = ctx.user("lab").uid

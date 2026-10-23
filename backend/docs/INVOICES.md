@@ -127,7 +127,10 @@ class InvoiceService {
     fun issue(lang: String?, actor: AuthUser, cmd: IssueCmd, stamp: DeviceStamp? = null): Invoice
     // invoice_pay / invoice_void (issuer only). With a stamp the payment/void time is stamp.at (stamp.no is ignored).
     fun pay(lang: String?, actor: AuthUser, invoiceId: String, payment: PaymentIn, stamp: DeviceStamp? = null): Invoice
-    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, stamp: DeviceStamp? = null): Invoice
+    // void: reason ∈ wrong_item | returned | wrong_price | duplicate | other (+ note; "other" needs one)
+    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, note: String? = null, stamp: DeviceStamp? = null): Invoice
+    // owner only (not an assistant) — 403 owner_only: use for desktop_register / desktop_revoke (security review I7)
+    fun requireOwner(lang: String?, actor: AuthUser, kind: String?, bizId: String?): Biz
     // an invoice by its number — `no`, else the `device_no` the desktop printed (offline ops that pay/void an invoice
     // made offline refer to it by its number)
     fun findByNo(kind: String, bizId: String, no: String): Invoice?
@@ -137,3 +140,56 @@ class InvoiceService {
 
 Errors are `ApiException` (status + bilingual message + `code`), like the actions.
 
+
+### Changes after the security review (docs/test-plan/INVOICES-SECURITY-REVIEW.md) — these win over the contract above
+
+**Permissions (I7)**
+
+| what | pharmacy / lab owner | ambulance owner | doctor | doctor's assistant (verified email) | patient / caregiver (`asUid`) | guest |
+|---|---|---|---|---|---|---|
+| issue (sale, lab bill, chamber fee, trip) | ✓ | ✓ (`ambreq_finish`, the driver who took the trip) | ✓ | ✓ (`doctorUid`) | – | – |
+| `invoice_pay` (collect due) | ✓ | ✓ | ✓ | ✓ | – | – |
+| `invoice_void` | ✓ any | ✓ any | ✓ any | only receipts they issued, within 2 h; the doctor gets a push (`invoice_void`) | – | – |
+| `invoice_list_biz` / `invoice_get` (business) | ✓ | ✓ | ✓ | ✓ | – | – |
+| `invoice_export_csv`, `desktop_register`, `desktop_revoke` | ✓ | ✓ | ✓ | – (403 `owner_only`) | – | – |
+| `invoice_get` (own), `my_invoices`, `my_expenses`, `invoice_report` | – | – | – | – | ✓ | – |
+| `invoice_verify` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (30/min/IP) |
+
+`issuedBy` is always the real person (the assistant, not the doctor).
+
+**Patient link (I3).** `patientUid` comes only from something the patient created: an online rx order, a prescription
+code (rx sale), a lab order, an appointment, an ambulance request. Never from a typed phone; the response is the same
+either way.
+
+**Verify (I1, I9, I10, I14).** `invoice_verify {code}` → `{invoice: {bizName, kind, no, date, total, paid, due, lines
+(count), status: "valid"|"void", voidedAt?, demo, sanctioned?, footer}}`. A void, an anonymised (account deleted) or a
+purged receipt still answers (purged: `archived: true`, from `invoice_tombstones`). Unknown code → 404.
+
+**Void (I2).** `invoice_void {id, reason, note?}` with `reason` ∈ `wrong_item` (ভুল পণ্য), `returned` (ক্রেতা ফেরত দিয়েছেন),
+`wrong_price` (ভুল দাম), `duplicate` (একই রসিদ দুবার), `other` (অন্যান্য — `note` required). The invoice JSON gets
+`voidReason` (the code), `voidNote?`, `voidedAt`. `books_sale_delete` on a sale that has a receipt → 409 `invoice_exists`;
+void is the only way (stock goes back).
+
+**দিনের শেষ (I2).** At 21:30 Dhaka every business owner with activity gets one push + bell item (`type:
+"invoice_summary"`, `cat: business`, `day`): receipts and total, voids, receipts with discounts above 10 % of the gross,
+stock write-offs (৳).
+
+**Ambulance (I8).** When the trip is accepted (`ambreq_accept` / `ambreq_agree`) the chart estimate and the chart's
+applicable extras are frozen on the request (`snap_*`). `ambreq_finish {reqId, fare, extras?: [{label: "oxygen"|"icu"|
+"night"|"other", amount}], method}`: each extra ≤ its frozen chart value (not in the chart → 400 `extras_cap`), `other`
+≤ ৳500; `overFare = fare + chart extras > agreedFare ?: frozen estimate`; response `{invoice, overFare, chartFare,
+agreedFare}`. The patient's push says "রাজি হয়েছিলেন ৳X-এ" when over. New `invoice_report {id, paid?, note?}` (patient or
+caregiver, once, within 30 days): "রসিদের চেয়ে বেশি নিয়েছে" → `invoice_reports`, an ambulance's `overcharge_count` + 1.
+
+**Demo (I9).** Demo receipts carry `demo: true` (JSON and verify). Demo pharmacies, labs and ambulances can't change
+their name (403 `demo_locked`).
+
+**Privacy (I6).** `invoice_list_biz` masks the customer phone after 30 days and `q` matches phone digits only within
+those 30 days. Account deletion also clears `voidNote` and payment refs.
+
+**VAT (I15).** Never print VAT / মূসক / চালানপত্র or a VAT line. Every invoice JSON (and verify) has
+`footer: "টাকা প্রাপ্তির রসিদ — মূসক চালানপত্র নয়"`; clients print it at the bottom. `invoice_export_csv {kind, bizId,
+month: "YYYY-MM"}` (owner only) → `{filename, mime: "text/csv", count, csv}` (UTF-8 BOM; columns no, date, status,
+customer, lines, subtotal, discount, fees, total, paid, due, methods, void_reason, device — no phone).
+
+**Lists.** `invoice_list_biz` period also accepts `365d`. Response `{items, cursor, sum: {count, total, paid, due}}`.

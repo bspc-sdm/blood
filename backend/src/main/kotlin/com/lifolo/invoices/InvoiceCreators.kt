@@ -98,7 +98,10 @@ class InvoiceCreators(
         return orderIds.firstNotNullOfOrNull { invoices.liveFor("rx_order", it) }
     }
 
-    /** books_sale_delete: a sale with a live receipt is voided (which puts the stock back and removes the sale) */
+    /**
+     * books_sale_delete: a sale that has a receipt can't be deleted — 409 `invoice_exists`; voiding the receipt (with a
+     * reason) is the only way, and it puts the stock back (security review I2). Sales from before receipts still delete.
+     */
     @Transactional
     fun saleDelete(ctx: ActionContext): Any {
         val id = ctx.body.string("id")
@@ -106,9 +109,7 @@ class InvoiceCreators(
         if (id != null && shop != null && Rules.isValidId(shop)) {
             val inv = invoices.liveFor("book_sale", id)
             if (inv != null && inv.kind == "pharmacy" && inv.bizId == shop) {
-                books.myShopOf(ctx, ctx.user, lock = true)
-                invoices.void(ctx.lang, ctx.user, inv.id, "বিক্রি মুছে ফেলা হয়েছে") // bn-ok
-                return mapOf("ok" to true)
+                throw err(ctx.lang, 409, "A sale with a receipt can't be deleted — void the receipt", "রসিদ দেওয়া বিক্রি মোছা যায় না — বাতিল করুন", "invoice_exists") // bn-ok
             }
         }
         return books.saleDelete(ctx)
@@ -308,11 +309,16 @@ class InvoiceCreators(
 
     // ------------------------------------------------------------------ ambulance
 
+    /** ambreq_finish extras: the chart's oxygen / icu / night, plus one "other" of at most ৳500 */
+    private val extraLabel = linkedMapOf("oxygen" to "অক্সিজেন", "icu" to "আইসিইউ", "night" to "রাতের ভাড়া", "other" to "অন্যান্য") // bn-ok
+
     /**
-     * ambreq_finish {reqId, fare, extras?:[{label, amount}], method} — the driver (owner) who took the trip: closes it
-     * (like ambreq_step done) and gives the patient the receipt. `overFare` when the fare + extras are above the fare
-     * chart's estimate for that trip (or the agreed fare, when higher). A trip closed with ambreq_step in the last 24 h
-     * can still get its receipt.
+     * ambreq_finish {reqId, fare, extras?:[{label: oxygen|icu|night|other, amount}], method} — the driver (owner) who took
+     * the trip: closes it (like ambreq_step done) and gives the patient the receipt. Compared with what the patient agreed
+     * to (security review I8): the agreed fare, else the chart estimate frozen when the trip was accepted. An extra is
+     * at most the chart's value at accept time (one not in the chart is refused), "other" at most ৳500 and shown
+     * separately; `overFare` = fare + chart extras above that. A trip closed with ambreq_step in the last 24 h can still
+     * get its receipt.
      */
     @Transactional
     fun ambreqFinish(ctx: ActionContext): Any {
@@ -323,7 +329,16 @@ class InvoiceCreators(
         if (!Rules.isValidId(reqId)) throw notFound(lang)
         val fare = InvoiceMath.money(lang, ctx.body["fare"], "fare", "ভাড়া", BigDecimal(500000)) // bn-ok
         if (fare == null || fare.signum() == 0) throw InvoiceMath.bad(lang, "Write the fare", "ভাড়া লিখুন") // bn-ok
-        val extras = InvoiceMath.fees(lang, ctx.body["extras"]) ?: emptyList()
+        val extrasIn = ctx.body["extras"]
+        if (extrasIn != null && !extrasIn.isNull && (!extrasIn.isArray || extrasIn.size() > 4)) throw InvoiceMath.bad(lang, "Check the extras", "অতিরিক্ত খরচ দেখে নিন", "extras") // bn-ok
+        val extras = LinkedHashMap<String, BigDecimal>()
+        for (e in extrasIn?.takeIf { it.isArray } ?: emptyList()) {
+            val code = Js.string(e?.get("label"))?.takeIf { it in extraLabel } ?: throw InvoiceMath.bad(lang, "Check the extras", "অতিরিক্ত খরচ দেখে নিন", "extras") // bn-ok
+            val amount = InvoiceMath.money(lang, e.get("amount"), "extras", "অতিরিক্ত খরচ") ?: continue // bn-ok
+            if (amount.signum() == 0) continue
+            if (code in extras) throw InvoiceMath.bad(lang, "Check the extras", "অতিরিক্ত খরচ দেখে নিন", "extras") // bn-ok
+            extras[code] = amount
+        }
         val method = InvoiceMath.method(lang, ctx.body["method"], "cash")
         val x = ambReqs.load(reqId!!) ?: throw notFound(lang)
         if (x.acceptedBy != actor.uid || x.ambulanceId == null) throw notFound(lang)
@@ -334,22 +349,34 @@ class InvoiceCreators(
         val recent = x.status == "done" && now - (x.closedAt ?: 0L) <= 24 * 3600 * 1000L
         if (!open && !recent) throw err(lang, 409, "This request is already closed", "এই অনুরোধ আগেই বন্ধ হয়েছে")
         if (invoices.liveFor("ambreq", x.id) != null) throw err(lang, 409, "A receipt was already issued for this", "এর রসিদ আগেই দেওয়া হয়েছে", "already_issued") // bn-ok
-        val amb = ambRepo.get(x.ambulanceId)
-        val chart = amb?.let { AmbFare.estimate(it.chart, it.veh, x.dest, x.type, x.oxygen, x.night) }
-        val asked = fare + extras.fold(BigDecimal.ZERO) { a, f -> a + f.amount }
-        val limit = listOfNotNull(chart, x.agreedFare).maxOrNull()
-        val over = limit != null && asked > BigDecimal(limit)
+        // the chart at accept time (trips accepted before the snapshot existed: the chart now)
+        val snap = ambReqs.fareSnapOf(x.id) ?: ambRepo.get(x.ambulanceId)?.let { a ->
+            val c = a.chart
+            listOf(AmbFare.estimate(c, a.veh, x.dest, x.type, x.oxygen, x.night), if (x.oxygen) c?.oxygen else null, if (x.type == "icu") c?.icu else null, if (x.night) c?.night else null)
+        } ?: listOf(null, null, null, null)
+        val chartFare = snap[0]
+        val cap = mapOf("oxygen" to snap[1], "icu" to snap[2], "night" to snap[3], "other" to 500)
+        for ((code, amount) in extras) {
+            val max = cap[code]
+            if (max == null || amount > BigDecimal(max)) {
+                throw InvoiceMath.bad(lang, "This extra is more than the fare chart allows", "এই অতিরিক্ত খরচ ভাড়ার চার্টের চেয়ে বেশি", "extras_cap") // bn-ok
+            }
+        }
+        val chartExtras = extras.filterKeys { it != "other" }.values.fold(BigDecimal.ZERO) { a, v -> a + v }
+        val limit = x.agreedFare ?: chartFare
+        val over = limit != null && fare + chartExtras > BigDecimal(limit)
         if (open) ambReqs.finishTrip(lang, x.id, actor.id)
         val dest = AmbFare.destLabel(x.dest, "bn")
+        val total = fare + extras.values.fold(BigDecimal.ZERO) { a, v -> a + v }
         val inv = invoices.issue(
             lang, actor,
             IssueCmd(
                 "ambulance", x.ambulanceId, listOf(LineIn(if (dest.isNotEmpty()) "ভাড়া — $dest" else "ভাড়া", BigDecimal.ONE, fare)), // bn-ok
-                fees = extras, payments = listOf(PaymentIn(InvoiceMath.m2(asked), method)),
+                fees = extras.map { (code, amount) -> FeeIn(extraLabel[code]!!, amount) }, payments = listOf(PaymentIn(InvoiceMath.m2(total), method)),
                 customer = Customer(x.patientName.ifEmpty { null }?.take(60), x.phone?.take(20)), patientUid = x.uid,
-                refType = "ambreq", refId = x.id, overFare = over, chartFare = chart,
+                refType = "ambreq", refId = x.id, overFare = over, chartFare = limit,
             ),
         )
-        return linkedMapOf("ok" to true, "invoice" to inv.toMap(), "overFare" to over, "chartFare" to chart)
+        return linkedMapOf("ok" to true, "invoice" to inv.toMap(), "overFare" to over, "chartFare" to limit, "agreedFare" to x.agreedFare)
     }
 }

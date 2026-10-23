@@ -47,6 +47,8 @@ object NotifyCats {
         "med_find_mine" to RX, // a shop has the medicine I looked for
         // a receipt for me (docs/INVOICES.md; the push also sets cat=my_request)
         "invoice_new" to MY_REQUEST,
+        "invoice_void" to BUSINESS, // the doctor: an assistant voided a receipt
+        "invoice_summary" to BUSINESS, // the owner's "দিনের শেষ" (end of day) summary
         // ambulance call (patient)
         "amb_req_mine" to AMBULANCE,
         // questions and tips

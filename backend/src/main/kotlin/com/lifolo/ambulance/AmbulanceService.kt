@@ -334,6 +334,7 @@ class AmbulanceService(
             if (!Rules.isValidId(id)) throw notFound(lang, 400)
             val cur = repo.get(id) ?: throw notFound(lang)
             if (cur.ownerUid != uid) throw notFound(lang)
+            com.lifolo.demo.DemoLock.checkRename(lang, uid, cur.name != name)
             if (cur.status == "suspended") {
                 throw err(
                     lang, 403, "This ambulance is suspended. You can appeal from Profile → Help & appeals.",
