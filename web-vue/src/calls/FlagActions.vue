@@ -19,7 +19,7 @@ const err = ref<string | null>(null);
 const reason = ref<ReportReason>('harassment');
 const note = ref('');
 const done = ref<'blocked' | 'reported' | null>(null);
-const REASONS: ReportReason[] = ['harassment', 'spam', 'fake', 'other'];
+const REASONS: ReportReason[] = ['harassment', 'spam', 'fake', 'asked_other_number', 'other'];
 
 function openBlock() {
   err.value = null;

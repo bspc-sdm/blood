@@ -17,8 +17,8 @@ export const myPayments = (cursor?: string | null) => call('my_payments', cursor
 /** রসিদের বাকি: পেমেন্ট শুরু (একই রসিদে খোলা থাকলে সেটাই ফেরে) */
 export const startDue = (invoiceId: string) => call('pay_due_start', { invoiceId }).then(pickRequest);
 /** সিস্টেম/ব্যবসা তৈরি করে (সার্ভার সম্পর্ক আর অবস্থা যাচাই করে): যেমন ট্রিপ শেষে অ্যাম্বুলেন্সের ভাড়া, অর্ডারের অগ্রিম */
-export const createRequest = (refType: string, refId: string, purpose: PayPurpose, amount?: number | null, extra: Record<string, unknown> = {}) =>
-  call('pay_request_create', { refType, refId, purpose, ...(amount != null ? { amount } : {}), ...extra }).then(pickRequest);
+/** টাকা সবসময় জিনিস থেকে (অর্ডার, বিল, ভাড়া, রসিদের বাকি) — এখান থেকে টাকা যায় না (P6) */
+export const createRequest = (refType: string, refId: string, purpose: PayPurpose) => call('pay_request_create', { refType, refId, purpose }).then(pickRequest);
 
 // ---------- ব্যবসা ----------
 export interface Advance { chamberKey: string; amount: number; refundableUntilHoursBefore: number }

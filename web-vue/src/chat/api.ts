@@ -116,8 +116,9 @@ export async function chatThreads(cursor?: string | null): Promise<{ items: Thre
 /** upTo = দেখা সবচেয়ে নতুন মেসেজের at (ms) */
 export const chatRead = (threadId: string, upTo: number) => call('chat_read', { threadId, upTo });
 export const chatUnsend = (messageId: string) => call('chat_unsend', { messageId });
-export type ReportReason = 'harassment' | 'spam' | 'fake' | 'other';
-export const REPORT_REASONS: ReportReason[] = ['harassment', 'spam', 'fake', 'other'];
+// asked_other_number: অন্য নম্বরে টাকা চেয়েছে (PAYMENTS-SECURITY-REVIEW P2)
+export type ReportReason = 'harassment' | 'spam' | 'fake' | 'asked_other_number' | 'other';
+export const REPORT_REASONS: ReportReason[] = ['harassment', 'spam', 'fake', 'asked_other_number', 'other'];
 export const chatReport = (messageId: string, reason: ReportReason, note: string) => call('chat_report', { messageId, reason, ...(note ? { note } : {}) });
 export async function chatUnread(): Promise<number> {
   const r = await call('chat_unread');

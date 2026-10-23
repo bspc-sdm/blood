@@ -165,6 +165,23 @@ test.describe('রোগী: "আমার রসিদ ও খরচ"-এর �
   });
 });
 
+test('ফেরত পাওনা (refundDue): রোগী "ফেরত পাওনা — …" দেখেন; সার্ভারের ফেরতের নিয়ম (policy) দেখায়', async ({ page }) => {
+  const req = REQ({ status: 'confirmed', confirmedAt: Date.now() - 30 * H, refundDue: { at: Date.now() - H, why: 'order_cancelled' } });
+  await mock(page, { my_payments: () => ({ items: [req] }), pay_request_get: () => ({ request: req, side: 'payer', policy: 'দোকান বাতিল করলে পুরো টাকা ফেরত পাবেন।' }) });
+  await open(page, patient('/invoices/payments/prq_ph1'));
+  await expect(page.getByTestId('pay-state')).toHaveText('ফেরত পাওনা');
+  await expect(page.getByTestId('pay-refund-due')).toContainText('ফেরত পাওনা — নিউ লাইফ ফার্মেসি');
+  await expect(page.getByTestId('my-payment').locator('.tag')).toHaveText('ফেরত পাওনা');
+  const open2 = REQ({ id: 'prq_p2' });
+  await page.route('**/api/community', async (route) => {
+    const b = route.request().postDataJSON() || {};
+    if (b.action === 'pay_request_get' && b.id === 'prq_p2') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ request: open2, policy: ['দোকান বাতিল করলে পুরো টাকা ফেরত পাবেন।'] }) });
+    return route.fallback();
+  });
+  await page.goto('/invoices/payments/prq_p2', { waitUntil: 'networkidle' });
+  await expect(page.getByTestId('pay-refund-policy')).toContainText('দোকান বাতিল করলে পুরো টাকা ফেরত পাবেন।');
+});
+
 test.describe('প্রবেশপথ', () => {
   test('রসিদের বাকি: "বাকি পরিশোধ করুন" → pay_due_start → শিট', async ({ page }) => {
     const seen = await mock(page, {
@@ -233,7 +250,7 @@ test.describe('প্রবেশপথ', () => {
         const withAdv = { ...p, chambers: (p.chambers ?? []).map((c: any) => ({ ...c, advance: { amount: 200, refundableUntilHoursBefore: 6 } })) };
         return j.provider ? { ...j, provider: withAdv } : withAdv;
       },
-      book: () => ({ ok: true, id: 'a77' }),
+      book: () => ({ ok: true, id: 'a77', payRequestId: 'prq_adv' }),
       pay_request_get: (b) => (b.refType === 'appointment' || b.id === 'prq_adv'
         ? { request: REQ({ id: 'prq_adv', kind: 'chamber', bizId: 'p_mahmuda', bizName: 'ডা. মাহমুদা আক্তার', refType: 'appointment', refId: 'a77', purpose: 'booking_advance', amount: 200, refundableUntil: Date.now() + 30 * H }) }
         : notFound()),
@@ -249,7 +266,7 @@ test.describe('প্রবেশপথ', () => {
     await expect(dlg.getByTestId('advance-line')).toContainText('৬ ঘণ্টা আগে');
     await dlg.getByLabel('কী সমস্যা').fill('জ্বর');
     await dlg.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
-    await expect.poll(() => bodies(seen, 'pay_request_get').find((b) => b.refType)).toMatchObject({ refType: 'appointment', refId: 'a77', purpose: 'booking_advance' });
+    await expect.poll(() => bodies(seen, 'pay_request_get').find((b) => b.id === 'prq_adv')).toBeTruthy();
     const pay = page.getByRole('dialog');
     await expect(pay).toContainText('অনুরোধ গেছে। সিরিয়াল রাখতে অগ্রিম দিন।');
     await expect(pay.getByTestId('pay-refund-policy')).toContainText('ডাক্তার বাতিল করলে পুরো টাকা ফেরত');
@@ -397,7 +414,7 @@ test.describe('ব্যবসা: "পেমেন্ট"', () => {
         return { ...j, items };
       },
       pay_request_get: () => notFound(),
-      pay_request_create: (b) => ({ ok: true, created: true, request: REQ({ refId: b.refId, amount: b.amount }) }),
+      pay_request_create: (b) => ({ ok: true, created: true, request: REQ({ refId: b.refId }) }),
     });
     await open(page, owner('/work'));
     await expect(page.getByTestId('pay-biz-link')).toBeVisible();
@@ -405,9 +422,10 @@ test.describe('ব্যবসা: "পেমেন্ট"', () => {
     const ask = page.getByTestId('ask-pay').first();
     await ask.getByTestId('ask-pay-open').click();
     const dlg = page.getByRole('dialog');
-    await expect(dlg.getByTestId('ask-pay-amount')).toHaveValue('450');
+    await expect(dlg.getByTestId('ask-pay-amount-note')).toContainText('অর্ডার বা বিল থেকে');
     await dlg.getByTestId('ask-pay-send').click();
-    await expect.poll(() => bodies(seen, 'pay_request_create')[0]).toMatchObject({ refType: 'rx_order', purpose: 'delivery', amount: 450 });
+    await expect.poll(() => bodies(seen, 'pay_request_create')[0]).toMatchObject({ refType: 'rx_order', purpose: 'delivery' });
+    expect(bodies(seen, 'pay_request_create')[0].amount).toBeUndefined();
   });
 });
 
@@ -470,11 +488,14 @@ test('অ্যাডমিন: রিপোর্টের পাতায় "
         : [],
     }),
     admin_pay_report_set: () => ({ ok: true }),
+    admin_pay_unfreeze: () => ({ ok: true }),
     admin_pay_flags: () => ({
       users: [{ uid: 'u5', name: 'করিম', rejected30d: 3, lastRejectAt: Date.now() - H, openClaims: 1 }],
       businesses: [{ kind: 'pharmacy', bizId: 'b7', bizName: 'সেবা ফার্মেসি', pendingClaims: 2, oldestClaimAt: Date.now() - 80 * H }],
-      freezes: [{ kind: 'chamber', bizId: 'd3', bizName: 'ডা. কামাল', frozenAt: Date.now() - H, via: 'email', changes: [{ method: 'bkash', change: 'number', oldLast4: '1111', newLast4: '9999', at: Date.now() - 2 * H }] }],
-      refundDue: [{ request: REQ({ status: 'refund_due', bizName: 'আল-মদিনা' }), dueSince: Date.now() - 8 * 24 * H }],
+      frozen: [{ kind: 'chamber', bizId: 'd3', bizName: 'ডা. কামাল', frozenAt: Date.now() - H, via: 'email' }],
+      numbersChanged: [{ kind: 'chamber', bizId: 'd3', bizName: 'ডা. কামাল', method: 'bkash', change: 'number', oldLast4: '1111', newLast4: '9999', at: Date.now() - 2 * H }],
+      refundsOverdue: [{ request: REQ({ status: 'confirmed', bizName: 'আল-মদিনা', refundDue: { at: Date.now() - 8 * 24 * H, why: 'order_cancelled' } }) }],
+      reportsLate: [], disputedRejects: [],
     }),
   }, { pay_manual: true });
   await page.goto('/admin');
@@ -492,11 +513,15 @@ test('অ্যাডমিন: রিপোর্টের পাতায় "
   await expect(main).toContainText('অন্য নম্বরে টাকা চেয়েছে');
   await expect(main).toContainText('9G••••1P');
   await expect(main).not.toContainText('9GH7K2LM1P');
-  await main.getByRole('button', { name: 'সমাধান হয়েছে' }).click();
-  await expect.poll(() => bodies(seen, 'admin_pay_report_set')[0]).toMatchObject({ id: 'prp1', status: 'resolved' });
+  // "দোকানের দোষ" — সতর্ক বোতাম: "নিশ্চিত? আবার চাপুন"
+  await main.getByRole('button', { name: 'দোকানের দোষ' }).click();
+  await main.getByRole('button', { name: /আবার চাপুন/ }).click();
+  await expect.poll(() => bodies(seen, 'admin_pay_report_set')[0]).toMatchObject({ id: 'prp1', status: 'resolved', outcome: 'business_fault' });
   await page.getByTestId('pay-report-tabs').getByRole('tab', { name: 'সতর্কতা' }).click();
   await expect(main).toContainText('"আমি করিনি" — আটকানো পেমেন্ট নম্বর (১)');
   await expect(main).toContainText('ডা. কামাল');
+  await main.getByRole('button', { name: 'আবার চালু করুন' }).click();
+  await expect.poll(() => bodies(seen, 'admin_pay_unfreeze')[0]).toMatchObject({ kind: 'chamber', bizId: 'd3' });
   await expect(main).toContainText('ফেরত পাওনা ৭ দিনের বেশি (১)');
   await expect(main).toContainText('আল-মদিনা');
   await expect(main).toContainText('সেবা ফার্মেসি');

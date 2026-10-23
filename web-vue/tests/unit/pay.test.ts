@@ -68,6 +68,11 @@ describe('সার্ভারের আকার', () => {
     expect(r.claim).toMatchObject({ method: 'nagad', trxId: 'AB12CD34', senderLast4: '5678', byName: 'রহিম' });
     expect(r.refund).toEqual({ trxId: 'RF123456', amount: 450, at: 9, ackAt: null });
     expect(r.refundableUntil).toBe(11);
+    // সার্ভারের ফেরতের নিয়ম আর ফেরত পাওনা
+    const g = pickRequest({ request: { id: 'r2', status: 'confirmed', refundDue: { at: 3, why: 'order_cancelled' } }, policy: 'নিয়ম' })!;
+    expect(g.policy).toEqual(['নিয়ম']);
+    expect(g.refundDue).toEqual({ at: 3, why: 'order_cancelled' });
+    expect(statusShort('confirmed', 'delivery', g.refundDue)).toBe('ফেরত পাওনা');
     expect(parsePayRequest({ status: 'weird' }).status).toBe('open');
   });
   it('উত্তর থেকে অনুরোধ, পাতা (cursor), সারাংশ (openCount/pendingClaims)', () => {
@@ -131,6 +136,8 @@ describe('নিয়ম', () => {
     expect(statusShort('open', 'delivery')).toBe('পাঠানো হয়নি');
     expect(payErrText('pay_ref_used', 'bkash', 'x')).toContain('আবার টাকা পাঠাবেন না');
     expect(payErrText('pay_ref_rejected', 'bkash', 'x')).toContain('দোকান বাতিল করেছে');
+    expect(payErrText('no_methods', 'bkash', 'x')).toContain('নগদে দিন');
+    expect(payErrText('trx_format', 'nagad', 'x')).toContain('৬ থেকে ২০');
     expect(payErrText('nope', 'bkash', 'fallback')).toBe('fallback');
   });
 });
@@ -159,7 +166,9 @@ describe('ফিচার সুইচ', () => {
 describe('নোটিফিকেশন আর SSE', () => {
   const work = { ambulances: [], pharmacy: null, bloodBanks: [], lab: null, professional: null, assisting: [] };
   it('pay_* → পেমেন্টের পাতা (requestId থাকলেও রক্তের অনুরোধে নয়)', () => {
-    expect(inboxTarget({ type: 'pay_confirmed', requestId: 'prq1' }, null, work)).toBe('/invoices/payments/prq1');
+    expect(inboxTarget({ type: 'pay_confirmed', payRequestId: 'prq1', purpose: 'delivery' }, null, work)).toBe('/invoices/payments/prq1');
+    expect(inboxTarget({ type: 'pay_rejected', requestId: 'prq2' }, null, work)).toBe('/invoices/payments/prq2');
+    expect(inboxTarget({ type: 'pay_refund_due', kind: 'lab', bizId: 'l1' }, null, work)).toBe('/work/payments?biz=lab%3Al1');
     expect(inboxTarget({ type: 'pay_claimed', kind: 'pharmacy', bizId: 'u-work' }, null, work)).toBe('/work/payments?biz=pharmacy%3Au-work');
     expect(payTarget({ type: 'pay_methods_changed', kind: 'chamber', bizId: 'd1' })).toBe('/work/payments/settings?biz=chamber%3Ad1');
     expect(payTarget({ type: 'pay_requested' })).toBe('/invoices/payments');

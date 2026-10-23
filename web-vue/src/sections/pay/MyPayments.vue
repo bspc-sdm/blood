@@ -72,7 +72,7 @@ const fromList = computed(() => (props.id ? items.value.find((i) => i.id === pro
             </span>
             <span class="row wrap gap-6">
               <span class="t-body-s muted grow">{{ purposeText(r.purpose) }} · {{ formatDayOf(r.createdAt) }}</span>
-              <Tag :tone="statusTone(r.status)">{{ statusShort(r.status, r.purpose) }}</Tag>
+              <Tag :tone="r.refundDue ? 'error' : statusTone(r.status)">{{ statusShort(r.status, r.purpose, r.refundDue) }}</Tag>
             </span>
           </button>
           <Button v-if="q.hasNextPage" variant="text" :busy="q.isFetchingNextPage" @click="q.fetchNextPage()">{{ T.loadMore() }}</Button>

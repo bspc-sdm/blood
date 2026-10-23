@@ -61,6 +61,7 @@ function done() {
       <Tag :tone="statusTone(r.status)" data-testid="biz-pay-state">{{ statusTextBiz(r.status) }}</Tag>
       <span class="t-body-s muted grow">{{ [r.payerName ? purposeText(r.purpose) : '', when(r.claim?.at || r.createdAt)].filter(Boolean).join(' · ') }}</span>
       <span v-if="waitedH >= 24" class="t-body-s pay-late" data-testid="biz-pay-late">{{ T.late() }}</span>
+      <Tag v-if="r.refundDue && r.status === 'confirmed'" tone="error" data-testid="biz-pay-refund-due">{{ T.refundOwed() }}</Tag>
     </div>
     <p v-if="c && c.trxId" class="t-body-m" data-testid="biz-pay-claim">
       {{ methodName(c.method) }} · TrxID <span class="pay-trx">{{ c.trxId }}</span>{{ c.senderLast4 ? ' · …' + num(c.senderLast4) : '' }}

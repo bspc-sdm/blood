@@ -119,7 +119,8 @@ export async function callBlocks(): Promise<Blocked[]> {
   const raw: any[] = Array.isArray(r?.items) ? r.items : [];
   return raw.map((o) => ({ ...parsePeer(o), blockedAt: num(o?.blockedAt) })).filter((x) => x.uid);
 }
-export type ReportReason = 'harassment' | 'spam' | 'fake' | 'other';
+// asked_other_number: অন্য নম্বরে টাকা চেয়েছে (PAYMENTS-SECURITY-REVIEW P2)
+export type ReportReason = 'harassment' | 'spam' | 'fake' | 'asked_other_number' | 'other';
 export const callReport = (callId: string, reason: ReportReason, note: string) => call('call_report', { callId, reason, ...(note ? { note } : {}) });
 /** অনলাইন অ্যাপয়েন্টমেন্টের ভিডিও কলে ঢোকা (রোগী বা ডাক্তার/সহকারী) */
 export async function apptJoin(appointmentId: string): Promise<RoomGrant> {

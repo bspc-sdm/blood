@@ -19,8 +19,8 @@ export const REJECT_REASONS: RejectReason[] = ['not_received', 'wrong_amount', '
 export interface PayMethod { method: PayMethodKind; number: string; type: AcctType; active: boolean }
 /** ব্যবসার সেটিংয়ের নম্বর: বদলের পর ২৪ ঘণ্টা আগেরটাই চলে (pendingUntil পর্যন্ত activeNumber) */
 export interface MethodSetting extends PayMethod { pendingUntil: number | null; activeNumber: string }
-/** byName: কেয়ারগিভার পাঠালে তাঁর নাম (সার্ভার দিলে) */
-export interface PayClaim { method: PayMethodKind; trxId: string; senderLast4: string; at: number; byName: string }
+/** by: কে "পাঠিয়েছি" বলেছেন (কেয়ারগিভার নিজের ওয়ালেট থেকে দিলে রোগী নন); byName: সার্ভার নাম দিলে */
+export interface PayClaim { method: PayMethodKind; trxId: string; senderLast4: string; at: number; by?: string; byName: string }
 export interface PayRefund { trxId: string; amount: number; at: number; ackAt: number | null }
 export interface PayRequest {
   id: string;
@@ -43,6 +43,10 @@ export interface PayRequest {
   rejectNote: string | null;
   rejectedAt: number | null;
   refund: PayRefund | null;
+  /** নিশ্চিত হওয়া টাকা ফেরত পাওনা (ব্যবসা বাতিল করেছে / দেয়নি — P11) */
+  refundDue: { at: number; why: string } | null;
+  /** pay_request_get-এর ফেরতের নিয়ম আর সতর্কতা (সার্ভারের লেখা) */
+  policy: string[];
   invoiceId: string | null;
   /** চেম্বারের অগ্রিম: এর আগে বাতিল করলে ফেরত */
   refundableUntil: number | null;
@@ -87,13 +91,15 @@ export function parsePayRequest(o: any): PayRequest {
     amount: n(o?.amount),
     methods: (Array.isArray(o?.methods) ? o.methods : []).map(parseMethod).filter((m: PayMethod | null): m is PayMethod => !!m),
     status: status(o?.status),
-    claim: c && typeof c === 'object' ? { method: isMethod(c.method) ? c.method : 'bkash', trxId: s(c.trxId), senderLast4: s(c.senderLast4), at: n(c.at), byName: s(c.byName ?? c.claimedByName) } : null,
+    claim: c && typeof c === 'object' ? { method: isMethod(c.method) ? c.method : 'bkash', trxId: s(c.trxId), senderLast4: s(c.senderLast4), at: n(c.at), ...(c.by ? { by: s(c.by) } : {}), byName: s(c.byName ?? c.claimedByName) } : null,
     confirmedAt: nOrNull(o?.confirmedAt),
     confirmedBy: o?.confirmedBy ? s(o.confirmedBy) : null,
     rejectReason: o?.rejectReason ? s(o.rejectReason) : null,
     rejectNote: o?.rejectNote ? s(o.rejectNote) : null,
     rejectedAt: nOrNull(o?.rejectedAt),
     refund: r && typeof r === 'object' ? { trxId: s(r.trxId), amount: n(r.amount), at: n(r.at), ackAt: nOrNull(r.ackAt) } : null,
+    refundDue: o?.refundDue && typeof o.refundDue === 'object' ? { at: n(o.refundDue.at), why: s(o.refundDue.why) } : null,
+    policy: (Array.isArray(o?.policy) ? o.policy : o?.policy ? [o.policy] : []).map(s).filter(Boolean),
     invoiceId: o?.invoiceId ? s(o.invoiceId) : null,
     refundableUntil: nOrNull(o?.refundableUntil),
     expiresAt: nOrNull(o?.expiresAt),
@@ -101,11 +107,11 @@ export function parsePayRequest(o: any): PayRequest {
     demo: o?.demo === true,
   };
 }
-/** কাজের উত্তরে অনুরোধ: {request} / {payRequest} / {pay} বা সরাসরি */
+/** কাজের উত্তরে অনুরোধ: {request} / {payRequest} / {pay} বা সরাসরি; pay_request_get-এর policy অনুরোধের সাথে */
 export function pickRequest(r: any): PayRequest | null {
   if (!r || typeof r !== 'object') return null;
   const o = r.request ?? r.payRequest ?? r.pay ?? (r.id && (r.purpose || r.status) ? r : null);
-  return o && typeof o === 'object' && o.id ? parsePayRequest(o) : null;
+  return o && typeof o === 'object' && o.id ? parsePayRequest(r.policy && !o.policy ? { ...o, policy: r.policy } : o) : null;
 }
 export function parsePayPage(r: any): PayPage {
   const items = Array.isArray(r?.items) ? r.items : Array.isArray(r?.payments) ? r.payments : Array.isArray(r?.requests) ? r.requests : [];
@@ -152,6 +158,8 @@ export const canReject = (r: Pick<PayRequest, 'status'>) => r.status === 'claime
 export const canDecide = (r: Pick<PayRequest, 'status' | 'claim'>) => canConfirm(r) || canReject(r);
 /** টাকা ফেরত: নিশ্চিত হওয়ার পর, বা ফেরত পাওনা হলে (শুধু মালিক; সার্ভার আগের ফেরত বাদ দিয়ে সীমা দেখে) */
 export const canRefund = (r: Pick<PayRequest, 'status' | 'refund'>) => r.status === 'confirmed' || r.status === 'refund_due';
+/** ফেরত পাওনা — সার্ভারের refundDue (অবস্থা "নিশ্চিত" থাকে) বা পুরোনো refund_due অবস্থা */
+export const owesRefund = (r: Pick<PayRequest, 'status' | 'refundDue'>) => r.status === 'refund_due' || (r.status === 'confirmed' && !!r.refundDue);
 /** ব্যবসা ফেরত পাঠিয়েছে বলছে — রোগী "পেয়েছি" / "পাইনি" */
 export const needsRefundAck = (r: Pick<PayRequest, 'status' | 'refund'>) => r.status === 'refund_claimed' || (r.status === 'refunded' && !!r.refund && !r.refund.ackAt);
 /** শেষ অবস্থা (আর কিছু হবে না) */

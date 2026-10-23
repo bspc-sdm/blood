@@ -113,12 +113,13 @@ export function payTarget(data: Record<string, string>): string {
   switch (data.type) {
     case 'pay_claimed':
     case 'pay_reminder':
+    case 'pay_refund_due':
     case 'pay_methods_changed': {
       const q = data.kind && data.bizId ? `?biz=${encodeURIComponent(`${data.kind}:${data.bizId}`)}` : '';
       return (data.type === 'pay_methods_changed' ? '/work/payments/settings' : '/work/payments') + q;
     }
     default: {
-      const pid = data.payId || data.requestId || data.id;
+      const pid = data.payRequestId || data.payId || data.requestId || data.id;
       return pid ? `/invoices/payments/${encodeURIComponent(pid)}` : '/invoices/payments';
     }
   }
@@ -202,6 +203,7 @@ export function inboxIcon(type?: string, kind?: string, title?: string): string 
     case 'pay_refunded':
     case 'pay_refund_claimed':
     case 'pay_reminder':
+    case 'pay_refund_due':
     case 'pay_methods_changed': return 'payments';
     case 'homevisit':
     case 'homecare': return 'home_health';

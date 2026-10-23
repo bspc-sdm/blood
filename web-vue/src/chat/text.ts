@@ -108,6 +108,7 @@ export function reasonText(r: ReportReason): string {
     case 'harassment': return tr('Harassment or abuse', 'হয়রানি বা গালাগাল'); // bn-ok
     case 'spam': return tr('Too many / unwanted messages', 'বারবার / অপ্রয়োজনীয় মেসেজ'); // bn-ok
     case 'fake': return tr('Fake or fraud', 'ভুয়া বা প্রতারণা'); // bn-ok
+    case 'asked_other_number': return tr('Asked me to send money to another number', 'অন্য নম্বরে টাকা পাঠাতে বলেছে'); // bn-ok
     case 'other': return tr('Other', 'অন্য কিছু');
   }
 }

@@ -66,6 +66,13 @@ export const T = {
   refundCheck: () => tr('Check your mobile wallet, then tell us.', 'নিজের মোবাইল ওয়ালেটে মিলিয়ে তারপর জানান।'), // bn-ok
   refundNotGotBtn: () => tr("Didn't get it", 'পাইনি'), // bn-ok
   advanceDue: () => tr('Advance due', 'অগ্রিম বাকি'), // bn-ok
+  sentByCare: () => tr('Sent by a caregiver from their own wallet', 'কেয়ারগিভার নিজের ওয়ালেট থেকে পাঠিয়েছেন'), // bn-ok
+  paused: () => trPlain('Payment requests are paused until the owed refunds are sent.', 'পাওনা ফেরত না দেওয়া পর্যন্ত নতুন পেমেন্ট চাওয়া বন্ধ।'), // bn-ok
+  alreadyPaid: () => trPlain('This is already paid.', 'এটা আগেই পরিশোধ হয়েছে।'), // bn-ok
+  noAmount: () => trPlain('Nothing to pay here yet — make the bill or receipt first.', 'এখানে এখনো দেওয়ার কিছু নেই — আগে বিল বা রসিদ করুন।'), // bn-ok
+  notFinished: () => trPlain('The trip is not finished with a receipt yet.', 'ট্রিপ এখনো রসিদসহ শেষ হয়নি।'), // bn-ok
+  amountFromSource: () => tr('The amount comes from the order or bill.', 'টাকার পরিমাণ অর্ডার বা বিল থেকে নেওয়া হবে।'), // bn-ok
+  refundOwed: () => tr('Refund owed — send it back', 'ফেরত দিতে হবে'), // bn-ok
   directNote: (biz: string) => tr(`The money goes straight to ${biz}. Lifolo doesn't hold or take any of it. Never share your PIN or OTP.`, `টাকা সরাসরি ${biz}-এর কাছে যায়। Lifolo টাকা রাখে না, কিছু কাটে না। PIN বা OTP কাউকে বলবেন না।`), // bn-ok
   cashOk: () => tr('You can also pay in cash.', 'চাইলে নগদেও দিতে পারেন।'), // bn-ok
   checking: (biz: string) => tr(`${biz} is checking the payment. Until they confirm, it is not paid yet.`, `${biz} টাকা মিলিয়ে দেখছেন। নিশ্চিত না করা পর্যন্ত এটা পরিশোধিত নয়।`), // bn-ok
@@ -257,7 +264,8 @@ export function statusText(st: PayStatus): string {
   }
 }
 /** তালিকায় ছোট অবস্থা: চেম্বারের খোলা অগ্রিম "অগ্রিম বাকি" */
-export const statusShort = (st: PayStatus, purpose?: string) => (purpose === 'booking_advance' && (st === 'open' || st === 'rejected') ? T.advanceDue() : statusText(st));
+export const statusShort = (st: PayStatus, purpose?: string, refundDue?: unknown) =>
+  refundDue && st === 'confirmed' ? statusText('refund_due') : purpose === 'booking_advance' && (st === 'open' || st === 'rejected') ? T.advanceDue() : statusText(st);
 /** অবস্থা — ব্যবসার দিক থেকে */
 export function statusTextBiz(st: PayStatus): string {
   switch (st) {
@@ -321,7 +329,21 @@ export function payErrText(code: string | undefined, method: PayMethodKind, fall
   switch (code) {
     case 'pay_ref_used': return T.trxUsed();
     case 'pay_ref_rejected': return T.trxRejected();
+    case 'no_methods':
     case 'pay_no_methods': return T.noMethods();
+    case 'trx_format': return T.errTrx(method);
+    case 'last4': return T.errLast4();
+    case 'pay_claim_limit': return T.oneOpenClaim();
+    case 'expired': return T.expiredErr();
+    case 'pay_frozen': return T.frozen();
+    case 'pay_paused': return T.paused();
+    case 'already_paid': return T.alreadyPaid();
+    case 'no_amount':
+    case 'nothing_due': return T.noAmount();
+    case 'not_finished': return T.notFinished();
+    case 'checks_required': return T.checksNeeded();
+    case 'reauth_required': return T.reauthTitle();
+    case 'owner_only': return T.ownerOnly();
     case 'pay_claim_rate': return T.claimRate();
     case 'pay_claim_day_rate':
     case 'pay_user_rate': return T.claimDayRate();

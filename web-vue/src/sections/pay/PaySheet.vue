@@ -15,7 +15,7 @@ import { formatDateTime } from '@/lib/format';
 import { money } from '../invoices/model';
 import InvoiceLink from '../invoices/InvoiceLink.vue';
 import * as api from './api';
-import { activeMethods, canClaim, isFinal, last4Clean, last4Valid, needsRefundAck, timelineOf, trxClean, trxMax, trxValid, type PayMethod, type PayRequest } from './model';
+import { activeMethods, canClaim, isFinal, owesRefund, last4Clean, last4Valid, needsRefundAck, timelineOf, trxClean, trxMax, trxValid, type PayMethod, type PayRequest } from './model';
 import { T, acctText, methodCode, methodName, methodOp, payErrText, purposeText, rejectText, statusShort, statusTone, stepText } from './text';
 import type { LegacyMode } from './sheet';
 import PayReportDialog from './PayReportDialog.vue';
@@ -78,13 +78,17 @@ const steps = computed<string[]>(() => {
 });
 /** টাকা ফেরতের নিয়ম — পাঠানোর আগে (P11) */
 const refundPolicy = computed<string[]>(() => {
+  // সার্ভারের লেখা থাকলে সেটাই (pay_request_get policy)
+  if (props.req.policy.length) return props.req.policy;
   const p = props.req.purpose;
   if (p === 'booking_advance') return props.req.refundableUntil ? [T.doctorCancelFull(), T.refundUntil(formatDateTime(props.req.refundableUntil))] : [T.refundAdvance(0)];
   if (p === 'ambulance_fare') return [T.refundFare()];
   return [T.refundGeneral(biz.value)];
 });
 const timeline = computed(() => (props.legacy ? [] : timelineOf(props.req)));
-const stateText = computed(() => (props.legacy ? props.legacy.statusText(st.value) : statusShort(st.value, props.req.purpose)));
+const stateText = computed(() => (props.legacy ? props.legacy.statusText(st.value) : statusShort(st.value, props.req.purpose, props.req.refundDue)));
+/** কেয়ারগিভার নিজের ওয়ালেট থেকে দিলে (claim.by রোগী নন) */
+const byCare = computed(() => !!props.req.claim?.by && !!props.req.payerUid && props.req.claim.by !== props.req.payerUid);
 const canReport = computed(() => !props.legacy && !reported.value && !(isFinal(st.value) && st.value !== 'confirmed' && st.value !== 'refunded'));
 const refundAmount = computed(() => money(props.req.refund?.amount || props.req.amount));
 
@@ -161,7 +165,7 @@ function onReported() {
     <div v-if="!bare" class="col gap-4 pay-head">
       <div class="row gap-8">
         <span class="t-label-l grow">{{ purposeText(req.purpose) }}</span>
-        <Tag :tone="statusTone(st)" data-testid="pay-state">{{ stateText }}</Tag>
+        <Tag :tone="req.refundDue ? 'error' : statusTone(st)" data-testid="pay-state">{{ stateText }}</Tag>
       </div>
       <span v-if="amountText" class="pay-amount num" data-testid="pay-amount">{{ amountText }}</span>
       <span v-if="req.bizName" class="t-body-m muted" data-testid="pay-biz">{{ T.payTo(req.bizName) }}</span>
@@ -200,7 +204,7 @@ function onReported() {
       <p v-if="req.claim?.trxId" class="t-body-m" data-testid="pay-claim-line">
         TrxID: <span class="pay-trx">{{ req.claim.trxId }}</span><template v-if="!legacy"> · {{ methodName(req.claim.method) }}{{ req.claim.senderLast4 ? ' · …' + num(req.claim.senderLast4) : '' }}</template>
       </p>
-      <p v-if="req.claim?.byName" class="t-body-s muted">{{ T.sentBy(req.claim.byName) }}</p>
+      <p v-if="req.claim?.byName || byCare" class="t-body-s muted">{{ req.claim?.byName ? T.sentBy(req.claim.byName) : T.sentByCare() }}</p>
     </template>
     <template v-if="st === 'confirmed'">
       <p v-if="req.claim?.trxId" class="t-body-m muted">TrxID: <span class="pay-trx">{{ req.claim.trxId }}</span></p>
@@ -279,7 +283,7 @@ function onReported() {
     <p v-if="st === 'cancelled'" class="t-body-m muted">{{ T.cancelledHead() }}</p>
 
     <!-- ফেরত পাওনা / পাঠিয়েছে বলছে / ফেরত হয়েছে -->
-    <div v-if="st === 'refund_due'" class="col gap-4 pay-rej" data-testid="pay-refund-due">
+    <div v-if="owesRefund(req)" class="col gap-4 pay-rej" data-testid="pay-refund-due">
       <p class="t-body-m semi">{{ T.refundDueHead(biz) }}</p>
       <p class="t-body-s">{{ T.refundDueText() }}</p>
     </div>

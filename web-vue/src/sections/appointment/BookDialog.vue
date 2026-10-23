@@ -11,7 +11,7 @@ import { dayChip, nextOpenDays } from './doctors';
 import { ONLINE_KEY, T as OT } from './online';
 import { onlineOn } from './online/flags';
 import { payOn } from '../pay/features';
-import { getRequestByRef } from '../pay/api';
+import { getRequest, getRequestByRef } from '../pay/api';
 import { pickRequest, type PayRequest } from '../pay/model';
 import { T as PT } from '../pay/text';
 import { money } from '../invoices/model';
@@ -36,6 +36,8 @@ const advReq = ref<PayRequest | null>(null);
 async function advanceOf(r: any): Promise<PayRequest | null> {
   const got = pickRequest(r);
   if (got) return got;
+  // book-এর উত্তরে payRequestId (PAYMENTS.md)
+  if (r?.payRequestId) return getRequest(String(r.payRequestId)).catch(() => null);
   const id = r?.id ?? r?.appointmentId ?? r?.appointment?.id;
   return id ? getRequestByRef('appointment', String(id), 'booking_advance').catch(() => null) : null;
 }

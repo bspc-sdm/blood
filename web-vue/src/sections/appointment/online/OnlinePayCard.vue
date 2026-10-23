@@ -51,7 +51,7 @@ const legacyReq = computed<PayRequest>(() => ({
   purpose: 'chamber_fee', amount: 0,
   methods: props.a.bkashNumber ? [{ method: 'bkash', number: props.a.bkashNumber, type: 'personal', active: true }] : [],
   status: toStatus(st.value), claim: props.a.payRef ? { method: 'bkash', trxId: props.a.payRef, senderLast4: '', at: 0, byName: '' } : null,
-  confirmedAt: null, confirmedBy: null, rejectReason: null, rejectNote: props.a.payReason || null, rejectedAt: null, refund: null,
+  confirmedAt: null, confirmedBy: null, rejectReason: null, rejectNote: props.a.payReason || null, rejectedAt: null, refund: null, refundDue: null, policy: [],
   invoiceId: props.a.invoiceId ?? null, refundableUntil: null, expiresAt: null, createdAt: 0, demo: false,
 }));
 const legacy: LegacyMode = {

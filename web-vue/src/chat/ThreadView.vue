@@ -208,7 +208,8 @@ const repBusy = ref(false);
 const repErr = ref<string | null>(null);
 function openReport(m: ChatMessage) {
   reporting.value = m;
-  reason.value = 'harassment';
+  // টাকার নম্বরসহ মেসেজ: "অন্য নম্বরে টাকা পাঠাতে বলেছে" আগে থেকে
+  reason.value = m.warn === 'money_number' ? 'asked_other_number' : 'harassment';
   note.value = '';
   repErr.value = null;
 }

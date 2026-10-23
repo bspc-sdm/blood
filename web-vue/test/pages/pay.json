@@ -301,6 +301,21 @@
    "me": {
     "badge": null,
     "isAdmin": false
+   },
+   "features": {
+    "pay_manual": false,
+    "pay_chamber_advance": false,
+    "pay_delivery": false,
+    "pay_lab": false,
+    "pay_ambulance": false,
+    "pay_due": false,
+    "pay_bkash_pgw": false,
+    "inv_pharmacy": false,
+    "inv_lab": false,
+    "inv_chamber": false,
+    "inv_ambulance": false,
+    "my_expenses": false,
+    "online_chamber": false
    }
   }
  },
@@ -496,7 +511,22 @@
     "locationSource": "gps"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "features": {
+    "pay_manual": false,
+    "pay_chamber_advance": false,
+    "pay_delivery": false,
+    "pay_lab": false,
+    "pay_ambulance": false,
+    "pay_due": false,
+    "pay_bkash_pgw": false,
+    "inv_pharmacy": false,
+    "inv_lab": false,
+    "inv_chamber": false,
+    "inv_ambulance": false,
+    "my_expenses": false,
+    "online_chamber": false
+   }
   }
  },
  {
