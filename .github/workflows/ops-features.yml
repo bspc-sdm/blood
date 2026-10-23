@@ -72,12 +72,34 @@ jobs:
           cat "$RUNNER_TEMP/out/features.md"
           tail -1 "$RUNNER_TEMP/out/features.md" | grep -q '^RESULT ok=1 ' || { echo "::error::ফিচার সুইচ বদলানো যায়নি — Summary দেখুন"; exit 1; }
 
+      # বাইরে থেকে, ব্যবহারকারী যেভাবে আসে: api.lifolo.com (Cloudflare এড়াতে নাম VPS-এ বাঁধা — Deploy backend-এর মতো)
+      - name: Check from the internet (health, demo login, gated actions)
+        env:
+          IN_ACTION: ${{ inputs.action }}
+        run: |
+          echo "$ORIGIN_IP lifolo.com api.lifolo.com # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
+          case "$IN_ACTION" in all_on) exp=on ;; all_off) exp=off ;; *) exp="" ;; esac
+          key="$(python3 -c "import json;print(json.load(open('app/google-services.json'))['client'][0]['api_key'][0]['current_key'])")"
+          rc=0
+          out="$(API=https://api.lifolo.com KEY="$key" EXPECT="$exp" python3 deploy/ci/features-smoke.py 2>&1)" || rc=$?
+          echo "$out"
+          printf '%s\n' "$out" > "$RUNNER_TEMP/out/smoke.txt"
+          exit "$rc"
+
       - name: Summary
         if: always()
         run: |
           out="$RUNNER_TEMP/out"
           {
             grep -v '^RESULT ' "$out/features.md" 2>/dev/null || echo "VPS থেকে কোনো ফল আসেনি"
+            echo
+            echo "### বাইরে থেকে পরীক্ষা (api.lifolo.com)"
+            if [ -f "$out/smoke.txt" ]; then
+              echo "- ফল: \`$(tail -1 "$out/smoke.txt")\`"
+              grep -E '^(ok|wait) ' "$out/smoke.txt" | grep -v '^ok (' | sed 's/^/- /'
+            else
+              echo "- চালানো হয়নি"
+            fi
             echo
             echo "**কীভাবে ফেরাবেন:** Actions → \"Ops: feature switches\" → action \`restore\` (সর্বশেষ all_on/all_off-এর আগের অবস্থা)। দেখতে: \`show\`।"
             echo

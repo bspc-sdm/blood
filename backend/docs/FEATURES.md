@@ -186,6 +186,11 @@ How it works:
   changes affect, so open apps refresh at once.
 - A list with one wrong item writes nothing (400). No database writes happen outside the app.
 - Snapshots are kept on the VPS in `/var/lib/lifolo/feature-snapshots/<UTC time>-before-<action>.json` (root only, 0600).
+- Then the workflow checks from the internet (`deploy/ci/features-smoke.py`, read-only):
+  - `api.lifolo.com/api/health` is ok;
+  - `features` answers for a guest, and the demo patient and doctor can log in (it retries while DemoRefresh rebuilds the demo);
+  - after `all_on` every key is on for the demo patient; after `all_off` every key is off;
+  - `chat_threads`, `my_expenses` and `consent_status` answer 200 when their switch is on, and 404 `feature_off` when it is off.
 - The step summary is in Bangla and also goes to the log branch `ci-log-ops-drills` (`features/`). It shows only modes
   and pilot counts, never uids or emails.
 - The workflow has its own concurrency group (`ops-features`). It never queues in `vps-admin`, where it could cancel a
