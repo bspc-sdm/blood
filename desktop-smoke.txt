@@ -1,0 +1,3 @@
+installer exit: 0
+installed: C:\Users\runneradmin\AppData\Local\Lifolo\Lifolo.exe
+running after 25 s: True
