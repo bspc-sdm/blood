@@ -318,8 +318,13 @@ test('ব্যানার মোবাইল ব্রাউজারের �
   await openLive(page, withTest(def('account', 'profile-nobiz'), { fakeMedia: {}, callTiming: FAST }));
   await expect(page.getByTestId('call-incoming')).toContainText('নতুন ফার্মেসি');
   await expect(page.getByTestId('call-incoming')).toContainText('অর্ডার');
-  // Playwright-এর পাতা শুরু থেকেই "চাপ পড়েছে" ধরা থাকে, তাই শব্দ বাজে — "শব্দ শুনতে চাপুন" নেই (না-চাপা অবস্থা: tests/unit/calls.test.ts)
-  await expect(page.getByTestId('call-sound')).toHaveCount(0);
+  // পাতায় চাপ পড়েছে কি না Playwright-এ নির্দিষ্ট নয় — "শব্দ শুনতে চাপুন" থাকলে চাপলে চলে যায় (না-চাপা অবস্থা: tests/unit/calls.test.ts)
+  const sound = page.getByTestId('call-sound');
+  if (await sound.count()) {
+    await expect(sound).toHaveText('শব্দ শুনতে চাপুন');
+    await sound.click();
+    await expect(sound).toHaveCount(0);
+  }
   await noSideScroll(page);
 });
 

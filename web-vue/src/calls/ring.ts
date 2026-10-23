@@ -65,17 +65,19 @@ export function startRing(kind: 'incoming' | 'outgoing'): boolean {
   play();
   timer = setInterval(play, kind === 'incoming' ? 2500 : 4000);
   try {
-    if (kind === 'incoming') navigator.vibrate?.([400, 200, 400]);
+    // কাঁপুনি: ব্রাউজার শুধু সত্যিকারের চাপের পরে দেয় (নইলে কনসোলে ভুল)
+    if (kind === 'incoming' && touched) navigator.vibrate?.([400, 200, 400]);
   } catch {
     /* নেই */
   }
   return true;
 }
 export function stopRing() {
+  const was = timer != null;
   if (timer) clearInterval(timer);
   timer = null;
   try {
-    navigator.vibrate?.(0);
+    if (touched && was) navigator.vibrate?.(0);
   } catch {
     /* নেই */
   }
