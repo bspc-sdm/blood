@@ -16,6 +16,11 @@ env:
     direction: DOWN
     timeout: 20000
 - tapOn: ".*আমার প্রেসক্রিপশন.*"
+# চলমান/পূর্বের/সব (RxStatus): কোনটা কোন ভাগে তা সার্ভারের নিয়মে বদলায় — "সব"-এ সবগুলো
+- extendedWaitUntil:
+    visible: "সব \\(.*\\)"
+    timeout: 30000
+- tapOn: "সব \\(.*\\)"
 - scrollUntilVisible:
     element: ".*Montene.*"
     direction: DOWN
@@ -24,27 +29,21 @@ env:
 - extendedWaitUntil:
     visible: ".*ফার্মেসিতে পাঠান.*"
     timeout: 30000
-# চালু অর্ডারের নিচে কলের আইকন (CallButtons.kt-এর testTag) → মেনু: অ্যাপ কল · ভিডিও কল
+# চালু অর্ডারের নিচে কলের আইকন → মেনু: অ্যাপ কল · ভিডিও কল। প্রেসক্রিপশনের পাতা আর মেনু আলাদা জানালায় (FullScreenDialog,
+# DropdownMenu) — সেখানে testTag resource-id হয় না, তাই আইকনের বর্ণনা ("কল করুন") আর মেনুর লেখা দিয়ে খোঁজা
 - scrollUntilVisible:
-    element:
-      id: "contact_call"
+    element: "কল করুন"
     direction: DOWN
     timeout: 20000
     centerElement: true
-- tapOn:
-    id: "contact_call"
+- tapOn: "কল করুন"
 - extendedWaitUntil:
-    visible:
-      id: "app_call_audio"
+    visible: "অ্যাপ কল"
     timeout: 10000
-- assertVisible: "অ্যাপ কল"
-- assertVisible:
-    id: "app_call_video"
 - assertVisible: "ভিডিও কল"
 - takeScreenshot: j17-01-order-call-buttons
 # চাপলে: অনুমতির আগে কারণ (মাইক্রোফোন …) — "বাতিল"
-- tapOn:
-    id: "app_call_audio"
+- tapOn: "অ্যাপ কল"
 - extendedWaitUntil:
     visible: ".*অডিও কলের জন্য অনুমতি দিন.*"
     timeout: 10000
@@ -53,10 +52,8 @@ env:
 - tapOn: "বাতিল"
 - assertNotVisible: ".*অডিও কলের জন্য অনুমতি দিন.*"
 # ভিডিও কলে ক্যামেরার কারণও (আবার কলের আইকন → "ভিডিও কল")
-- tapOn:
-    id: "contact_call"
-- tapOn:
-    id: "app_call_video"
+- tapOn: "কল করুন"
+- tapOn: "ভিডিও কল"
 - extendedWaitUntil:
     visible: ".*ভিডিও কলের জন্য অনুমতি দিন.*"
     timeout: 10000

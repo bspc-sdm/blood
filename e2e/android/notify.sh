@@ -114,7 +114,7 @@ case_ n-rx_lab "আমার প্যাথলজি" "" --es type rx_lab
 # ---- কেয়ারগিভার ----
 login "ডেমো কে(?:য়|য়)ারগিভার রুমা" caregiver
 case_ n-care ".*কে${Y}ারগিভার ও পরিবার.*" "" --es type care
-case_ n-care-rx ".*Dyslipidaemia.*" ".*ডেমো রোগী রহিম.*" --es type care --es asUid demo-patient --es rxId demo-rx-b
+case_ n-care-rx ".*ডেমো রোগী রহিম.*" ".*Dyslipidaemia.*" --es type care --es asUid demo-patient --es rxId demo-rx-b
 
 # ---- অ্যাম্বুলেন্স চালক ----
 login "ডেমো অ্যাম্বুলেন্স চালক" ambulance

@@ -14,6 +14,11 @@ env:
     direction: DOWN
     timeout: 20000
 - tapOn: ".*আমার প্রেসক্রিপশন.*"
+# চলমান/পূর্বের/সব (RxStatus): কোনটা কোন ভাগে তা সার্ভারের নিয়মে বদলায় — "সব"-এ সবগুলো
+- extendedWaitUntil:
+    visible: "সব \\(.*\\)"
+    timeout: 30000
+- tapOn: "সব \\(.*\\)"
 - scrollUntilVisible:
     element: ".*Ecosprin.*"
     direction: DOWN

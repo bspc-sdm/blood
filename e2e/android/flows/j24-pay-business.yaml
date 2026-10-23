@@ -16,6 +16,18 @@ env:
     visible: "দোকান"
     timeout: 30000
 - tapOn: "দোকান"
+# দোকানের ভাগগুলো (তথ্য · বিক্রি · স্টক · এনালাইটিক্স · রসিদ) পাশে সরে — ছোট পর্দায় "রসিদ" ডানে লুকানো থাকে
+- extendedWaitUntil:
+    visible: "এনালাইটিক্স"
+    timeout: 20000
+- runFlow:
+    when:
+      notVisible: "রসিদ"
+    commands:
+      - swipe:
+          from:
+            text: "এনালাইটিক্স"
+          direction: LEFT
 - tapOn: "রসিদ"
 - extendedWaitUntil:
     visible:

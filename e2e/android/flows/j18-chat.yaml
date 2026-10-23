@@ -64,8 +64,8 @@ env:
 # ছবি: সংযুক্ত করুন → গ্যালারি → সিস্টেমের ছবি বাছাই → "ছবিটা পাঠাবেন?" → পাঠান
 - tapOn:
     id: "chat_attach"
-- tapOn:
-    id: "chat_attach_gallery"
+# মেনুটা আলাদা জানালায় (DropdownMenu) — testTag resource-id হয় না, তাই লেখা দিয়ে
+- tapOn: "গ্যালারি"
 - extendedWaitUntil:
     visible:
       id: ".*:id/icon_thumbnail"
@@ -95,8 +95,10 @@ env:
     visible: ".*ছবিটা পাঠাবেন.*"
     timeout: 20000
 - takeScreenshot: j18-04-photo-confirm
+# "ছবিটা পাঠাবেন?" আলাদা জানালায় (ডায়ালগ) — testTag resource-id হয় না
 - tapOn:
-    id: "chat_photo_send"
+    text: "পাঠান"
+    below: "ছবিটা পাঠাবেন\\?"
 - extendedWaitUntil:
     visible:
       id: "chat_photo"
@@ -116,6 +118,11 @@ env:
     direction: DOWN
     timeout: 20000
 - tapOn: ".*আমার প্রেসক্রিপশন.*"
+# চলমান/পূর্বের/সব (RxStatus): কোনটা কোন ভাগে তা সার্ভারের নিয়মে বদলায় — "সব"-এ সবগুলো
+- extendedWaitUntil:
+    visible: "সব \\(.*\\)"
+    timeout: 30000
+- tapOn: "সব \\(.*\\)"
 - scrollUntilVisible:
     element: ".*Montene.*"
     direction: DOWN
