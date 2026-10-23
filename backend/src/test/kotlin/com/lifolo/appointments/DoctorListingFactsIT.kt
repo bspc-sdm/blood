@@ -40,7 +40,7 @@ class DoctorListingFactsIT : P2TestBase() {
     }
 
     @Test
-    fun `nextSlot today, tomorrow, Saturday; fee; labels; openNow; rating; distance`() {
+    fun `nextSlot today, tomorrow, Saturday, fee, labels, openNow, rating, distance`() {
         clock.fixedMs = dhaka("2026-10-19 18:00") // Monday evening
         seed()
         val today = today()

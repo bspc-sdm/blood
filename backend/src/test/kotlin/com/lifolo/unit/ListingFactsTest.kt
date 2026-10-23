@@ -58,7 +58,7 @@ class ListingFactsTest {
     }
 
     @Test
-    fun `origin - gps point, upazila centre, nothing; distance 1 decimal and approx flag`() {
+    fun `origin - gps point, upazila centre, nothing, distance 1 decimal and approx flag`() {
         val gps = ListingFacts.origin(body(mapOf("lat" to 24.75, "lng" to 90.4)))!!
         assertTrue(gps.exact)
         assertFalse(ListingFacts.origin(body(mapOf("lat" to 24.75, "lng" to 90.4, "gps" to false)))!!.exact)

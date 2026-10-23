@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test
 
 /** LISTINGS.md on the pharmacy list: openNow/is24h/opensAt/closesAt, distanceKm, ratingSummary, delivery filter, q, sort */
 class PharmacyListingFactsIT : P4Test() {
-    private fun ids(r: com.fasterxml.jackson.databind.JsonNode) = r["items"].map { it["id"].textValue() }
-
     @Test
     fun `facts on every card, q, delivery filter and the three sorts`() {
         setDhaka("2026-10-20 23:00")
