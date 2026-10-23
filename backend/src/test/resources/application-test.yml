@@ -10,7 +10,7 @@ lifolo:
   email-code-secret: test-secret-key
   # every feature switch on in tests (calls shim until the flags package lands)
   feature-shim:
-    on: "*"
+    keys: "*"
   demo:
     online-chambers: true
 logging:

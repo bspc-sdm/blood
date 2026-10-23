@@ -58,6 +58,24 @@ the security review (`docs/test-plan/CALLS-SECURITY-REVIEW.md`: R1–R5, R9, R11
 * Every final state (declined / cancelled / missed / ended) deletes the room on the call server (`RoomService.DeleteRoom`),
   so an old token cannot get back in. Room name = `c_<callId>`; callId = 32 random alphanumerics (~190 bits).
 
+## Feature switches (owner rule: ships OFF — FEATURES.md)
+| key | gates |
+|---|---|
+| `calls_audio` | `call_start`, `call_accept`, `call_decline`, `call_cancel`; with `appt_video` as an alternative: `call_config`, `call_end`, `call_status`, `call_history`, `call_report`; with `chat` as an alternative: `call_block`, `call_unblock`, `call_blocks` |
+| `calls_video` (needs `calls_audio`) | `call_start {video:true}`, answering with video, `call_upgrade(_accept/_decline)` |
+| `appt_video` | `appt_join`, `appt_call_ready` |
+
+* Off for the caller → **404 `feature_off`** "এই সুবিধা এখনো চালু হয়নি". Two-party: the other person must have it too —
+  callee without `calls_audio` → 403 `call_not_allowed`; without `calls_video` the call rings / is answered as audio and an
+  upgrade is refused (403); `appt_join` needs `appt_video` for the patient AND the doctor (else 403 `call_not_allowed`).
+* `contact_can`: `canCall` = relation && call server && `calls_audio` on for BOTH; `canVideo` = canCall && `calls_video` on
+  for both; `canMessage` = relation && `chat` on for both.
+* Switching a key off (or taking someone out of the pilot) ends their live calls at the next 15 s check (`end_reason`
+  `feature_off`); no `call_missed` push / bell entry for someone with calls off.
+* Until the flags package (spring-p19) is on main, the backend uses a shim (`calls/CallFeatures.kt`) with the same
+  `isOn / require / bothOn` calls: a key is on only when listed in `lifolo.feature-shim.keys` (empty in production = all
+  OFF; tests `*`).
+
 ## Actions (`POST /api/community`, logged in; own account only — NOT via a caregiver's `asUid`)
 | action | body | answer |
 |---|---|---|

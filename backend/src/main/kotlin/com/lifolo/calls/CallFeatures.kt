@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component
  * [CHAT] (the block list is shared with messages).
  *
  * TEMPORARY SHIM with the same signatures as the flags package's `Features.isOn / require / bothOn` (spring-p19):
- * until that lands, a key is on only when it is listed in `lifolo.feature-shim.on` (comma list, `*` = all; empty in
+ * until that lands, a key is on only when it is listed in `lifolo.feature-shim.keys` (comma list, `*` = all; empty in
  * production = everything OFF; the test profile sets `*`). On the rebase onto p19, [isOn] delegates to Features.
  */
 @Component
-class CallFeatures(@Value("\${lifolo.feature-shim.on:}") configured: String) {
+class CallFeatures(@Value("\${lifolo.feature-shim.keys:}") configured: String) {
     private val listed: Set<String> = configured.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
     /** tests: the keys that are on (null = the configured list) */
