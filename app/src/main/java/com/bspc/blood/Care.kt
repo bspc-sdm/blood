@@ -307,8 +307,8 @@ data class Chamber(
     val note: String = "",
     /** অনলাইন: সার্ভারে সেভ করা নম্বর (বদলালে ২৪ ঘণ্টা পর চালু — সেটআপে জানানো হয়); পাঠানো হয় না */
     val bkashSaved: String = "",
-    /** অনলাইন: বদলানো নম্বর যা এখনো চালু হয়নি (সার্ভার দিলে) */
-    val bkashPending: String = "",
+    /** অনলাইন: বদলানো নম্বর কখন থেকে নতুন বুকিংয়ে যাবে (ms; provider_me-র bKashPendingUntil), নইলে null */
+    val bkashPendingUntil: Long? = null,
 ) {
     val online: Boolean get() = mode == "online"
 
@@ -358,7 +358,7 @@ data class Chamber(
             o.intOrNull("patientMin"),
             if (o.str("mode") == "online") "online" else "in_person", o.str("bkashNumber"), o.str("note"),
             bkashSaved = o.str("bkashNumber"),
-            bkashPending = listOf("bkashPending", "bkashNumberPending", "pendingBkashNumber", "bkashNext").firstNotNullOfOrNull { k -> o.str(k).takeIf { it.isNotBlank() } }.orEmpty(),
+            bkashPendingUntil = if (o.isNull("bkashPendingUntil")) null else o.optLong("bkashPendingUntil").takeIf { it > 0 },
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */

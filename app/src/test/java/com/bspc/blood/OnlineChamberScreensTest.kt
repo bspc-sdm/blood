@@ -98,7 +98,7 @@ class OnlineChamberScreensTest {
         assertTrue(OnlineChambers.hasPhone("কল দিন ০১৭১১-২২৩৩৪৪"))
         assertTrue(OnlineChambers.hasPhone("call 01711 223 344"))
         assertFalse(OnlineChambers.hasPhone("রিপোর্ট ২০২৫ সালের, ১০ মিনিট আগে আসুন"))
-        assertEquals("নোটে ফোন নম্বর দেওয়া যাবে না", OnlineChambers.problem(c.copy(bkashNumber = "01711223344", note = "জরুরি হলে 01711223344"), demo = false))
+        assertEquals("নোটে ফোন বা বিকাশ নম্বর লেখা যাবে না", OnlineChambers.problem(c.copy(bkashNumber = "01711223344", note = "জরুরি হলে 01711223344"), demo = false))
         // ফি না নিলে নম্বর লাগে না
         assertNull(OnlineChambers.problem(c.copy(noFee = true, fee = ""), demo = false))
         // চেম্বারে (হাসপাতালে) bKash দেখা হয় না
@@ -185,7 +185,7 @@ class OnlineChamberScreensTest {
             )
         }
         rule.onNodeWithText("নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে").assertExists()
-        rule.onNodeWithText("নোটে ফোন নম্বর দেওয়া যাবে না").assertExists()
+        rule.onNodeWithText("নোটে ফোন বা বিকাশ নম্বর লেখা যাবে না").assertExists()
         shot("online_chamber_bkash_change_360_bn")
     }
 
@@ -258,7 +258,7 @@ class OnlineChamberScreensTest {
 
     @Test
     fun trxReuseMessage() {
-        assertEquals("এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।", OnlineText.error(ServerError("x", "trx_used")))
+        assertEquals("এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।", OnlineText.error(ServerError("x", "pay_ref_used")))
         assertEquals("সার্ভারের বার্তা", OnlineText.error(ServerError("সার্ভারের বার্তা", null)))
         assertEquals("এই অ্যাপয়েন্টমেন্টে ফি নেই।", OnlineText.error(ServerError("x", "no_fee")))
         assertTrue(OnlineText.trxOk("8N7A6B5C4D"))

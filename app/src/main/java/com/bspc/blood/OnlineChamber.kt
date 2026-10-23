@@ -69,7 +69,7 @@ object OnlineChambers {
         else -> null
     }
 
-    val NOTE_PHONE: String get() = tr("The note can't have a phone number", "নোটে ফোন নম্বর দেওয়া যাবে না")
+    val NOTE_PHONE: String get() = tr("The note can't have a phone or bKash number", "নোটে ফোন বা বিকাশ নম্বর লেখা যাবে না")
 
     /** ফিতে টাকার অঙ্ক আছে কি না ("৪০০ টাকা", "500") */
     fun hasAmount(fee: String): Boolean = cleanDigits(fee).any { it.isDigit() && it != '0' }
@@ -157,6 +157,7 @@ object OnlineText {
         return when {
             code.contains("trx", true) || code.contains("pay_ref", true) || code.contains("payref", true) || code == "duplicate" ->
                 tr("This TrxID was already used. Check the bKash message and enter the right one.", "এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।")
+            code == "pay_claim_rate" -> tr("Too many tries — try again in an hour.", "অনেকবার চেষ্টা হয়েছে — এক ঘণ্টা পরে আবার চেষ্টা করুন।")
             code == "not_online" -> tr("This is not an online appointment.", "এটা অনলাইন অ্যাপয়েন্টমেন্ট নয়।")
             code == "no_fee" -> tr("There is no fee for this appointment.", "এই অ্যাপয়েন্টমেন্টে ফি নেই।")
             code == "state" -> tr("Can't be done in this state — refresh the list.", "এই অবস্থায় করা যায় না — তালিকা রিফ্রেশ করে দেখুন।")
@@ -327,12 +328,13 @@ fun OnlineChamberFields(c: Chamber, onChange: (Chamber) -> Unit) {
         singleLine = true,
         modifier = Modifier.fillMaxWidth().testTag("online_bkash"),
     )
-    // নম্বর বদলালে সাথে সাথে নয় — ২৪ ঘণ্টা পর চালু (ভুল/চুরি করা নম্বরে টাকা না যায়)
-    if (OnlineChambers.bkashChanged(c) || c.bkashPending.isNotBlank()) {
+    // নম্বর বদলালে সাথে সাথে নয় — ২৪ ঘণ্টা পর চালু (ভুল/চুরি করা নম্বরে টাকা না যায়; ততক্ষণ নতুন বুকিংয়ে আগের নম্বর)
+    val pendingUntil = c.bkashPendingUntil?.takeIf { it > System.currentTimeMillis() }
+    if (OnlineChambers.bkashChanged(c) || pendingUntil != null) {
         IconLine(
             R.drawable.ic_schedule,
-            (if (c.bkashPending.isNotBlank() && !OnlineChambers.bkashChanged(c)) c.bkashPending + " — " else "") +
-                tr("The new number starts after 24 hours", OnlineText.BKASH_24H),
+            if (pendingUntil != null && !OnlineChambers.bkashChanged(c)) tr("The new number starts ", "নতুন নম্বর চালু হবে ") + joinOpensText(pendingUntil, System.currentTimeMillis()) + tr("", " থেকে")
+            else tr("The new number starts after 24 hours", OnlineText.BKASH_24H),
             MaterialTheme.colorScheme.tertiary,
         )
     }
@@ -701,4 +703,30 @@ internal fun joinOpensText(at: Long, now: Long): String {
         else -> Rules.formatDate(day)
     }
     return d + ", " + Rules.formatTime(at)
+}
+
+/** ডাক্তার: ফি পাঠানো/দেওয়া অনলাইন অ্যাপয়েন্টমেন্ট বাতিল বা না করতে কারণ (রোগী দেখবেন; টাকা ফেরতের কথা ডাক্তারের সাথে) */
+@Composable
+fun OnlineCancelReasonDialog(onDismiss: () -> Unit, onSend: (String) -> Unit) {
+    var reason by remember { mutableStateOf("") }
+    FormDialog(
+        title = tr("Reason needed", "কারণ লিখুন"),
+        onDismiss = onDismiss,
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    tr("The patient has sent or paid the fee. Tell them why — they'll contact you about the refund.", "রোগী ফি পাঠিয়েছেন/দিয়েছেন। কেন বাতিল করছেন লিখুন — টাকা ফেরতের জন্য উনি আপনার সাথে যোগাযোগ করবেন।"),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedTextField(
+                    reason, { reason = it.take(200) },
+                    label = { Text(tr("Reason for the patient", "রোগীর জন্য কারণ")) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSend(reason.trim()) }, enabled = reason.trim().length >= 3) { Text(tr("Send", "পাঠান")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
+    )
 }

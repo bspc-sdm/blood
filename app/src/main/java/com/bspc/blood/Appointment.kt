@@ -765,6 +765,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Appointment>>(emptyList()) }
     var confirming by remember { mutableStateOf<Appointment?>(null) }
+    // অনলাইনে ফি পাঠানো/দেওয়া অ্যাপয়েন্টমেন্ট বাতিল/না করতে কারণ লাগে (সার্ভার: reason_required) — (id, কাজ)
+    var needReason by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -779,7 +781,7 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
             busyId = id
             runCatching { Appointments.update(id, action, note, serial) }
                 .onSuccess { reload++ }
-                .onFailure { errorMsg = it.message }
+                .onFailure { if ((it as? ServerError)?.code == "reason_required") needReason = id to action else errorMsg = it.message }
             busyId = null
         }
     }
@@ -891,6 +893,9 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
         }
     }
 
+    needReason?.let { (id, action) ->
+        OnlineCancelReasonDialog(onDismiss = { needReason = null }) { reason -> needReason = null; act(id, action, reason) }
+    }
     confirming?.let { a ->
         var note by remember(a.id) { mutableStateOf("") }
         // নিজের খাতার সিরিয়াল (ফোনে/সরাসরি নেওয়া রোগীসহ); খালি রাখলে অ্যাপ নিজে পরের নম্বর দেয়
