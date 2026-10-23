@@ -1,0 +1,306 @@
+name: Desktop app
+
+# Lifolo Windows ডেস্কটপ অ্যাপ (desktop/, Tauri 2) — web-vue-র পুরো ওয়েব + অফলাইন রসিদ (web-vue/src/offline)।
+#
+# প্রতিটা push-এ (ডেস্কটপ/অফলাইনের ফাইল বদলালে, যেকোনো branch):
+#   test   (Ubuntu)  অফলাইন ইঞ্জিনের পরীক্ষা (Vitest, আসল SQLite মেমরিতে), টাইপ চেক, বাংলা লেখা, আপডেট-চাবির পরীক্ষা
+#   build  (Windows) Rust পরীক্ষা (DPAPI, প্রিন্টারের নাম), ইনস্টলার (NSIS .exe) — একবারের চাবিতে সই (প্রকাশ হয় না),
+#                    মাপ, স্মোক টেস্ট: ইনস্টলার চুপচাপ বসিয়ে অ্যাপ চালু রাখা যায় কি না + পর্দার ছবি
+#   ফল: Actions-এর artifact আর ci-log-<branch> শাখায় (desktop-*.txt, desktop-shot.png)
+#
+# প্রকাশ (শুধু main, শুধু হাতে: Actions → Desktop app → Run workflow → release ✓) — এটাই মালিকের অনুমোদন
+# (নিরাপত্তা পর্যালোচনা I13: আপডেট-সইয়ের চাবি শুধু main-এ, হাতে অনুমোদনের পরে)। `desktop-release` environment-এ
+# Required reviewers দিলে আরেকবার অনুমোদন চায়।
+#   release (Windows, environment desktop-release) VPS_ROOT_PASSWORD থেকে আপডেট-সইয়ের চাবি (desktop/scripts/updater-key.js —
+#            নতুন কোনো সিক্রেট লাগে না), আবার বিল্ড, সই
+#   publish (Ubuntu)  VPS: https://lifolo.com/download/desktop/ — lifolo-desktop-<ভার্সন>.exe, lifolo-desktop.exe, desktop.json,
+#            সবশেষে latest.json (deploy/ci/publish-desktop.sh, APK-র একই ধরন); আর GitHub-এর "latest" রিলিজে exe + latest.json
+#   একই ভার্সন আগে প্রকাশ হয়ে থাকলে থামে — ভার্সন বাড়ান desktop/src-tauri/tauri.conf.json, Cargo.toml আর package.json-এ।
+on:
+  push:
+    paths:
+      - "desktop/**"
+      - "web-vue/src/offline/**"
+      - "web-vue/tests/unit/offline/**"
+      - "web-vue/package.json"
+      - "web-vue/package-lock.json"
+      - "web-vue/vite.config.ts"
+      - "web-vue/vite.desktop.config.ts"
+      - "deploy/ci/publish-desktop.sh"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "main: প্রকাশ করুন (lifolo.com/download/desktop + GitHub latest)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            web-vue/package-lock.json
+            desktop/package-lock.json
+      - name: Install (web-vue, desktop)
+        run: |
+          (cd web-vue && npm ci)
+          (cd desktop && npm ci)
+      - name: Offline engine tests (Vitest, in-memory SQLite)
+        working-directory: web-vue
+        run: npx vitest run tests/unit/offline 2>&1 | tee "$RUNNER_TEMP/desktop-unit.txt"
+      - name: Typecheck + lint (offline) + Bangla text
+        working-directory: web-vue
+        run: |
+          npm run typecheck
+          npx eslint src/offline tests/unit/offline vite.desktop.config.ts
+          npm run check:bangla
+      - name: Updater key derivation (signs with the real Tauri CLI, verifies with Node)
+        run: node --test desktop/scripts/test/*.test.js
+      - name: Desktop web build (no Tauri code in the website build)
+        run: |
+          node desktop/scripts/prepare-web.mjs
+          grep -l "__TAURI_INTERNALS__" desktop/dist/w/assets/*.js > /dev/null
+          (cd web-vue && npx vite build --outDir "$RUNNER_TEMP/web" --emptyOutDir > /dev/null)
+          if grep -l "__TAURI_INTERNALS__\|plugin:sql" "$RUNNER_TEMP"/web/assets/*.js; then echo "::error::Tauri code leaked into the website build"; exit 1; fi
+      - name: Keep the log
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          [ ! -f "$RUNNER_TEMP/desktop-unit.txt" ] || tail -60 "$RUNNER_TEMP/desktop-unit.txt" > "$RUNNER_TEMP/log/desktop-unit.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-test-log
+          path: ${{ runner.temp }}/log
+          retention-days: 7
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            web-vue/package-lock.json
+            desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Install
+        run: |
+          (cd web-vue && npm ci)
+          (cd desktop && npm ci)
+      - name: Web for the desktop
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEB }}
+        run: node desktop/scripts/prepare-web.mjs
+      - name: Rust tests (DPAPI vault, app URLs, printer names)
+        working-directory: desktop/src-tauri
+        run: |
+          set -o pipefail
+          cargo test --lib --locked 2>&1 | tee "$RUNNER_TEMP/desktop-cargo-test.txt"
+      - name: Build the installer (throwaway update key — this build is never published)
+        run: |
+          set -o pipefail
+          export LIFOLO_MASTER="ci-throwaway-$GITHUB_RUN_ID-$RANDOM$RANDOM"
+          node desktop/scripts/updater-key.js "$RUNNER_TEMP/k"
+          export TAURI_SIGNING_PRIVATE_KEY="$(cat "$RUNNER_TEMP/k/updater.key")"
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat "$RUNNER_TEMP/k/updater.key.password")"
+          PUB="$(cat "$RUNNER_TEMP/k/updater.pub")"
+          cd desktop
+          npx tauri build --ci --config "{\"plugins\":{\"updater\":{\"pubkey\":\"$PUB\"}}}" 2>&1 | tee "$RUNNER_TEMP/desktop-build.txt"
+          rm -rf "$RUNNER_TEMP/k"
+      - name: Installer size
+        id: size
+        run: |
+          exe="$(ls desktop/src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)"
+          [ -f "$exe.sig" ] || { echo "::error::no updater signature next to the installer"; exit 1; }
+          bytes=$(stat -c %s "$exe")
+          echo "exe=$exe" >> "$GITHUB_OUTPUT"
+          echo "installer: $exe — $((bytes / 1024)) KB" | tee "$RUNNER_TEMP/desktop-size.txt"
+          [ "$bytes" -lt 15728640 ] || echo "::warning::installer is over 15 MB ($bytes bytes); target ~10 MB"
+      - name: Smoke test — silent install, start, still running after 25 s, screenshot
+        shell: pwsh
+        run: |
+          $exe = "${{ steps.size.outputs.exe }}"
+          $p = Start-Process -FilePath $exe -ArgumentList '/S' -PassThru -Wait
+          "installer exit: $($p.ExitCode)" | Tee-Object -FilePath "$env:RUNNER_TEMP/desktop-smoke.txt"
+          $app = Get-ChildItem -Path "$env:LOCALAPPDATA" -Recurse -Filter 'Lifolo.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw 'Lifolo.exe not installed' }
+          "installed: $($app.FullName)" | Tee-Object -Append -FilePath "$env:RUNNER_TEMP/desktop-smoke.txt"
+          $run = Start-Process -FilePath $app.FullName -PassThru
+          Start-Sleep -Seconds 25
+          $alive = -not $run.HasExited
+          "running after 25 s: $alive" | Tee-Object -Append -FilePath "$env:RUNNER_TEMP/desktop-smoke.txt"
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$env:RUNNER_TEMP/desktop-shot.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          if ($alive) { Stop-Process -Id $run.Id -Force } else { throw "Lifolo exited with code $($run.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifolo-desktop-ci-${{ github.run_number }}
+          path: |
+            desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+          retention-days: 14
+      - name: Collect the log
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          for f in desktop-cargo-test desktop-size desktop-smoke; do [ ! -f "$RUNNER_TEMP/$f.txt" ] || cp "$RUNNER_TEMP/$f.txt" "$RUNNER_TEMP/log/"; done
+          [ ! -f "$RUNNER_TEMP/desktop-build.txt" ] || grep -E "^(error|warning)(\[|:)|-->|Finished|Error|failed|Bundling|panicked" -A3 "$RUNNER_TEMP/desktop-build.txt" | head -150 > "$RUNNER_TEMP/log/desktop-build-tail.txt" || true
+          [ ! -f "$RUNNER_TEMP/desktop-cargo-test.txt" ] || grep -E "^(error|warning)|-->|test result|panicked|FAILED" -A3 "$RUNNER_TEMP/desktop-cargo-test.txt" | head -150 > "$RUNNER_TEMP/log/desktop-cargo-test.txt" || true
+          [ ! -f "$RUNNER_TEMP/desktop-shot.png" ] || cp "$RUNNER_TEMP/desktop-shot.png" "$RUNNER_TEMP/log/"
+          { echo "commit=$GITHUB_SHA"; echo "branch=$GITHUB_REF_NAME"; echo "job=${{ job.status }}"; echo "run=$GITHUB_RUN_ID"; } > "$RUNNER_TEMP/log/desktop-status.txt"
+      - name: Publish to the log branch (ci-log-<branch>)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: desktop ${{ job.status }}
+        run: bash .github/scripts/publish-log.sh "ci-log-${GITHUB_REF_NAME//\//-}" "$RUNNER_TEMP/log" desktop-status.txt desktop-build-tail.txt desktop-cargo-test.txt desktop-size.txt desktop-smoke.txt desktop-shot.png || true
+
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: desktop-release
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Version (and stop if already published)
+        id: ver
+        run: |
+          v=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          c=$(grep -m1 -oP '^version = "\K[^"]+' desktop/src-tauri/Cargo.toml)
+          p=$(node -p "require('./desktop/package.json').version")
+          [ "$v" = "$c" ] && [ "$v" = "$p" ] || { echo "::error::versions differ: tauri.conf.json $v, Cargo.toml $c, package.json $p"; exit 1; }
+          live=$(curl -fsS https://lifolo.com/download/desktop/latest.json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version||"")}catch{console.log("")}})' || true)
+          echo "version $v, published: ${live:-none}"
+          [ "$v" != "$live" ] || { echo "::error::$v is already published — raise the version first"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            web-vue/package-lock.json
+            desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Install
+        run: |
+          (cd web-vue && npm ci)
+          (cd desktop && npm ci)
+      - name: Web for the desktop
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEB }}
+          VITE_SENTRY_RELEASE: lifolo-desktop@${{ steps.ver.outputs.version }}
+        run: node desktop/scripts/prepare-web.mjs
+      - name: Build and sign (update key derived from VPS_ROOT_PASSWORD)
+        env:
+          LIFOLO_MASTER: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          [ -n "$LIFOLO_MASTER" ] || { echo "::error::VPS_ROOT_PASSWORD secret is missing"; exit 1; }
+          node desktop/scripts/updater-key.js "$RUNNER_TEMP/k"
+          unset LIFOLO_MASTER
+          export TAURI_SIGNING_PRIVATE_KEY="$(cat "$RUNNER_TEMP/k/updater.key")"
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat "$RUNNER_TEMP/k/updater.key.password")"
+          echo "::add-mask::$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+          PUB="$(cat "$RUNNER_TEMP/k/updater.pub")"
+          rm -rf "$RUNNER_TEMP/k"
+          cd desktop
+          npx tauri build --ci --config "{\"plugins\":{\"updater\":{\"pubkey\":\"$PUB\"}}}"
+          mkdir -p "$RUNNER_TEMP/out"
+          v="${{ steps.ver.outputs.version }}"
+          exe="$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)"
+          cp "$exe" "$RUNNER_TEMP/out/lifolo-desktop-$v.exe"
+          cp "$exe.sig" "$RUNNER_TEMP/out/lifolo-desktop-$v.exe.sig"
+          echo "$PUB" > "$RUNNER_TEMP/out/updater.pub"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifolo-desktop-release
+          path: ${{ runner.temp }}/out
+          retention-days: 30
+
+  publish:
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: lifolo-desktop-release
+          path: out
+      - name: Connect to the VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+      - name: Publish to lifolo.com/download/desktop
+        id: dl
+        run: |
+          v="${{ needs.release.outputs.version }}"
+          bash deploy/ci/publish-desktop.sh "out/lifolo-desktop-$v.exe" "out/lifolo-desktop-$v.exe.sig" "$v" | tee -a "$GITHUB_OUTPUT"
+          cp "$RUNNER_TEMP/latest.json" out/latest.json
+      - name: GitHub release "latest" (exe + latest.json)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ needs.release.outputs.version }}"
+          if gh release view latest > /dev/null 2>&1; then
+            gh release upload latest "out/lifolo-desktop-$v.exe" out/latest.json --clobber
+            gh release view latest --json assets --jq '.assets[].name' | grep -E '^lifolo-desktop-[0-9.]+\.exe$' | sort -V | head -n -3 | while read -r old; do
+              gh release delete-asset latest "$old" --yes
+            done
+          else
+            echo "::warning::GitHub release 'latest' does not exist (the Build APK workflow creates it) — skipped"
+          fi
+      - name: Check the published files
+        run: |
+          v="${{ needs.release.outputs.version }}"
+          curl -fsSI "https://lifolo.com/download/desktop/lifolo-desktop-$v.exe" | grep -qi '^content-disposition: attachment' || echo "::warning::exe served without 'Content-Disposition: attachment' — run the web deploy once (deploy/deploy-web.sh has the desktop rules)"
+          curl -fsS https://lifolo.com/download/desktop/latest.json | grep "\"version\": \"$v\""
+          {
+            echo "### Lifolo desktop $v"
+            echo "- ${{ steps.dl.outputs.dl_url }}"
+            echo "- SHA-256: \`${{ steps.dl.outputs.dl_sha256 }}\`"
+            echo "- update key: \`$(cut -c1-40 out/updater.pub)…\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
