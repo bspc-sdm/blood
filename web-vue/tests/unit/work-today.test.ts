@@ -63,9 +63,11 @@ describe('roleTiles / roleSetup / sortTasks', () => {
     expect(roleSetup([biz({ setup: [{ key: 'photo', done: true }] })])).toEqual([]);
     expect(roleSetup([biz({ kind: 'lab', setup: [{ key: 'approved', done: false }, { key: 'prices', done: false }] })]).map((x) => x.link)).toEqual(['', '/work/lab/orders/prices']);
   });
-  it('newest task first, tasks without time last', () => {
-    const ts = sortTasks([{ at: 0, id: 'a' }, { at: 5, id: 'b' }, { at: 9, id: 'c' }].map((x) => ({ ...x, kind: 'lab' as const, title: 't', sub: '', action: '', link: '' })));
-    expect(ts.map((x) => x.id)).toEqual(['c', 'b', 'a']);
+  it('urgent types first (call → serial → orders → … → stock), newest first within a type, no time last', () => {
+    const ts = sortTasks([
+      { at: 0, id: 'a', type: 'lab_new' }, { at: 5, id: 'b', type: 'lab_new' }, { at: 9, id: 'c', type: 'stock' }, { at: 1, id: 'd', type: 'call' }, { at: 2, id: 'e' },
+    ].map((x) => ({ ...x, kind: 'lab' as const, title: 't', sub: '', action: '', link: '' })));
+    expect(ts.map((x) => x.id)).toEqual(['d', 'b', 'a', 'e', 'c']);
   });
 });
 

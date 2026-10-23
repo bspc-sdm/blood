@@ -19,7 +19,7 @@ export type Role = BizKind;
 export type Status = 'open' | 'paused' | 'closed';
 export const ROLES: Role[] = ['chamber', 'homecare', 'pharmacy', 'lab', 'bloodbank', 'ambulance'];
 
-export interface TodayTask { kind: BizKind; id: string; title: string; sub: string; at: number; action: string; link: string }
+export interface TodayTask { kind: BizKind; type?: string; id: string; title: string; sub: string; at: number; action: string; link: string }
 export interface SetupItem { key: string; done: boolean }
 export interface TodayBiz {
   kind: BizKind;
@@ -60,7 +60,7 @@ function normTask(x: any, kind: BizKind): TodayTask | null {
   if (!x || typeof x !== 'object') return null;
   const title = str(x.title);
   if (!title) return null;
-  return { kind: KIND_ALIAS[str(x.kind)] ?? kind, id: str(x.id) || title, title, sub: str(x.sub), at: numOr(x.at) ?? 0, action: str(x.action), link: str(x.link) };
+  return { kind: KIND_ALIAS[str(x.kind)] ?? kind, ...(x.type ? { type: str(x.type) } : {}), id: str(x.id) || title, title, sub: str(x.sub), at: numOr(x.at) ?? 0, action: str(x.action), link: str(x.link) };
 }
 
 /** সার্ভারের এক ব্যবসা → এক বা একাধিক সারি (চেম্বারপ্রতি / গাড়িপ্রতি) */
@@ -186,9 +186,15 @@ export function roleSetup(bizs: TodayBiz[]): { key: string; done: boolean; link:
   return xs.some((x) => !x.done) ? xs : [];
 }
 
-/** "এখনই দেখুন": সবচেয়ে নতুন আগে (সময় না থাকলে শেষে) */
+/** "এখনই দেখুন"-এর ক্রম (সার্ভারের মতো, MYWORK.md): আগে জরুরি ধরন (ডাক → সিরিয়াল → অর্ডার/নমুনা → রিপোর্ট/অনুরোধ →
+ *  ওষুধ খোঁজা → স্টক), একই ধরনে নতুনটা আগে; সময় না থাকলে শেষে */
+const TASK_ORDER = ['call', 'queue_next', 'late_ask', 'order_new', 'lab_new', 'lab_report', 'appt_request', 'find', 'stock'];
+const rank = (t: TodayTask) => {
+  const i = t.type ? TASK_ORDER.indexOf(t.type) : -1;
+  return i < 0 ? 4.5 : i;
+};
 export function sortTasks(t: TodayTask[]) {
-  return [...t].sort((a, b) => (b.at || 0) - (a.at || 0));
+  return [...t].sort((a, b) => rank(a) - rank(b) || (b.at || 0) - (a.at || 0));
 }
 
 // ---------- অবস্থা বদল (খোলা / বিরতি / বন্ধ) ----------
@@ -261,7 +267,7 @@ function chamberBizs(days: { items?: DayItem[] } | null, queue: { chambers?: QCh
       chamberIndex: d.chamberIndex,
       ...(d.chamberKey ? { chamberKey: d.chamberKey } : {}),
       counts: (q ? { today: rows.length, waiting: waiting.length } : {}) as Record<string, number>,
-      tasks: waiting.slice(0, 2).map((r) => ({ kind: 'chamber' as const, id: `q:${r.id}`, title: r.name, sub: `${TT.serialOf(r.serial)} · ${nm}`, at: 0, action: 'call', link })),
+      tasks: waiting.slice(0, 2).map((r) => ({ kind: 'chamber' as const, type: 'queue_next', id: `q:${r.id}`, title: r.name, sub: `${TT.serialOf(r.serial)} · ${nm}`, at: 0, action: 'call', link })),
     };
   });
 }
@@ -305,9 +311,9 @@ export async function buildFallback(w: WorkSummary, opts: { uid: string | null; 
     if (sales) counts.salesTodayTk = ((sales as any).items ?? []).reduce((a: number, s: any) => a + (Number(s?.totals?.net) || 0), 0);
     const open = finds && !(finds as any).findOff ? ((finds as any).items ?? []).filter((r: any) => !r.answer).length : null;
     if (open != null) counts.finds = open;
-    const tasks: TodayTask[] = fresh.map((o) => ({ kind: 'pharmacy', id: `o:${o.id}`, title: TT.rxOrderOf(str(o.patientName)), sub: str(o.code), at: o.createdAt || 0, action: 'accept', link: `/work/pharmacy/orders/rx/${o.code}` }));
+    const tasks: TodayTask[] = fresh.map((o) => ({ kind: 'pharmacy', type: 'order_new', id: `o:${o.id}`, title: TT.rxOrderOf(str(o.patientName)), sub: str(o.code), at: o.createdAt || 0, action: 'accept', link: `/work/pharmacy/orders/rx/${o.code}` }));
     tasks.push(...items.filter((o) => o.status === 'accepted').map((o) => ({ kind: 'pharmacy' as const, id: `o:${o.id}`, title: TT.rxOrderOf(str(o.patientName)), sub: str(o.code), at: o.createdAt || 0, action: 'ready', link: '/work/pharmacy/orders?s=active' })));
-    if (open) tasks.push({ kind: 'pharmacy', id: 'finds', title: TT.findsTask(open), sub: '', at: 0, action: 'answer', link: '/work/pharmacy/finds' });
+    if (open) tasks.push({ kind: 'pharmacy', type: 'find', id: 'finds', title: TT.findsTask(open), sub: '', at: 0, action: 'answer', link: '/work/pharmacy/finds' });
     out.push({ kind: 'pharmacy', id: str(ph.id) || 'pharmacy', name: str(ph.name), status: approved ? openStatus(ph) : null, pausedUntil: null, counts, tasks, setup: docsSetup(ph), listing: approved ? null : str(ph.status) });
   }
 
@@ -318,8 +324,8 @@ export async function buildFallback(w: WorkSummary, opts: { uid: string | null; 
     const due = items.filter((o) => (o.seg ? o.seg === 'active' : o.status === 'received'));
     const counts: Record<string, number> = labOrders ? { new: (labOrders as any).counts?.new ?? fresh.length, active: (labOrders as any).counts?.active ?? due.length } : {};
     const tasks: TodayTask[] = [
-      ...fresh.map((o) => ({ kind: 'lab' as const, id: `l:${o.id}`, title: str(o.patientName), sub: (o.tests ?? []).join(', '), at: o.createdAt || 0, action: 'accept', link: `/work/lab/orders/${o.id}` })),
-      ...due.map((o) => ({ kind: 'lab' as const, id: `l:${o.id}`, title: str(o.patientName), sub: (o.tests ?? []).join(', '), at: o.createdAt || 0, action: 'report', link: `/work/lab/orders/${o.id}` })),
+      ...fresh.map((o) => ({ kind: 'lab' as const, type: 'lab_new', id: `l:${o.id}`, title: str(o.patientName), sub: (o.tests ?? []).join(', '), at: o.createdAt || 0, action: 'receive', link: `/work/lab/orders/${o.id}` })),
+      ...due.map((o) => ({ kind: 'lab' as const, type: 'lab_report', id: `l:${o.id}`, title: str(o.patientName), sub: (o.tests ?? []).join(', '), at: o.createdAt || 0, action: 'report', link: `/work/lab/orders/${o.id}` })),
     ];
     out.push({ kind: 'lab', id: str(lab.id) || 'lab', name: str(lab.name), status: approved ? openStatus(lab) : null, pausedUntil: null, counts, tasks, setup: docsSetup(lab), listing: approved ? null : str(lab.status) });
   }
@@ -329,7 +335,7 @@ export async function buildFallback(w: WorkSummary, opts: { uid: string | null; 
     const stale = !b.stock || b.stockStale === true;
     out.push({
       kind: 'bloodbank', id: str(b.id), name: str(b.name), status: null, pausedUntil: null, counts: {},
-      tasks: approved && stale ? [{ kind: 'bloodbank', id: `s:${b.id}`, title: TT.stockTask(), sub: str(b.name), at: 0, action: 'stock', link: '/work/bloodbank' }] : [],
+      tasks: approved && stale ? [{ kind: 'bloodbank', type: 'stock', id: `s:${b.id}`, title: TT.stockTask(), sub: str(b.name), at: 0, action: 'stock', link: '/work/bloodbank' }] : [],
       setup: docsSetup(b), listing: approved ? null : str(b.status), stockUpdatedAt: numOr(b.stockUpdatedAt), stockStale: b.stockStale === true,
     });
   }
@@ -341,7 +347,7 @@ export async function buildFallback(w: WorkSummary, opts: { uid: string | null; 
     out.push({
       kind: 'ambulance', id: str(a.id), name: str(a.vehicleNo || a.name), status: approved ? (a.available ? 'open' : 'closed') : null, pausedUntil: null,
       counts: first && calls ? { calls: callItems.length } : {},
-      tasks: first ? callItems.map((r) => ({ kind: 'ambulance' as const, id: `c:${r.id}`, title: TT.callFrom(str(r.pickup)), sub: str(r.patientName), at: r.createdAt || 0, action: 'open', link: '/work/ambulance' })) : [],
+      tasks: first ? callItems.map((r) => ({ kind: 'ambulance' as const, type: 'call', id: `c:${r.id}`, title: TT.callFrom(str(r.pickup)), sub: str(r.patientName), at: r.createdAt || 0, action: 'accept', link: '/work/ambulance' })) : [],
       setup: docsSetup(a), listing: approved ? null : str(a.status),
     });
     void i;
