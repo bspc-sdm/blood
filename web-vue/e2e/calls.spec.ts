@@ -514,7 +514,7 @@ test('রক্তের ভিডিও কল এলে: "অডিওতে �
 
 test('ফিচার সুইচ: calls_audio বন্ধ — কলের বোতাম, কলের তালিকা, নোটিফিকেশনের সুইচ নেই; appt_video বন্ধ — "শিগগির আসছে"', async ({ page }) => {
   await api(page);
-  const off = { features: { calls_audio: false, calls_video: false, appt_video: false } };
+  const off = { features: { calls_audio: false, calls_video: false, appt_video: false, chat: false } };
   await open(page, withTest(def('blood', 'my-request-detail'), off));
   await expect(page.locator('.blood-donor').first()).toBeVisible();
   await expect(page.getByTestId('call-buttons')).toHaveCount(0);
