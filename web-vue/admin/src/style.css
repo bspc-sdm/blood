@@ -348,3 +348,5 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* খোঁজার ঘর আর নিচের লেখার মাঝে ফাঁক */
 .search-hint { margin: 12px 0 0; }
+/* ফিচার সুইচ: টাকার লেনদেনের সুবিধায় আইনি সতর্কতা */
+.feature-legal { color: var(--bad); font-weight: 600; }

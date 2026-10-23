@@ -33,6 +33,10 @@ export const FEATURE_INFO: Record<string, { name: string; desc: string }> = {
 };
 export const featureName = (key: string) => FEATURE_INFO[key]?.name || key;
 
+/** টাকার লেনদেনের সুবিধা: আইনি পরামর্শের আগে "সবার জন্য" নয় (payments security review) */
+export const LEGAL_HOLD = (key: string) => key === 'online_chamber' || key.startsWith('pay_');
+export const LEGAL_TEXT = 'আইনজীবীর মত নেওয়ার আগে সবার জন্য চালু করবেন না'; // bn-ok
+
 export const MODE_LABEL: Record<string, string> = { off: 'বন্ধ', pilot: 'পাইলট', on: 'সবার জন্য' }; // bn-ok
 const modeChip = (mode: string) => h('span', { class: `chip ${mode === 'on' ? 'good' : mode === 'pilot' ? 'pri' : 'bad'}`, text: MODE_LABEL[mode] || mode });
 
@@ -135,7 +139,8 @@ export default definePage('PageFeatures', async (_r, { alive }) => {
           h('div', { class: 'note', text: info.desc }),
           needs.length ? h('div', { class: 'small', text: `আগে চালু থাকতে হবে: ${needs.map(featureName).join(', ')}` }) : null, // bn-ok
           item.twoParty ? h('div', { class: 'small', text: 'দুজনের মধ্যে: দুজনেরই চালু থাকলে তবেই কাজ করে' }) : null, // bn-ok
-          last ? h('div', { class: 'small', text: `শেষ বদল: ${ago(last.at)}${last.byEmail ? ` — ${last.byEmail}` : ''}` }) : null), // bn-ok
+          last ? h('div', { class: 'small', text: `শেষ বদল: ${ago(last.at)}${last.byEmail ? ` — ${last.byEmail}` : ''}` }) : null, // bn-ok
+          LEGAL_HOLD(item.key) ? h('div', { class: 'small feature-legal', role: 'note' }, '⚠ ', LEGAL_TEXT) : null),
         modeButtons(item)),
       item.mode === 'pilot'
         ? [

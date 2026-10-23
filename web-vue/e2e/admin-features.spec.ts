@@ -66,6 +66,9 @@ test('ফিচার সুইচ: ১২টা কার্ড, সব বন�
   await expect(card(page, 'calls_video')).toContainText('আগে চালু থাকতে হবে: অডিও কল');
   await expect(card(page, 'chat')).toContainText('দুজনেরই চালু থাকলে');
   await expect(card(page, 'inv_lab')).not.toContainText('দুজনেরই');
+  // টাকার লেনদেন: "সবার জন্য"-র আগে আইনি সতর্কতা
+  await expect(card(page, 'online_chamber').locator('.feature-legal')).toContainText('আইনজীবীর মত নেওয়ার আগে সবার জন্য চালু করবেন না');
+  await expect(card(page, 'chat').locator('.feature-legal')).toHaveCount(0);
   // পাইলট না হলে পাইলটের অংশ নেই
   await expect(card(page, 'chat').locator('.feature-pilots')).toHaveCount(0);
   expect(errs).toEqual([]);
