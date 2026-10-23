@@ -75,7 +75,7 @@ const onKey = (e: KeyboardEvent, o: LabOrder) => {
 </script>
 
 <template>
-  <div class="col gap-16">
+  <div class="col gap-16 rxp-codewrap">
     <section class="card rxp-panel rxp-lab-code rxp-open-code">
       <div class="row gap-8">
         <span class="rxp-panel-ic"><Icon name="search" /></span>
@@ -85,7 +85,7 @@ const onKey = (e: KeyboardEvent, o: LabOrder) => {
       <p class="t-body-s muted">{{ tr('The tests are added here and the report form opens.', 'পরীক্ষাগুলো এখানে যোগ হবে, রিপোর্টের পাতা খুলবে।') }}</p>
     </section>
 
-    <div class="row wrap gap-8">
+    <div class="row wrap gap-8 rxp-tabsrow">
       <div class="rxp-sub-pills">
         <PillTabs
           secondary

@@ -174,6 +174,13 @@
 
 /* ২.২৭.০ "অর্ডার" ট্যাব: উপরে কোড দিয়ে খোলা (চোখে পড়ার মতো), কার্ডে খোলা প্রেসক্রিপশনের দাগ */
 .rxp-open-code { border: 2px solid var(--primary); }
+/* বড় পর্দায় (ডেস্কটপ/ল্যাপটপ) কোড দিয়ে খোলার বাক্স ছোট হয়ে ডানে, অর্ডারের ভাগগুলোর পাশে — পুরো চওড়া জুড়ে থাকে না */
+@media (min-width: 900px) {
+  .rxp-codewrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); align-items: end; }
+  .rxp-codewrap > * { grid-column: 1 / -1; }
+  .rxp-codewrap > .rxp-open-code { grid-column: 2; grid-row: 1; }
+  .rxp-codewrap > .rxp-tabsrow { grid-column: 1; grid-row: 1; }
+}
 .rxp-ocard.on { outline: 2px solid var(--primary); outline-offset: -2px; }
 .rxp-mode-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .rxp-mode { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 2px 8px; border-radius: 8px; font-size: 12px; line-height: 18px; font-weight: 600; white-space: nowrap; }
