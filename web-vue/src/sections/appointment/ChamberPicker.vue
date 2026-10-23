@@ -30,7 +30,7 @@ const rows = computed(() =>
         v-bind="r.can ? { type: 'button', 'aria-label': tr('Appointment at ', 'অ্যাপয়েন্টমেন্ট: ') + chamberLabel(r.c) } : r.tel && !preview ? { href: `tel:${r.tel}` } : {}"
         @click="r.can && emit('book', r.i)"
       >
-        <span class="appt-chpick-ic"><Icon name="local_hospital" /></span>
+        <span class="appt-chpick-ic"><Icon :name="r.c.mode === 'online' ? 'language' : 'local_hospital'" /></span>
         <span class="col grow appt-chpick-txt">
           <span class="t-title-s semi ellipsis">{{ chamberShort(r.c) }}</span>
           <span v-if="r.st.text" :class="cx('t-body-s appt-st', r.st.kind)">{{ r.st.text }}</span>

@@ -9,8 +9,9 @@ export const TAB_ICON: Record<string, string> = { doctor: 'stethoscope', nutriti
 export const tabLabel = (t: string) => (t === 'nutritionist' ? tr('Nutritionist', 'পুষ্টিবিদ') : t === 'trainer' ? tr('Fitness trainer', 'ফিটনেস ট্রেইনার') : tr('Doctor', 'ডাক্তার'));
 
 /** শেষবারের ছাঁকনি (ধরনপ্রতি, এই ব্রাউজারে) — এলাকা useFilterArea-তে আলাদা, আগের মতো */
-export interface SavedFilters extends DoctorFilters { hospital: Hospital | null; homeOnly: boolean }
-export const NO_FILTERS: SavedFilters = { ...NO_DOCTOR_FILTERS, hospital: null, homeOnly: false };
+/** online: শুধু অনলাইন (ভিডিও) চেম্বার — ডাক্তার; এলাকা লাগে না (সার্ভারের providers {online:true}) */
+export interface SavedFilters extends DoctorFilters { hospital: Hospital | null; homeOnly: boolean; online: boolean }
+export const NO_FILTERS: SavedFilters = { ...NO_DOCTOR_FILTERS, hospital: null, homeOnly: false, online: false };
 export const filterKey = (t: string) => `lf.doctorFilters.${t}`;
 export function loadFilters(t: string): SavedFilters {
   const v = store.getJson<Partial<SavedFilters>>(filterKey(t));
@@ -24,6 +25,7 @@ export function loadFilters(t: string): SavedFilters {
     gender: v.gender === 'male' || v.gender === 'female' ? v.gender : null,
     hospital: v.hospital && typeof v.hospital === 'object' && typeof v.hospital.id === 'string' ? v.hospital : null,
     homeOnly: v.homeOnly === true && t === 'doctor',
+    online: v.online === true && t === 'doctor',
   };
 }
 export const feeLabel = (n: number) => tr(`Up to ৳${n.toLocaleString('en-IN')}`, `৳${num(n.toLocaleString('en-IN'))} পর্যন্ত`);

@@ -4,6 +4,7 @@ import { useCall } from '@/lib/query';
 import { formatTimeHM, todayUtcMidnight } from '@/lib/format';
 import { isBangla, num, tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
+import { T as OT, parseOnline, type ChamberMode, type OnlinePart } from './online';
 
 /** যাঁরা "আমার চেম্বার/বাসায় সেবা" পান */
 export const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
@@ -39,6 +40,10 @@ export interface Chamber {
   times: ChamberTime[];
   /** রোগীপ্রতি গড় সময় (মিনিট) — সিরিয়ালের আনুমানিক সময়ে, আগের হিসাব কম থাকলে */
   patientMin: number | null;
+  /** অনলাইন (ভিডিও) চেম্বার: ঠিকানা নেই; ফি ডাক্তারের bKash নম্বরে, রোগীর জন্য নোট (online.ts) */
+  mode: ChamberMode;
+  bkashNumber: string;
+  note: string;
 }
 export interface HomeVisit {
   enabled: boolean;
@@ -89,7 +94,7 @@ export interface HomePro {
   canRate: boolean;
   photo: string;
 }
-export interface Appointment {
+export interface Appointment extends OnlinePart {
   id: string;
   role: 'patient' | 'provider';
   otherName: string;
@@ -163,6 +168,9 @@ export function parseChamber(o: any): Chamber {
     address: s(o?.address),
     times: times.length > 1 ? times : [],
     patientMin: intOrNull(o?.patientMin),
+    mode: o?.mode === 'online' ? 'online' : 'in_person',
+    bkashNumber: s(o?.bkashNumber),
+    note: s(o?.note),
   };
 }
 export function parseHomeVisit(o: any): HomeVisit | null {
@@ -240,6 +248,7 @@ export function parseAppointment(o: any): Appointment {
     otherPhone: s(o?.otherPhone),
     otherKey: s(o?.otherKey),
     createdAt: n(o?.createdAt),
+    ...parseOnline(o),
   };
 }
 
@@ -274,8 +283,11 @@ export const slotsOf = (c: Pick<Chamber, 'times' | 'days' | 'start' | 'end'>): C
 export const chamberTimeText = (c: Chamber) => [...slotsOf(c).map(slotText), c.schedule].filter(Boolean).join('\n');
 export const timesText = (times: ChamberTime[], schedule: string) => [...times.map(slotText), schedule].filter(Boolean).join('\n');
 export const feeText = (noFee: boolean, fee: string) => (noFee ? tr('No fee', 'ফি নেই') : fee ? tr('Fee: ', 'ফি: ') + fee : '');
-export const chamberLabel = (c: Pick<Chamber, 'hospitalName' | 'hospitalNameBn'>) => (isBangla() && c.hospitalNameBn ? c.hospitalNameBn : c.hospitalName);
-export const chamberArea = (c: Chamber) => [c.address, areaLabel(c.district, c.upazilaId, c.unionId)].filter(Boolean).join(', ');
+/** চেম্বারের নাম; অনলাইন চেম্বারে "অনলাইন (ভিডিও)" (হাসপাতাল নেই) */
+export const chamberLabel = (c: Pick<Chamber, 'hospitalName' | 'hospitalNameBn'> & { mode?: ChamberMode }) =>
+  c.mode === 'online' ? OT.modeLabel('online') : isBangla() && c.hospitalNameBn ? c.hospitalNameBn : c.hospitalName;
+export const isOnline = (c: { mode?: ChamberMode }) => c.mode === 'online';
+export const chamberArea = (c: Chamber) => (isOnline(c) ? '' : [c.address, areaLabel(c.district, c.upazilaId, c.unionId)].filter(Boolean).join(', '));
 /** এই তারিখে (UTC মধ্যরাত) বসেন কি না */
 export function chamberOpenOn(c: Chamber, dateUtcMidnight: number): boolean {
   const days = slotsOf(c).flatMap((t) => t.days);
@@ -520,7 +532,7 @@ export function statusLabel(st: string): string {
 }
 export const isActive = (st: string) => st === 'pending' || st === 'confirmed';
 export const statusTone = (st: string): 'good' | 'primary' | undefined => (st === 'confirmed' ? 'good' : st === 'pending' ? 'primary' : undefined);
-export const apptChamber = (a: Appointment) => (isBangla() && a.chamberBn ? a.chamberBn : a.chamber);
+export const apptChamber = (a: Appointment) => (a.online ? OT.modeLabel('online') : isBangla() && a.chamberBn ? a.chamberBn : a.chamber);
 /** "১৭ অক্টোবর ২০২৬, বিকাল ৫:০০ থেকে" */
 export function apptWhen(a: Appointment, formatDate: (m: number) => string): string {
   return formatDate(a.date) + (a.start ? ', ' + tr('from ', '') + hhmmText(a.start) + tr('', ' থেকে') : '');
@@ -613,9 +625,9 @@ export function nextSlotText(s: ChamberState, now = Date.now()): string {
   return `${day} (${dm})` + (time ? ', ' + time : '');
 }
 /** তালিকা/শিটের ছোট নাম: বন্ধনীর লেখা বাদ */
-export const chamberShort = (c: Pick<Chamber, 'hospitalName' | 'hospitalNameBn'>) => chamberLabel(c).replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim() || chamberLabel(c);
+export const chamberShort = (c: Pick<Chamber, 'hospitalName' | 'hospitalNameBn'> & { mode?: ChamberMode }) => chamberLabel(c).replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim() || chamberLabel(c);
 /** উপজেলা (না থাকলে জেলা) */
-export const chamberPlace = (c: Chamber) => (c.upazilaId != null ? areaLabel(c.district, c.upazilaId).split(',')[0] : areaLabel(c.district)) || c.address;
+export const chamberPlace = (c: Chamber) => (isOnline(c) ? OT.videoShort() : (c.upazilaId != null ? areaLabel(c.district, c.upazilaId).split(',')[0] : areaLabel(c.district)) || c.address);
 /** ছোট ফি: "৳৫০০" / "ফি নেই"; বোঝা না গেলে লেখাটাই */
 export function feeShort(c: Pick<Chamber, 'fee' | 'noFee'>): string {
   if (c.noFee) return tr('No fee', 'ফি নেই');

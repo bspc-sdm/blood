@@ -4,6 +4,7 @@ import { formatDate } from '@/lib/format';
 import { tr } from '@/lib/i18n';
 import { apptChamber, apptWhen, isActive, serialText, statusLabel, statusTone, type Appointment } from './model';
 import PatientQueueLine from './PatientQueueLine.vue';
+import { T as OT, payLabel, payTone } from './online';
 
 const props = defineProps<{ a: Appointment; selected: boolean; onClick: () => void }>();
 </script>
@@ -21,10 +22,15 @@ const props = defineProps<{ a: Appointment; selected: boolean; onClick: () => vo
       <span class="t-title-m grow clamp2">{{ a.otherName || tr('Deleted account', 'মুছে ফেলা অ্যাকাউন্ট') }}</span>
       <Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag>
     </div>
+    <div v-if="a.online" class="row wrap gap-6">
+      <Tag tone="info">{{ OT.online() }}</Tag>
+      <Tag v-if="!a.noFee && isActive(a.status)" :tone="payTone(a.payState)">{{ payLabel(a.payState) }}</Tag>
+    </div>
     <IconLine icon="calendar_month">{{ apptWhen(a, formatDate) }}</IconLine>
     <span v-if="a.serial > 0" class="t-title-s bold c-primary">{{ serialText(a.serial) }}</span>
     <PatientQueueLine :a="a" />
-    <IconLine v-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
+    <IconLine v-if="a.online" icon="language">{{ OT.modeLabel('online') }}</IconLine>
+    <IconLine v-else-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
     <p v-if="a.note" class="t-body-m clamp2">{{ a.note }}</p>
     <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   </article>

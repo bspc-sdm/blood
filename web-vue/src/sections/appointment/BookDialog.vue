@@ -8,6 +8,7 @@ import { dateInputValue, fromDateInput } from '@/lib/format';
 import { tr } from '@/lib/i18n';
 import { DAY_MS, chamberLabel, chamberOpenOn, chamberTimeText, today, type FamilyMember, type Provider } from './model';
 import { dayChip, nextOpenDays } from './doctors';
+import { T as OT } from './online';
 
 const props = defineProps<{ provider: Provider; index: number }>();
 const emit = defineEmits<{ close: []; booked: [] }>();
@@ -56,9 +57,10 @@ async function send() {
 <template>
   <Dialog :title="provider.name" @close="() => !busy && emit('close')">
     <div class="col appt-pre">
-      <IconLine icon="local_hospital">{{ chamberLabel(ch) }}</IconLine>
+      <IconLine :icon="ch.mode === 'online' ? 'language' : 'local_hospital'">{{ chamberLabel(ch) }}</IconLine>
       <IconLine icon="schedule">{{ chamberTimeText(ch) }}</IconLine>
     </div>
+    <p v-if="ch.mode === 'online' && !ch.noFee" class="t-body-s muted" data-testid="online-book-hint">{{ OT.bookHint() }}</p>
     <div v-if="family.length" class="col gap-6">
       <span class="t-label-l">{{ tr('For whom', 'কার জন্য') }}</span>
       <ChoiceChips v-model="memberId" :options="[{ value: '', label: tr('Me', 'আমি') }, ...family.map((m) => ({ value: m.id, label: m.name }))]" />

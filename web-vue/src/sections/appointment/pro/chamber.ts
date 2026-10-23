@@ -1,5 +1,6 @@
 // চেম্বার সেটআপের হিসাব: খালি চেম্বার/বাসায় সেবা, সার্ভারে পাঠানোর রূপ
 import type { Chamber, ChamberTime, HomeVisit } from '../model';
+import { normBkash } from '../online';
 
 export const TERMS_URL = 'https://lifolo.com/terms';
 export const emptyHome = (): HomeVisit => ({ enabled: false, radiusKm: 5, upazilaIds: [], services: [], schedule: '', fee: '', phone: '', noFee: false, times: [] });
@@ -9,7 +10,26 @@ let keySeq = 1;
 export const nextKey = () => keySeq++;
 
 export function chamberJson(c: Chamber) {
+  // অনলাইন (ভিডিও) চেম্বার: হাসপাতাল/ঠিকানা/রুম নেই — bKash নম্বর আর রোগীর জন্য নোট
+  if (c.mode === 'online') {
+    return {
+      mode: 'online',
+      schedule: c.schedule,
+      fee: c.fee,
+      noFee: c.noFee,
+      appointments: c.appointments,
+      serialPhone: c.serialPhone,
+      days: c.days,
+      start: c.start,
+      end: c.end,
+      ...(c.times.length > 1 ? { times: c.times } : {}),
+      patientMin: c.patientMin,
+      bkashNumber: normBkash(c.bkashNumber) ?? c.bkashNumber,
+      note: c.note,
+    };
+  }
   return {
+    mode: 'in_person',
     hospitalId: c.hospitalId,
     room: c.room,
     schedule: c.schedule,
@@ -36,5 +56,11 @@ export function blankChamber(district: string, custom: boolean): Chamber {
   return {
     hospitalId: null, hospitalName: '', hospitalNameBn: '', district, upazilaId: null, unionId: null, room: '', schedule: '', fee: '',
     appointments: true, serialPhone: '', days: [], start: '', end: '', noFee: false, custom, address: '', times: [], patientMin: null,
+    mode: 'in_person', bkashNumber: '', note: '',
   };
+}
+
+/** নতুন অনলাইন চেম্বার (ডাক্তার) — হাসপাতাল নেই; অ্যাপে অ্যাপয়েন্টমেন্ট চালু (ভিডিও কল অ্যাপেই) */
+export function blankOnline(bkash: string): Chamber {
+  return { ...blankChamber('', false), mode: 'online', bkashNumber: bkash };
 }

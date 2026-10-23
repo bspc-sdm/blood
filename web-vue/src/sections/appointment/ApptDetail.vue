@@ -6,9 +6,12 @@ import { num, tr } from '@/lib/i18n';
 import { apptChamber, apptWhen, badgeLabel, isActive, statusLabel, statusTone, type Appointment } from './model';
 import { usePatientQueue } from './queue';
 import PatientQueue from './PatientQueue.vue';
+import { T as OT } from './online';
+import OnlinePayCard from './online/OnlinePayCard.vue';
+import JoinCall from './online/JoinCall.vue';
 
 const props = defineProps<{ a: Appointment }>();
-const emit = defineEmits<{ cancel: [] }>();
+const emit = defineEmits<{ cancel: []; changed: [] }>();
 // আজকের সিরিয়াল চললে নম্বর নিচের সারির কার্ডেই (দুবার নয়)
 const pq = usePatientQueue(() => props.a);
 const live = computed(() => pq.data?.live === true);
@@ -24,15 +27,18 @@ const live = computed(() => pq.data?.live === true);
     <span class="appt-serial-n num">{{ num(a.serial) }}</span>
   </div>
   <PatientQueue :a="a" />
+  <JoinCall :a="a" :name="a.otherName" hint />
   <div class="col">
     <IconLine icon="calendar_month">{{ apptWhen(a, formatDate) }}</IconLine>
-    <IconLine v-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
+    <IconLine v-if="a.online" icon="language">{{ OT.modeLabel('online') }}</IconLine>
+    <IconLine v-else-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
     <IconLine v-if="a.schedule" icon="schedule">{{ a.schedule }}</IconLine>
   </div>
   <div v-if="a.note" class="col gap-4">
     <span class="t-label-m muted">{{ tr('Reason for visit', 'কী সমস্যা') }}</span>
     <p class="t-body-l pre">{{ a.note }}</p>
   </div>
+  <OnlinePayCard v-if="a.online && a.status !== 'cancelled' && a.status !== 'declined' && a.status !== 'expired'" :a="a" @changed="emit('changed')" />
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
   <div v-if="isActive(a.status)" class="row">

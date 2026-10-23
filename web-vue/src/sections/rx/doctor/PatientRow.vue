@@ -24,5 +24,6 @@ const props = defineProps<{ r: Row; selected: boolean; onClick?: () => void; onW
       <Action v-if="onWrite" icon="edit_note" primary @click.stop="onWrite()">{{ tr('Write', 'লিখুন') }}</Action>
       <Icon v-else-if="onClick" name="chevron_right" class="rxd-chev" />
     </span>
+    <div v-if="$slots.default" class="rxd-prow-extra" @click.stop><slot /></div>
   </div>
 </template>

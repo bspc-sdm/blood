@@ -19,7 +19,8 @@ export const forDoctor = (a: Actor): Record<string, unknown> => (a.role === 'ass
 
 export interface RxMe { name: string; degrees: string; chambers: string[] }
 export interface RxPatient { id: string; name: string; age: number | null; gender: string; phone: string; linked: boolean; createdAt: number; lastRxAt: number }
-export interface RxAppt { id: string; name: string; date: number; serial: number | null; status: string; chamber: string }
+/** অনলাইন (ভিডিও) অ্যাপয়েন্টমেন্ট: online, payState, payRef, start (spring-p15) — না থাকলে চেম্বারের মতো */
+export interface RxAppt { id: string; name: string; date: number; serial: number | null; status: string; chamber: string; online?: boolean; payState?: string; payRef?: string; start?: string | number }
 export interface RxAppPatient { appointmentId: string; name: string; count: number; last: number }
 export interface RxPatientsData { role: string; patients: RxPatient[]; appointments: RxAppt[]; appPatients: RxAppPatient[] }
 export interface DoctorRx extends Rx { linked?: boolean }

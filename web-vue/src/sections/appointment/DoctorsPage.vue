@@ -24,6 +24,7 @@ import HospitalPickerDialog from './HospitalPickerDialog.vue';
 import SpecialtyPicker from './SpecialtyPicker.vue';
 import ProviderCard from './ProviderCard.vue';
 import ProviderDetail from './ProviderDetail.vue';
+import { T as OT } from './online';
 
 const props = defineProps<{ detailId: string | null }>();
 usePageTitle(() => tr('Appointment', 'অ্যাপয়েন্টমেন্ট'));
@@ -56,7 +57,9 @@ const body = computed(() => {
   const ff = f.value;
   const c = cur.value;
   const b: Record<string, unknown> = { type: type.value, homeVisit: ff.homeOnly };
-  if (ff.hospital) b.hospitalId = ff.hospital.id;
+  // অনলাইন (ভিডিও): ঠিকানা নেই, তাই এলাকা/হাসপাতাল ছাড়া সব জায়গার
+  if (ff.online) b.online = true;
+  else if (ff.hospital) b.hospitalId = ff.hospital.id;
   else {
     if (c.district) b.district = c.district;
     if (c.upazilaId != null) b.upazilaId = c.upazilaId;
@@ -110,6 +113,7 @@ const active = computed(() => {
     ...(ff.hospitalQ.trim() ? [{ label: tr('Hospital: ', 'হাসপাতাল: ') + ff.hospitalQ.trim(), onRemove: () => setF({ hospitalQ: '' }) }] : []),
     ...(ff.gender ? [{ label: genderLabel(ff.gender), onRemove: () => setF({ gender: null }) }] : []),
     ...(ff.homeOnly ? [{ label: tr('Home visit', 'বাসায় যান'), onRemove: () => setF({ homeOnly: false }) }] : []),
+    ...(ff.online ? [{ label: OT.online(), onRemove: () => setF({ online: false }) }] : []),
   ];
 });
 // এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
@@ -117,6 +121,7 @@ const quick = computed(() => {
   const ff = f.value;
   return [
     ...(!ff.day ? [{ key: 'today', label: dayLabel('today'), on: () => setF({ day: 'today' }) }, { key: 'tomorrow', label: dayLabel('tomorrow'), on: () => setF({ day: 'tomorrow' }) }] : []),
+    ...(!ff.online && type.value === 'doctor' ? [{ key: 'online', label: OT.online(), on: () => setF({ online: true }) }] : []),
     ...(!ff.openNow ? [{ key: 'now', label: tr('In chamber now', 'এখন চেম্বারে'), on: () => setF({ openNow: true }) }] : []),
     ...(!ff.maxFee ? [{ key: 'fee', label: feeLabel(500), on: () => setF({ maxFee: 500 }) }] : []),
     ...(!ff.specialty && facets.value ? facets.value.specialties.slice(0, 3).map((x) => ({ key: 'sp-' + x.code, label: specialtyLabel(x.code), on: () => setF({ specialty: x.code }) })) : []),
@@ -126,6 +131,7 @@ const isEmptyFilter = computed(() => !cur.value.district && !active.value.length
 const barLabel = computed(() => {
   const h = f.value.hospital;
   const c = cur.value;
+  if (f.value.online) return tr('All districts', 'সব জেলা');
   return h ? areaLabel(h.district, h.upazilaId) : c.district ? areaLabel(c.district, c.upazilaId, c.unionId) : tr('All districts', 'সব জেলা');
 });
 const spOptions = computed(() => (facets.value ? facets.value.specialties.map((x) => x.code) : specialtiesOf(type.value)));
@@ -194,7 +200,7 @@ function hospitalPicked(h: Hospital) {
         <Button v-if="!isEmptyFilter && !active.length" variant="text" @click="searchEverywhere">{{ tr('Search everywhere', 'সব জায়গায় খুঁজুন') }}</Button>
       </EmptyState>
       <template v-else>
-        <ProviderCard v-for="{ p, matched } in shown" :key="p.uid" :p="p" :matched="matched" :area="cur" :hospital="f.hospital" :selected="p.uid === detailId" :on-click="() => open(p.uid)" />
+        <ProviderCard v-for="{ p, matched } in shown" :key="p.uid" :p="p" :matched="matched" :area="cur" :online="f.online" :hospital="f.hospital" :selected="p.uid === detailId" :on-click="() => open(p.uid)" />
       </template>
     </div>
     <template #detail>
@@ -260,6 +266,7 @@ function hospitalPicked(h: Hospital) {
       />
     </div>
     <Switch v-if="type === 'doctor'" :label="tr('Home visit', 'বাসায় যান')" :model-value="f.homeOnly" @update:model-value="(v) => setF({ homeOnly: v })" />
+    <Switch v-if="type === 'doctor'" :label="OT.modeLabel('online')" :sub="OT.filterSub()" data-testid="filter-online" :model-value="f.online" @update:model-value="(v) => setF({ online: v })" />
   </FilterSheet>
   <HospitalPickerDialog v-if="pickHospital" :initial-district="cur.district" :initial-upazila-id="cur.upazilaId" @pick="hospitalPicked" @close="pickHospital = false" />
 </template>

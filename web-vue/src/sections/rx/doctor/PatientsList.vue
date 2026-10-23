@@ -6,7 +6,9 @@ import { useMedia } from '@/shell/chrome';
 import { errorText } from '@/lib/api';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
-import { ageText, dayText, deletedName, genderLabel, targetKey, type Actor, type RxPatient, type RxTarget } from './model';
+import { ageText, dayText, deletedName, forDoctor, genderLabel, targetKey, type Actor, type RxAppt, type RxPatient, type RxTarget } from './model';
+import { parseOnline } from '../../appointment/online';
+import OnlinePayPro from '../../appointment/online/OnlinePayPro.vue';
 import type { Group, PatientsQuery } from './patients';
 import PatientRow from './PatientRow.vue';
 import PatientAddDialog from './PatientAddDialog.vue';
@@ -53,6 +55,7 @@ const groups = computed<Group[]>(() => {
       rows: appts.map((a) => ({
         key: 'a' + a.id, t: { appointmentId: a.id, name: a.name }, icon: 'event_outline', title: a.name || '-',
         sub: [dayText(a.date), a.chamber].filter(Boolean).join(' · '), tag: a.serial ? tr(`Serial ${a.serial}`, `সিরিয়াল ${num(a.serial)}`) : null,
+        appt: a,
       })),
     });
   }
@@ -92,6 +95,9 @@ function added(p: RxPatient, existed: boolean) {
   props.query.refetch();
   props.onAdded?.(p);
 }
+// অনলাইন অ্যাপয়েন্টমেন্ট: ফির অবস্থা/বোতাম আর কল (সহকারী হলে doctorUid সাথে)
+const onlineOf = (a: RxAppt | undefined) => (a?.online ? { ...a, ...parseOnline(a), start: typeof a.start === 'string' ? a.start : '' } : null);
+const extra = computed(() => forDoctor(props.actor));
 function rowKey(e: KeyboardEvent, t: RxTarget) {
   if (click.value && e.key === 'Enter' && e.target === e.currentTarget) click.value(t);
 }
@@ -160,6 +166,7 @@ function rowKey(e: KeyboardEvent, t: RxTarget) {
                 <span class="t-body-m muted">{{ r.sub }}</span>
                 <Tag v-if="r.tag" tone="info">{{ r.tag }}</Tag>
               </span>
+              <OnlinePayPro v-if="onlineOf(r.appt)" :a="onlineOf(r.appt)!" :name="r.title" :extra="extra" @changed="query.refetch()" />
             </td>
             <td class="rxd-td-acts">
               <span v-if="onWrite || rowOpen" class="row rxd-acts">
@@ -183,7 +190,9 @@ function rowKey(e: KeyboardEvent, t: RxTarget) {
           :selected="selectedKey === targetKey(r.t)"
           :on-click="click ? () => click!(r.t) : undefined"
           :on-write="onWrite && !pick ? () => onWrite!(r.t) : undefined"
-        />
+        >
+          <OnlinePayPro v-if="onlineOf(r.appt)" :a="onlineOf(r.appt)!" :name="r.title" :extra="extra" @changed="query.refetch()" />
+        </PatientRow>
       </section>
     </template>
 

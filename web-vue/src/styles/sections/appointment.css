@@ -161,3 +161,14 @@
 .appt-pick-card:disabled { opacity: .5; cursor: not-allowed; }
 .appt-pick-go { display: inline-flex; align-items: center; gap: 2px; color: var(--primary); font-weight: 600; font-size: 14px; white-space: nowrap; flex: none; }
 .appt-pick-go svg { width: 18px; height: 18px; }
+
+/* অনলাইন (ভিডিও) চেম্বার: ফি (bKash), অবস্থা, কলে যুক্ত হওয়া */
+.appt-join { align-self: flex-start; text-decoration: none; }
+.appt-join svg { width: 20px; height: 20px; }
+.appt-join.small svg { width: 18px; height: 18px; }
+.appt-pay { border: 1px solid var(--outline-variant); }
+.appt-bkash { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+.appt-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
+.appt-trx { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; overflow-wrap: anywhere; }
+.appt-pay-rej { padding: 10px 12px; border-radius: 12px; background: var(--error-container); color: var(--on-error-container); }
+.appt-pay-pro { align-items: center; margin-top: 4px; }

@@ -16,6 +16,7 @@ import ReasonReportDialog from './ReasonReportDialog.vue';
 import ChamberPicker from './ChamberPicker.vue';
 import ChamberChoices from './ChamberChoices.vue';
 import BookDialog from './BookDialog.vue';
+import { T as OT } from './online';
 
 const props = defineProps<{ p: Provider; onClose?: () => void; onBooked?: (msg: string) => void; preview?: boolean }>();
 const two = useTwoPane();
@@ -74,6 +75,7 @@ function homeCalled() {
     <DetailBlock
       :title="chamberLabel(c)"
       :lines="[
+        ...(c.mode === 'online' ? ([['language', OT.videoLine()]] as [string, string][]) : []),
         ['location_on', chamberArea(c)],
         ['info', c.room ? tr('Room: ', 'রুম: ') + c.room : ''],
         ['schedule', chamberTimeText(c)],

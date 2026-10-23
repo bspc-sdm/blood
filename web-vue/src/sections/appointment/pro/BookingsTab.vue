@@ -11,6 +11,7 @@ import { apptChamber, hhmmText, isActive, statusLabel, statusTone, today, type A
 import StatTile from '../StatTile.vue';
 import QueuePanel from '../QueuePanel.vue';
 import ConfirmApptDialog from './ConfirmApptDialog.vue';
+import OnlinePayPro from '../online/OnlinePayPro.vue';
 
 type View = 'today' | 'upcoming' | 'waiting' | 'past';
 const props = defineProps<{ list: Appointment[]; loading: boolean; error: string | null; reload: () => void; hasChamber: boolean; onSetup: () => void }>();
@@ -133,6 +134,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
               <div class="t-title-s">{{ name(a) }}</div>
               <div v-if="a.note" class="t-body-s muted clamp2">{{ a.note }}</div>
               <div v-if="a.providerNote" class="t-body-s appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</div>
+              <OnlinePayPro v-if="a.online" :a="a" :name="a.otherName" @changed="reload()" />
             </td>
             <td class="appt-nowrap">{{ a.date === t0 ? tr('Today', 'আজ') : formatDate(a.date) }}</td>
             <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
@@ -163,6 +165,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
         <IconLine v-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
         <p v-if="a.note" class="t-body-m">{{ a.note }}</p>
         <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
+        <OnlinePayPro v-if="a.online" :a="a" :name="a.otherName" @changed="reload()" />
         <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" />
         <div class="row wrap appt-acts">
           <template v-if="a.status === 'pending'">

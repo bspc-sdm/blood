@@ -14,7 +14,8 @@ import AreaSheet from '../AreaSheet.vue';
 import HospitalPickerDialog from '../HospitalPickerDialog.vue';
 import PhoneVerifyDialog from '../PhoneVerifyDialog.vue';
 import ProviderDetail from '../ProviderDetail.vue';
-import { TERMS_URL, blankChamber, chamberJson, emptyHome, homeJson, newSlot, nextKey, type Ed } from './chamber';
+import { TERMS_URL, blankChamber, blankOnline, chamberJson, emptyHome, homeJson, newSlot, nextKey, type Ed } from './chamber';
+import { T as OT, hasPhone, normBkash } from '../online';
 import ChamberEditor from './ChamberEditor.vue';
 import TimeSlotsEditor from './TimeSlotsEditor.vue';
 import UpazilaPicker from './UpazilaPicker.vue';
@@ -36,6 +37,8 @@ const chambers = ref<Ed[]>([]);
 const home = ref<HomeVisit>(emptyHome());
 const homeAgreed = ref(false);
 const oldChamber = ref<string | null>(null);
+// সেভ করা অনলাইন চেম্বারের bKash নম্বর (key ধরে) — বদলালে ২৪ ঘণ্টা পর চালু, সম্পাদকে লেখা
+const origBkash = ref<Record<number, string>>({});
 const gpsPlace = ref<string | null>(s.profile?.locationSource === 'gps' ? s.profile.placeName : null);
 let loaded = false;
 
@@ -52,8 +55,10 @@ watch(
     degrees.value = p.degrees;
     gender.value = p.gender;
     // আগের ভার্সনের লেখা চেম্বার (হাসপাতালের সাথে যুক্ত নয়, নিজের জায়গাও নয়) আবার বেছে নিতে হবে
-    chambers.value = p.chambers.filter((c) => c.hospitalId != null || c.custom).map((c) => ({ ...c, key: nextKey() }));
-    const old = p.chambers.find((c) => c.hospitalId == null && !c.custom);
+    // অনলাইন চেম্বারে হাসপাতাল থাকে না — সেটা আগের ভার্সনের নয়
+    chambers.value = p.chambers.filter((c) => c.hospitalId != null || c.custom || c.mode === 'online').map((c) => ({ ...c, key: nextKey() }));
+    origBkash.value = Object.fromEntries(chambers.value.filter((c) => c.mode === 'online' && c.bkashNumber).map((c) => [c.key, c.bkashNumber]));
+    const old = p.chambers.find((c) => c.hospitalId == null && !c.custom && c.mode !== 'online');
     if (old) oldChamber.value = old.hospitalName;
     if (p.homeVisit) {
       home.value = p.homeVisit;
@@ -85,7 +90,8 @@ function validate(): string | null {
   if (!homeCapable.value && !ch.length) return tr('Add a chamber', 'অন্তত একটা চেম্বার যোগ করুন');
   if (!nurse.value && !ch.length && !h.enabled) return tr('Add a chamber, or turn on home care', 'অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন');
   if (!nurse.value) {
-    if (ch.some((c) => c.custom && (c.hospitalName.trim().length < 3 || !c.district || c.address.trim().length < 5))) return tr('Write the place name, district and address', 'জায়গার নাম, জেলা আর ঠিকানা লিখুন');
+    if (ch.some((c) => c.mode !== 'online' && !c.custom && !c.hospitalId)) return OT.errHospital();
+    if (ch.some((c) => c.mode !== 'online' && c.custom && (c.hospitalName.trim().length < 3 || !c.district || c.address.trim().length < 5))) return tr('Write the place name, district and address', 'জায়গার নাম, জেলা আর ঠিকানা লিখুন');
     if (ch.some((c) => slotsOf(c).some((t) => !t.days.length))) return tr('Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন');
     if (ch.some((c) => slotsOf(c).some((t) => !t.start || !t.end || t.start === t.end))) return tr('Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন');
     const cl = clash(ch.map((c) => ({ slots: slotsOf(c) })));
@@ -96,6 +102,8 @@ function validate(): string | null {
         : tr(`"${named(x)}" and "${named(y)}" overlap on the same day and time`, `"${named(x)}" আর "${named(y)}" একই বারে একই সময়ে পড়েছে — একসাথে দুই জায়গায় বসা যায় না`);
     }
     if (ch.some((c) => !c.fee.trim() && !c.noFee)) return tr('Enter the fee for each chamber, or tick "No fee"', 'প্রতিটা চেম্বারে ফি দিন, অথবা "ফি চাই না" টিক দিন');
+    if (ch.some((c) => c.mode === 'online' && !c.noFee && !normBkash(c.bkashNumber))) return OT.errBkash();
+    if (ch.some((c) => c.mode === 'online' && hasPhone(c.note))) return OT.errNotePhone();
   }
   if (h.enabled) {
     if (!h.services.length) return tr('Choose the services you provide at home', 'বাসায় কোন কোন সেবা দেন বেছে নিন');
@@ -167,6 +175,11 @@ function addChamber() {
   if (props.type === 'doctor') pickFor.value = -1;
   else chambers.value = [...chambers.value, { ...blankChamber(s.profile?.placeName ?? '', true), key: nextKey() }];
 }
+// অনলাইন (ভিডিও) চেম্বার — শুধু ডাক্তার (চুক্তি: "Online chambers (doctor)"); bKash আগে থেকে নিজের ফোন নম্বর
+const canOnline = computed(() => props.type === 'doctor');
+function addOnline() {
+  chambers.value = [...chambers.value, { ...blankOnline(normBkash(s.profile?.phone ?? '') ?? ''), key: nextKey() }];
+}
 function hospitalPicked(h: Hospital) {
   const i = pickFor.value!;
   const fresh = { hospitalId: h.id, hospitalName: h.nameEn, hospitalNameBn: h.nameBn, district: h.district, upazilaId: h.upazilaId, unionId: h.unionId };
@@ -233,12 +246,15 @@ const upName = (id: number) => {
           v-for="(c, i) in chambers"
           :key="c.key"
           :c="c"
+          :can-online="canOnline"
+          :orig-bkash="origBkash[c.key] ?? null"
           @change="(n) => setCh(i, { ...n, key: c.key })"
           @change-hospital="pickFor = i"
           @district="districtFor = i"
           @remove="chambers = chambers.filter((_, j) => j !== i)"
         />
         <button v-if="chambers.length < MAX_CHAMBERS" type="button" class="appt-add-ch" @click="addChamber"><Icon name="add" />{{ tr('Add chamber', 'চেম্বার যোগ করুন') }}</button>
+        <button v-if="canOnline && chambers.length < MAX_CHAMBERS" type="button" class="appt-add-ch" data-testid="add-online" @click="addOnline"><Icon name="language" />{{ OT.addOnline() }}</button>
       </div>
     </section>
 

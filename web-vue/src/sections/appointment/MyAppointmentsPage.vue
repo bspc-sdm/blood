@@ -80,7 +80,7 @@ function askCancel(a: Appointment) {
     <template #detail>
       <DetailPane :title="selected?.otherName || title" back-to="/my-appointments">
         <template v-if="!two" #actions><IconButton icon="refresh" :label="tr('Refresh', 'রিফ্রেশ')" @click="q.refetch()" /></template>
-        <ApptDetail v-if="selected" :a="selected" @cancel="askCancel(selected)" />
+        <ApptDetail v-if="selected" :a="selected" @cancel="askCancel(selected)" @changed="q.refetch()" />
         <SkeletonCards v-else-if="q.isLoading" :n="1" :h="200" />
         <EmptyState v-else icon="calendar_month" :title="tr('Not found', 'পাওয়া যায়নি')" />
       </DetailPane>
