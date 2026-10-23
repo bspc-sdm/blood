@@ -284,21 +284,14 @@ env:
           timeout: 30000
           centerElement: true
 - takeScreenshot: j16-10-doctor-fee
+# কোন সারির "ফি পেয়েছি" — আগে ঠিক করে রাখা (ডায়ালগ খুললে তালিকা ঢেকে যায়, তখন "দেখা যায় না" শর্ত ভুল করে সত্যি হয়)
+- evalScript: ${output.feeClaimed = false}
 - runFlow:
     when:
       visible: "ফি যাচাই করুন"
     commands:
-      - tapOn:
-          text: "ফি পে(?:য়|য়)েছি"
-          below: "ফি যাচাই করুন"
-          index: 0
-- runFlow:
-    when:
-      notVisible: "ফি যাচাই করুন"
-    commands:
-      - tapOn:
-          text: "ফি পে(?:য়|য়)েছি"
-          index: 0
+      - evalScript: ${output.feeClaimed = true}
+- runFlow: ../common/fee-received.yaml
 # দুই রকম ঘর, দুটোতেই তিনটা মিলের টিক (TrxID · টাকার অঙ্ক · শেষ ৪ সংখ্যা): লাইফলো পে-র অনুরোধ যাচাই বাকি থাকলে
 # "টাকা পেয়েছেন?" (PayConfirmDialog), নইলে "ফি পেয়েছেন?" (appt_pay_confirm)
 - extendedWaitUntil:
@@ -318,21 +311,7 @@ env:
       notVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
     commands:
       - takeScreenshot: j16-11c-sheet-closed-by-label-tap
-      - runFlow:
-          when:
-            visible: "ফি যাচাই করুন"
-          commands:
-            - tapOn:
-                text: "ফি পে(?:য়|য়)েছি"
-                below: "ফি যাচাই করুন"
-                index: 0
-      - runFlow:
-          when:
-            notVisible: "ফি যাচাই করুন"
-          commands:
-            - tapOn:
-                text: "ফি পে(?:য়|য়)েছি"
-                index: 0
+      - runFlow: ../common/fee-received.yaml
       - extendedWaitUntil:
           visible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
           timeout: 10000
@@ -360,6 +339,10 @@ env:
 - assertVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
 - takeScreenshot: j16-11d-ticked
 - tapOn: "হ্যাঁ, পে(?:য়|য়)েছি"
+# ঘর বন্ধ (সার্ভার নিয়েছে; না নিলে ঘরে লাল লেখা থেকে যায়)
+- extendedWaitUntil:
+    notVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
+    timeout: 30000
 - extendedWaitUntil:
     visible: "ফি পরিশোধিত"
     timeout: 30000

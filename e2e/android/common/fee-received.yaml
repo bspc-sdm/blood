@@ -1,0 +1,18 @@
+# j16: ডাক্তারের "ফি পেয়েছি" — output.feeClaimed সত্যি হলে "ফি যাচাই করুন"-এর নিচেরটা, নইলে প্রথমটা
+appId: com.bspc.blood
+---
+- runFlow:
+    when:
+      true: ${output.feeClaimed}
+    commands:
+      - tapOn:
+          text: "ফি পে(?:য়|য়)েছি"
+          below: "ফি যাচাই করুন"
+          index: 0
+- runFlow:
+    when:
+      true: ${!output.feeClaimed}
+    commands:
+      - tapOn:
+          text: "ফি পে(?:য়|য়)েছি"
+          index: 0
