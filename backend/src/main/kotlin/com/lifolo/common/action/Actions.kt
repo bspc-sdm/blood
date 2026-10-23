@@ -122,7 +122,11 @@ object ActionPolicy {
      * The only actions a deactivated account (account_deactivate) may call; everything else → 423 `account_deactivated`
      * (ActionDispatcher, checked on the authenticated caller).
      */
-    val WHILE_DEACTIVATED: Set<String> = setOf("profile_get", "account_reactivate", "delete_account", "notify_prefs_get", "web_logout")
+    val WHILE_DEACTIVATED: Set<String> = setOf(
+        "profile_get", "account_reactivate", "delete_account", "notify_prefs_get", "web_logout",
+        // withdrawing consent must always be possible (backend/docs/CONSENT.md)
+        "consent_status", "consent_withdraw",
+    )
 
     /** besides admin_* (and web_logout) */
     val WEB_PANEL_READS: Set<String> = setOf("catalog_get", "labtests_get")
@@ -135,4 +139,12 @@ object ActionPolicy {
  */
 interface ActionHook {
     fun beforeAction(action: String) {}
+}
+
+/**
+ * A check on every authenticated action right before its handler runs, with the full context (the actor after the
+ * caregiver switch). Throw an [com.lifolo.common.ApiException] to refuse — e.g. the consent gate (consent/ConsentGate.kt).
+ */
+fun interface ActionGuard {
+    fun check(ctx: ActionContext)
 }

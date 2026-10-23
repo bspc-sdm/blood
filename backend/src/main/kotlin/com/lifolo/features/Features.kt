@@ -101,7 +101,7 @@ class Features(
     }
 
     /** is [key] on for [uid] (null = guest: only keys that are on for everyone)? Unknown keys are off. */
-    fun isOn(uid: String?, key: String): Boolean = isOn(uid, key, if (allOn) null else state())
+    fun isOn(uid: String?, key: String): Boolean = isOn(uid, key, if (allOn && key !in OUTSIDE_ALL_ON) null else state())
 
     private fun isOn(uid: String?, key: String, s: FeatureState?, depth: Int = 0): Boolean {
         if (key !in KEYS) return false
@@ -119,14 +119,14 @@ class Features(
 
     /** two-party features (calls, chat, appt_video): on only when on for both people */
     fun bothOn(a: String?, b: String?, key: String): Boolean {
-        val s = if (allOn) null else state()
+        val s = if (allOn && key !in OUTSIDE_ALL_ON) null else state()
         return isOn(a, key, s) && isOn(b, key, s)
     }
 
     /** every key → on/off for [uid] (the `features` action) */
     fun keysFor(uid: String?): Map<String, Boolean> {
         val s = if (allOn) null else state()
-        return KEYS.associateWith { isOn(uid, it, s) }
+        return KEYS.associateWith { isOn(uid, it, if (it in OUTSIDE_ALL_ON) state() else s) }
     }
 
     /** the version clients compare (changes with every admin change) */
@@ -179,13 +179,24 @@ class Features(
         const val PRO_PHYSIO = "pro_physio"
         const val PRO_PSYCHOLOGIST = "pro_psychologist"
 
+        // explicit consent for health data + storage abroad (backend/docs/CONSENT.md)
+        const val HEALTH_CONSENT = "health_consent"
+
         /** the keys, in admin page order */
         val KEYS: List<String> = listOf(
             CALLS_AUDIO, CALLS_VIDEO, APPT_VIDEO, CHAT, CHAT_MEDIA, ONLINE_CHAMBER,
             INV_PHARMACY, INV_LAB, INV_CHAMBER, INV_AMBULANCE, MY_EXPENSES, DESKTOP,
             PAY_MANUAL, PAY_CHAMBER_ADVANCE, PAY_DELIVERY, PAY_LAB, PAY_AMBULANCE, PAY_DUE, PAY_BKASH_PGW,
             PRACTICE_SYSTEMS, PRO_PHYSIO, PRO_PSYCHOLOGIST,
+            HEALTH_CONSENT,
         )
+
+        /**
+         * keys that follow their real setting even with `all-on` (test profile, e2e server): they add a precondition
+         * instead of unlocking something, so "on everywhere" would change every existing flow. Their own tests switch
+         * them with `setFeature` (support/FeatureSwitches.kt).
+         */
+        val OUTSIDE_ALL_ON: Set<String> = setOf(HEALTH_CONSENT)
 
         /** a key counts as on only when every key it needs is on too (for that user) */
         val NEEDS: Map<String, List<String>> = mapOf(

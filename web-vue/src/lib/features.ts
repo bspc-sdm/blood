@@ -45,6 +45,8 @@ export const FEATURE_KEYS = [
   'practice_systems',
   'pro_physio',
   'pro_psychologist',
+  // স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md)
+  'health_consent',
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

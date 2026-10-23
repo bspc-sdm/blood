@@ -51,11 +51,15 @@ object Features {
     const val PRO_PHYSIO = "pro_physio"
     const val PRO_PSYCHOLOGIST = "pro_psychologist"
 
+    /** স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md) */
+    const val HEALTH_CONSENT = "health_consent"
+
     val KEYS = listOf(
         CALLS_AUDIO, CALLS_VIDEO, APPT_VIDEO, CHAT, CHAT_MEDIA, ONLINE_CHAMBER,
         INV_PHARMACY, INV_LAB, INV_CHAMBER, INV_AMBULANCE, MY_EXPENSES, DESKTOP,
         PAY_MANUAL, PAY_CHAMBER_ADVANCE, PAY_DELIVERY, PAY_LAB, PAY_AMBULANCE, PAY_DUE, PAY_BKASH_PGW,
         PRACTICE_SYSTEMS, PRO_PHYSIO, PRO_PSYCHOLOGIST,
+        HEALTH_CONSENT,
     )
 
     /** সার্ভারের বন্ধ-সুবিধার ভুল (404) */

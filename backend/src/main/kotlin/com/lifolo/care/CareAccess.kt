@@ -21,6 +21,10 @@ class CareAccess(private val jdbc: JdbcTemplate) {
         if (asNode == null || asNode.isNull) return user
         val asUid = if (asNode.isTextual) asNode.textValue() else null
         if (asUid == "" || (asUid != null && asUid == user.uid)) return user
+        // consent (backend/docs/CONSENT.md): only the patient gives or withdraws it
+        if (body.action.startsWith("consent_")) {
+            throw ApiException(403, Lang.tr(lang, "The patient has to give consent themselves once", "রোগীকে নিজে একবার সম্মতি দিতে হবে"), "consent_self_only") // bn-ok
+        }
         if (!Rules.isValidId(asUid) || body.action !in ActionPolicy.CARE_ACTIONS) {
             throw ApiException(403, Lang.tr(lang, "A caregiver can't do this for the patient", "কেয়ারগিভার রোগীর হয়ে এটা করতে পারেন না"))
         }

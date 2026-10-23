@@ -1,0 +1,58 @@
+{
+  "_readme": "THE ONLY PLACE for the health-data consent wording (backend/docs/CONSENT.md). The server sends this text to the app, the web and the desktop app (consent_status), so a change here needs no app update. Rules: (1) change any text you like here; (2) whenever the meaning changes, put a NEW value in `version` (e.g. 2026-11-15.1) — every existing consent then counts as outdated and people are asked again with the new text; a pure typo fix may keep the version; (3) keep `bn` and `en` saying the same thing; (4) deploy the backend. Nothing else needs editing. The two scope ids (health_data, data_abroad) are fixed in the code.",
+  "version": "2026-10-23.1",
+  "bn": {
+    "title": "স্বাস্থ্য তথ্য রাখার আগে আপনার সম্মতি",
+    "intro": "আপনার স্বাস্থ্য তথ্য Lifolo-তে রাখতে আপনার স্পষ্ট সম্মতি লাগে। নিচেরটুকু পড়ে সিদ্ধান্ত নিন।",
+    "sections": [
+      { "key": "what", "heading": "কী তথ্য", "body": "প্রেসক্রিপশন, পরীক্ষার রিপোর্ট, রক্তের গ্রুপ, ওজন, শেষ রক্তদানের তারিখ, আর সাইকোলজিস্টের সেশন নোট।" },
+      { "key": "why", "heading": "কেন রাখি", "body": "আপনাকে আর আপনি যাঁদের বেছে নেন তাঁদের দেখানোর জন্য। কোনো বিজ্ঞাপন নেই, তথ্য কখনো বিক্রি হয় না।" },
+      { "key": "where", "heading": "কোথায় থাকে", "body": "বাংলাদেশের বাইরে — ইউরোপে আমাদের ভাড়া করা সার্ভারে (Contabo); পরে সিঙ্গাপুরে সরানো হতে পারে। ছবি থাকে Cloudflare R2-তে। লগইন ও নোটিফিকেশন যায় Firebase (Google) দিয়ে, ইমেইল Amazon SES দিয়ে, আর অ্যাপের ভুলের রিপোর্ট Sentry-তে (নাম, ফোন, ইমেইল মুছে)।" },
+      { "key": "who", "heading": "আর কে দেখে", "body": "শুধু আপনি, আপনি যে ডাক্তার, ফার্মেসি বা প্যাথলজিতে পাঠান তাঁরা, আর আপনি যে কেয়ারগিভারকে অনুমতি দেন তিনি।" },
+      { "key": "how_long", "heading": "কতদিন থাকে", "body": "প্রাইভেসি পলিসির \"কতদিন রাখা হয়\" অংশের নিয়মে। প্রেসক্রিপশন আর রিপোর্ট অ্যাকাউন্ট মোছা পর্যন্ত থাকে।", "linkLabel": "কতদিন রাখা হয় — পুরো নিয়ম", "linkUrl": "https://lifolo.com/privacy#কতদিন-রাখা-হয়" },
+      { "key": "withdraw", "heading": "কীভাবে তুলে নেবেন", "body": "যেকোনো সময়: সেটিংস › গোপনীয়তা › \"সম্মতি তুলে নিন\"। তুলে নিলে নতুন স্বাস্থ্য তথ্য দেওয়া বন্ধ হয়; আগের তথ্য থাকে, যতক্ষণ না আপনি নিজে মোছেন বা অ্যাকাউন্ট মোছেন।" }
+    ],
+    "scopes": {
+      "health_data": "আমার স্বাস্থ্য তথ্য Lifolo-তে রাখা হোক",
+      "data_abroad": "এই তথ্য বাংলাদেশের বাইরের সার্ভারে (এখন ইউরোপে) রাখা হোক"
+    },
+    "agreeNote": "\"রাজি আছি\" চাপলে ওপরের দুটোতেই সম্মতি দিচ্ছেন। \"এখন না\" চাপলেও রক্তের অনুরোধ, অ্যাম্বুলেন্স, জরুরি কল আর তালিকা দেখা আগের মতোই চলবে।",
+    "agree": "রাজি আছি",
+    "later": "এখন না",
+    "policyLabel": "প্রাইভেসি পলিসি",
+    "policyUrl": "https://lifolo.com/privacy#স্বাস্থ্য-তথ্যের-সম্মতি",
+    "required": "এটা করতে আগে স্বাস্থ্য তথ্য রাখার সম্মতি দিন (অ্যাপ হালনাগাদ করুন, বা lifolo.com-এ লগইন করে দিন)",
+    "caregiver": "রোগীকে নিজে একবার সম্মতি দিতে হবে",
+    "withdrawTitle": "সম্মতি তুলে নেবেন?",
+    "withdrawBody": "তুলে নিলে আপনি আর নতুন স্বাস্থ্য তথ্য দিতে পারবেন না (প্রেসক্রিপশন যোগ, রক্তের গ্রুপ-ওজন বদল, সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট, কেয়ারগিভারকে দেখানো, প্রেসক্রিপশনসহ অনলাইন অর্ডার, বাসা থেকে নমুনা)। যে তথ্য আগে থেকে আছে তা মুছবে না — আপনি নিজে মুছতে পারেন, বা পুরো অ্যাকাউন্ট মুছতে পারেন। জরুরি সেবা আগের মতোই চলবে।",
+    "withdrawButton": "সম্মতি তুলে নিন",
+    "deleteAccountLabel": "অ্যাকাউন্ট মোছার পাতা"
+  },
+  "en": {
+    "title": "Your consent before we keep health data",
+    "intro": "We need your explicit consent to keep your health information in Lifolo. Please read this and decide.",
+    "sections": [
+      { "key": "what", "heading": "What", "body": "Prescriptions, test reports, blood group, weight, last donation date, and psychologist session notes." },
+      { "key": "why", "heading": "Why", "body": "To show it to you and to the people you choose. No ads, and we never sell data." },
+      { "key": "where", "heading": "Where it is kept", "body": "Outside Bangladesh — on a server we rent in Europe (Contabo); it may move to Singapore later. Photos are kept in Cloudflare R2. Login and notifications go through Firebase (Google), email through Amazon SES, and app error reports to Sentry (with names, phones and emails removed)." },
+      { "key": "who", "heading": "Who else sees it", "body": "Only you, the doctors, pharmacies or labs you send it to, and the caregivers you allow." },
+      { "key": "how_long", "heading": "How long", "body": "As set out in the \"How long we keep data\" part of the privacy policy. Prescriptions and reports stay until you delete your account.", "linkLabel": "How long we keep data — full rules", "linkUrl": "https://lifolo.com/privacy#how-long-we-keep-data" },
+      { "key": "withdraw", "heading": "How to withdraw", "body": "At any time: Settings › Privacy › \"Withdraw consent\". After that you can't add new health information; what is already there stays until you delete it or your account." }
+    ],
+    "scopes": {
+      "health_data": "Keep my health information in Lifolo",
+      "data_abroad": "Keep it on servers outside Bangladesh (now in Europe)"
+    },
+    "agreeNote": "\"I agree\" gives consent to both. If you choose \"Not now\", blood requests, ambulances, emergency calls and the listings keep working as before.",
+    "agree": "I agree",
+    "later": "Not now",
+    "policyLabel": "Privacy policy",
+    "policyUrl": "https://lifolo.com/privacy#consent-for-health-data",
+    "required": "Please give consent for your health information first (update the app, or log in at lifolo.com)",
+    "caregiver": "The patient has to give consent themselves once",
+    "withdrawTitle": "Withdraw consent?",
+    "withdrawBody": "After withdrawing you can't add new health information (adding prescriptions, changing blood group or weight, psychologist appointments, sharing with caregivers, online orders with a prescription, home sample collection). What is already there is not deleted — you can delete it yourself, or delete your whole account. Emergency features keep working.",
+    "withdrawButton": "Withdraw consent",
+    "deleteAccountLabel": "Account deletion page"
+  }
+}

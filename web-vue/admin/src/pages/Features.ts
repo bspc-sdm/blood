@@ -30,6 +30,7 @@ export const FEATURE_INFO: Record<string, { name: string; desc: string }> = {
   practice_systems: { name: 'চিকিৎসা পদ্ধতি', desc: 'চিকিৎসা পদ্ধতি অনুযায়ী ডাক্তার খোঁজা ও দেখানো' }, // bn-ok
   pro_physio: { name: 'ফিজিওথেরাপিস্ট', desc: 'ফিজিওথেরাপিস্টের ব্যাজ, তালিকা আর অ্যাপয়েন্টমেন্ট' }, // bn-ok
   pro_psychologist: { name: 'সাইকোলজিস্ট / কাউন্সেলর', desc: 'সাইকোলজিস্ট/কাউন্সেলরের ব্যাজ, তালিকা আর অ্যাপয়েন্টমেন্ট' }, // bn-ok
+  health_consent: { name: 'স্বাস্থ্য তথ্যের সম্মতি', desc: 'স্বাস্থ্য তথ্য দেওয়ার আগে রোগীর স্পষ্ট সম্মতি (দেশের বাইরের সার্ভারেও) — জরুরি সেবা কখনো আটকায় না' }, // bn-ok
 };
 export const featureName = (key: string) => FEATURE_INFO[key]?.name || key;
 
