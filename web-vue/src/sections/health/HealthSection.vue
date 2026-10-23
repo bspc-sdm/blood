@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// স্বাস্থ্য: আলোচনা, টিপস, পেশাদার ব্যাজ, আমার প্রেসক্রিপশন — /health/* আর /prescriptions/*
+// স্বাস্থ্য: আলোচনা, টিপস, পেশাদার ব্যাজ — /health/*
+// ("আমার প্রেসক্রিপশন" এখন সেবা → ফার্মেসিতে: /services/pharmacy/prescriptions — মালিকের সিদ্ধান্ত)
 // (অ্যাপের MainScreen-এর "স্বাস্থ্য" ট্যাব: আলোচনা / টিপস; প্রেসক্রিপশন আলাদা পাতা)
 import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -10,7 +11,6 @@ import AskPage from './AskPage.vue';
 import TipsPage from './TipsPage.vue';
 import PostTipPage from './PostTipPage.vue';
 import BadgePage from './BadgePage.vue';
-import PrescriptionsPage from './PrescriptionsPage.vue';
 
 const route = useRoute();
 const nav = useNav();
@@ -27,9 +27,6 @@ const page = computed(() => {
   if (t) return { k: 'tips', id: t.params.id ?? null };
   if (m('/health/post-tip')) return { k: 'post-tip', id: null };
   if (m('/health/badge')) return { k: 'badge', id: null };
-  if (m('/prescriptions')) return { k: 'rx', id: null };
-  const r = m('/prescriptions/:id');
-  if (r) return { k: 'rx', id: r.params.id ?? null };
   return { k: 'none', id: null };
 });
 watch(
@@ -47,6 +44,5 @@ watch(
   <TipsPage v-else-if="page.k === 'tips'" :id="page.id" />
   <PostTipPage v-else-if="page.k === 'post-tip'" />
   <BadgePage v-else-if="page.k === 'badge'" />
-  <PrescriptionsPage v-else-if="page.k === 'rx'" :id="page.id" />
   <NotFound v-else-if="page.k === 'none'" />
 </template>

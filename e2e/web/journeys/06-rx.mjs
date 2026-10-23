@@ -261,7 +261,7 @@ export async function run(J) {
 
   await J.sc('R-19', 'আমার প্রেসক্রিপশনের তালিকা', async () => {
     page = await J.as('patient');
-    await go(page, '/prescriptions');
+    await go(page, '/services/pharmacy/prescriptions');
     await J.shot('আমার প্রেসক্রিপশন', 'ডা. ডেমো হাসানের কয়েকটা (A222, B333, বাতিল C444, যাত্রার নতুনটা) আর অনলাইন অর্ডারের প্রেসক্রিপশন।', { full: true });
     await page.locator('article').filter({ hasText: /Bislol/ }).filter({ hasNotText: 'বাতিল' }).first().click();
     await settle(page);
@@ -269,7 +269,7 @@ export async function run(J) {
   });
 
   await J.sc('R-20', 'কাগজের প্রেসক্রিপশন কোড দিয়ে যোগ', async () => {
-    await go(page, '/prescriptions');
+    await go(page, '/services/pharmacy/prescriptions');
     await tap(page, 'কোড দিয়ে যোগ করুন');
     const d = page.getByRole('dialog').last();
     const inputs = d.getByRole('textbox');
@@ -297,7 +297,7 @@ export async function run(J) {
 
   await J.sc('R-22', 'রোগী: দোকানে দাঁড়িয়ে প্রেসক্রিপশন পাঠানো', async () => {
     page = await J.as('patient');
-    await go(page, '/prescriptions');
+    await go(page, '/services/pharmacy/prescriptions');
     await page.locator('article').filter({ hasText: /Bislol/ }).filter({ hasNotText: 'বাতিল' }).first().click();
     await settle(page);
     await page.getByRole('button', { name: 'ফার্মেসিতে পাঠান' }).last().click();

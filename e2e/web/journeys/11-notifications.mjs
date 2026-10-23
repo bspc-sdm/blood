@@ -55,9 +55,9 @@ function webTarget(d) {
     case 'appointment': return d.role === 'provider' ? '/work/pro' : '/my-appointments';
     case 'support': return d.ticketId ? `/help/${d.ticketId}` : '/help';
     case 'amb_req_mine': return d.reqId ? `/services/ambulance/call/${d.reqId}` : '/services/ambulance';
-    case 'rx': return `/prescriptions/${d.rxId || d.id}`;
+    case 'rx': return `/services/pharmacy/prescriptions/${d.rxId || d.id}`;
     case 'rx_review': return '/work/pro';
-    case 'care': return d.asUid && d.rxId ? ['/care', `/prescriptions/${d.rxId}`] : '/care';
+    case 'care': return d.asUid && d.rxId ? ['/care', `/services/pharmacy/prescriptions/${d.rxId}`] : '/care';
     case 'badge': return '/health/badge';
     case 'rx_pharmacy': return '/work/pharmacy';
     case 'med_find': return '/work/pharmacy/finds';

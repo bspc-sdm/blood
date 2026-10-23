@@ -230,7 +230,7 @@ test.describe('প্রবেশপথ', () => {
       },
       pay_request_get: (b) => (b.id === 'prq_ph1' ? { request: REQ() } : b.refType === 'lab_order' ? { request: REQ({ id: 'prq_lab', kind: 'lab', bizName: 'পপুলার ডায়াগনস্টিক সেন্টার', refType: 'lab_order', purpose: 'lab', amount: 550 }) } : notFound()),
     });
-    await open(page, patient('/prescriptions/rx1'));
+    await open(page, patient('/services/pharmacy/prescriptions/rx1'));
     const entries = page.getByTestId('pay-entry');
     await expect(entries.filter({ hasText: 'এখনই দিন (বিকাশ/নগদ)' })).toHaveCount(1);
     await entries.filter({ hasText: 'এখনই দিন' }).getByTestId('pay-open').click();
@@ -457,7 +457,7 @@ test('ফিচার সুইচ বন্ধ: পেমেন্টের ট
   await expect(page.getByTestId('pay-entry')).toHaveCount(0);
   await open(page, patient('/invoices/payments'));
   await expect(page.getByTestId('feature-off')).toBeVisible();
-  await open(page, patient('/prescriptions/rx1'));
+  await open(page, patient('/services/pharmacy/prescriptions/rx1'));
   await expect(page.getByTestId('pay-entry')).toHaveCount(0);
   await open(page, owner('/work'));
   await expect(page.getByTestId('pay-biz-link')).toHaveCount(0);

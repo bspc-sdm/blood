@@ -55,7 +55,7 @@ const onOnly = (r: Rx) => {
 function openRx() {
   const id = sent.value!.rxId;
   sent.value = null;
-  nav(`/prescriptions/${id}`);
+  nav(`/services/pharmacy/prescriptions/${id}`);
 }
 </script>
 

@@ -4,7 +4,7 @@ import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { Avatar, Icon } from '@/ui/kit';
 import { num, tr } from '@/lib/i18n';
-import { kindIcon, kindLabel, type Kind } from './data';
+import { kindIcon, kindLabel, RX_HOME, type Kind } from './data';
 
 const props = defineProps<{ kind: Kind; area: string; items: any[]; busyCount: number; loading: boolean }>();
 const stats = computed<[string, number][]>(() =>
@@ -35,7 +35,7 @@ const stats = computed<[string, number][]>(() =>
     <div class="row wrap">
       <a v-if="kind === 'ambulance'" class="btn danger square has-icon" href="tel:999"><Icon name="call" />{{ tr('Call 999', '৯৯৯-এ ফোন করুন') }}</a>
       <RouterLink v-if="kind === 'pharmacy'" class="btn tonal square has-icon" to="/services/pharmacy/medicine"><Icon name="search" />{{ tr('Find a medicine', 'ওষুধ খুঁজুন') }}</RouterLink>
-      <RouterLink v-if="kind === 'lab'" class="btn tonal square has-icon" to="/prescriptions"><Icon name="list_alt" />{{ tr('My prescriptions', 'আমার প্রেসক্রিপশন') }}</RouterLink>
+      <RouterLink v-if="kind === 'pharmacy' || kind === 'lab'" class="btn tonal square has-icon" :to="RX_HOME"><Icon name="list_alt" />{{ tr('My prescriptions', 'আমার প্রেসক্রিপশন') }}</RouterLink>
     </div>
   </div>
 </template>

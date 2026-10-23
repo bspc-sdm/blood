@@ -199,7 +199,7 @@ function phoneVerified() {
           <AcctMenu>
             <ListRow icon="list_alt" :title="tr('My Requests', 'আমার রিকোয়েস্ট')" :on-click="() => nav('/my-requests')" />
             <ListRow icon="calendar_month" :title="tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')" :on-click="() => nav('/my-appointments')" />
-            <ListRow icon="medication" :title="tr('My prescriptions', 'আমার প্রেসক্রিপশন')" :on-click="() => nav('/prescriptions')" />
+            <ListRow icon="medication" :title="tr('My prescriptions', 'আমার প্রেসক্রিপশন')" :on-click="() => nav('/services/pharmacy/prescriptions')" />
             <ListRow v-if="featureOn('calls_audio')" icon="call" :title="T.history()" :sub="T.historySub()" :on-click="() => nav('/calls')" />
             <ListRow v-if="invFeature('my_expenses')" icon="list_alt" :title="tr('My receipts', 'আমার রসিদ')" :on-click="() => nav('/invoices')" /><!-- bn-ok -->
             <ListRow

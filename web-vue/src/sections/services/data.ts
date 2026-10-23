@@ -321,3 +321,7 @@ export function remember(kind: Kind, items: { id: string }[] | undefined) {
   items?.forEach((x) => seen.set(`${kind}/${x.id}`, x));
 }
 export const recall = <T,>(kind: Kind, id: string) => seen.get(`${kind}/${id}`) as T | undefined;
+
+/** রোগীর "আমার প্রেসক্রিপশন" — ফার্মেসির ভেতরে (পুরোনো /prescriptions/* এখানে redirect হয়) */
+export const RX_HOME = '/services/pharmacy/prescriptions';
+export const rxPath = (id?: string | null) => (id ? `${RX_HOME}/${encodeURIComponent(id)}` : RX_HOME);

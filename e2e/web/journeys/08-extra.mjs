@@ -33,7 +33,7 @@ async function owner(J) {
   return P.page;
 }
 async function openA222(page) {
-  await go(page, '/prescriptions');
+  await go(page, '/services/pharmacy/prescriptions');
   await page.locator('article').filter({ hasText: /Secrin/ }).first().click();
   await settle(page);
 }

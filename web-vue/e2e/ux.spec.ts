@@ -24,6 +24,26 @@ test('আমার প্রেসক্রিপশন: তালিকা, ক
   await expect(page.getByText('সবাই').first()).toBeVisible();
 });
 
+test('আমার প্রেসক্রিপশন থাকে সেবা → ফার্মেসিতে (স্বাস্থ্যে নয়); পুরোনো /prescriptions সেখানে যায়', async ({ page }) => {
+  const errs = watchErrors(page);
+  const rx = def('health', 'rx-list');
+  await open(page, rx, '/prescriptions/rx1?who=x');
+  await expect(page).toHaveURL(/\/services\/pharmacy\/prescriptions\/rx1\?who=x$/);
+  await open(page, rx);
+  await expect(page.getByRole('tab', { name: 'আমার প্রেসক্রিপশন' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'ওষুধ খুঁজুন' })).toBeVisible();
+  await expect(page.locator('a[aria-current="page"][href="/services"]:visible').first()).toBeVisible();
+  await expect(page.locator('a[aria-current="page"][href="/health"]:visible')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'ওষুধ খুঁজুন' }).click();
+  await expect(page).toHaveURL(/\/services\/pharmacy\/medicine$/);
+  await page.getByRole('tab', { name: 'আমার প্রেসক্রিপশন' }).click();
+  await expect(page).toHaveURL(/\/services\/pharmacy\/prescriptions$/);
+  await open(page, rx, '/health/discussion');
+  await expect(page.getByRole('tab', { name: 'আলোচনা' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'আমার প্রেসক্রিপশন' })).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
+
 test('ফার্মেসির খুঁটিনাটি: নিচে আটকানো "প্রেসক্রিপশন পাঠান", পাশে ছোট ফোন বোতাম', async ({ page }) => {
   await open(page, def('services', 'pharm-user'));
   // আগে "কীভাবে কিনবেন?" — দোকানে গিয়ে

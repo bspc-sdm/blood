@@ -42,7 +42,7 @@ async function labWork(page, tab) {
   await labWorkTab(page, tab);
 }
 async function openRx(page, meds) {
-  await go(page, '/prescriptions');
+  await go(page, '/services/pharmacy/prescriptions');
   await page.locator('article, [role=button]').filter({ hasText: meds }).filter({ hasNotText: 'বাতিল' }).first().click();
   await settle(page);
 }

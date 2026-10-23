@@ -41,7 +41,7 @@ watch(
     const link = data.caringFor.find((c) => c.patientUid === forUid && c.status === 'active');
     if (link) {
       setCareMode({ uid: link.patientUid, name: link.patientName });
-      nav(`/prescriptions/${encodeURIComponent(forRx)}`, { replace: true });
+      nav(`/services/pharmacy/prescriptions/${encodeURIComponent(forRx)}`, { replace: true });
     } else {
       error.value = tr("You can't open this prescription now — you're no longer their caregiver", 'এই প্রেসক্রিপশন এখন খোলা যাচ্ছে না — আপনি আর তাঁর কেয়ারগিভার নন');
       setParams({}, { replace: true });
@@ -84,7 +84,7 @@ function askStop(c: CareLink) {
 }
 function openFor(c: CareLink) {
   setCareMode({ uid: c.patientUid, name: c.patientName });
-  nav('/prescriptions');
+  nav('/services/pharmacy/prescriptions');
 }
 const accept = (c: CareLink) => act(() => call('care_respond', { patientUid: c.patientUid, accept: true }), tr(`You're now ${c.patientName}'s caregiver`, `আপনি এখন ${c.patientName}-এর কেয়ারগিভার`));
 const decline = (c: CareLink) => act(() => call('care_respond', { patientUid: c.patientUid, accept: false }));

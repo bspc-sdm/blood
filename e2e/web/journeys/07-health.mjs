@@ -129,7 +129,8 @@ export async function run(J) {
     await J.shot('অন্য পাতাতেও ফিতা থাকে', 'স্বাস্থ্য আলোচনায় গেলেও ফিতা।');
     await page.getByRole('button', { name: 'বন্ধ করুন' }).first().click();
     await settle(page);
-    await page.getByRole('link', { name: 'আমার প্রেসক্রিপশন' }).first().click().catch(() => {});
+    // আমার প্রেসক্রিপশন: সেবা › ফার্মেসি › "আমার প্রেসক্রিপশন" (স্বাস্থ্যে নয়)
+    await go(page, '/services/pharmacy/prescriptions', { soft: true });
     await settle(page);
     await J.shot('ফিতা বন্ধ — রুমার নিজের', 'ফিতা নেই; ‘আমার প্রেসক্রিপশন’-এ রুমার নিজের (খালি) তালিকা।', { full: true });
   });

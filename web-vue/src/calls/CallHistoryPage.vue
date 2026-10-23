@@ -51,9 +51,9 @@ function target(x: HistoryItem): string | null {
     case 'blood': return x.dir === 'out' ? `/my-requests/${encodeURIComponent(x.refId)}` : `/request/${encodeURIComponent(x.refId)}`;
     case 'appointment': return '/my-appointments';
     case 'ambulance': return x.dir === 'out' ? `/services/ambulance/call/${encodeURIComponent(x.refId)}` : '/work';
-    case 'rx_order': return x.dir === 'in' ? '/work/pharmacy' : '/prescriptions';
-    case 'lab_order': return x.dir === 'in' ? '/work/lab' : '/prescriptions';
-    case 'order': return '/prescriptions';
+    case 'rx_order': return x.dir === 'in' ? '/work/pharmacy' : '/services/pharmacy/prescriptions';
+    case 'lab_order': return x.dir === 'in' ? '/work/lab' : '/services/pharmacy/prescriptions';
+    case 'order': return '/services/pharmacy/prescriptions';
   }
   return null;
 }

@@ -10,8 +10,8 @@ export function useNavItems() {
     const items: NavItem[] = [
       { to: '/', label: tr('Home', 'হোম'), icon: 'nav_home', iconOn: 'nav_home_fill', match: (p) => p === '/' || p.startsWith('/request') || p.startsWith('/my-requests') },
       { to: '/appointment', label: tr('Appointment', 'অ্যাপয়েন্টমেন্ট'), icon: 'nav_event', iconOn: 'nav_event_fill', match: (p) => p.startsWith('/appointment') || p.startsWith('/my-appointments') },
-      { to: '/health', label: tr('Health', 'স্বাস্থ্য'), icon: 'nav_health', iconOn: 'nav_health_fill', match: (p) => p.startsWith('/health') || p.startsWith('/prescriptions') || p.startsWith('/invoices') },
-      { to: '/services', label: tr('Services', 'সেবা'), icon: 'nav_services', iconOn: 'nav_services_fill', match: (p) => p.startsWith('/services') },
+      { to: '/health', label: tr('Health', 'স্বাস্থ্য'), icon: 'nav_health', iconOn: 'nav_health_fill', match: (p) => p.startsWith('/health') || p.startsWith('/invoices') },
+      { to: '/services', label: tr('Services', 'সেবা'), icon: 'nav_services', iconOn: 'nav_services_fill', match: (p) => p.startsWith('/services') || p.startsWith('/prescriptions') },
     ];
     // "আমার কাজ" শুধু যাঁর নিজের ব্যবসা, চেম্বার বা বাসায় সেবা আছে
     if (!s.guest && workHas(s.work)) items.push({ to: '/work', label: tr('My work', 'আমার কাজ'), icon: 'nav_work', iconOn: 'nav_work_fill', match: (p) => p.startsWith('/work') });

@@ -36,9 +36,16 @@ export const router = createRouter({
     { path: '/calls', component: () => import('./calls/CallHistoryPage.vue'), beforeEnter: featureGuard('calls_audio') },
     // অ্যাপে মেসেজ: কথোপকথনের তালিকা আর একটা কথোপকথন (একই পাতা — বড় পর্দায় পাশাপাশি) — chat/
     { path: '/messages/:threadId?', component: () => import('./chat/MessagesPage.vue'), beforeEnter: featureGuard('chat') },
-    // স্বাস্থ্য: আলোচনা, টিপস, প্রেসক্রিপশন
+    // স্বাস্থ্য: আলোচনা, টিপস
     { path: rest('/health'), component: Health },
-    { path: rest('/prescriptions'), component: Health },
+    // আমার প্রেসক্রিপশন এখন সেবা → ফার্মেসিতে; পুরোনো ঠিকানা (নোটিফিকেশন, যাচাই লিংক, প্যাথলজির বাটন) সেখানে যায়
+    {
+      path: rest('/prescriptions'),
+      redirect: (to) => {
+        const parts = ([] as string[]).concat((to.params.rest as string[] | string | undefined) ?? []).filter(Boolean);
+        return { path: ['/services/pharmacy/prescriptions', ...parts.map(encodeURIComponent)].join('/'), query: to.query, hash: to.hash };
+      },
+    },
     // আমার কাজ (ব্যবসা/চেম্বার)
     { path: rest('/work'), component: Work },
     // অ্যাকাউন্ট: প্রোফাইল, সেটিংস, নোটিফিকেশন, সাহায্য, কেয়ারগিভার

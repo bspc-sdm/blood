@@ -521,7 +521,7 @@
  },
  {
   "name": "rx-guest",
-  "path": "/prescriptions",
+  "path": "/services/pharmacy/prescriptions",
   "test": {
    "lang": "bn",
    "theme": "light"
@@ -529,7 +529,7 @@
  },
  {
   "name": "rx-list",
-  "path": "/prescriptions",
+  "path": "/services/pharmacy/prescriptions",
   "test": {
    "user": {
     "uid": "u1",
@@ -554,7 +554,7 @@
  },
  {
   "name": "rx-detail",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -580,7 +580,7 @@
  },
  {
   "name": "rx-detail-dark",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -605,7 +605,7 @@
  },
  {
   "name": "rx-detail-en",
-  "path": "/prescriptions/rx2",
+  "path": "/services/pharmacy/prescriptions/rx2",
   "test": {
    "user": {
     "uid": "u1",
@@ -631,7 +631,7 @@
  },
  {
   "name": "rx-claim",
-  "path": "/prescriptions",
+  "path": "/services/pharmacy/prescriptions",
   "test": {
    "user": {
     "uid": "u1",
@@ -665,7 +665,7 @@
  },
  {
   "name": "rx-shop",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -693,7 +693,7 @@
  },
  {
   "name": "rx-online-order",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -722,7 +722,7 @@
  },
  {
   "name": "rx-withdraw",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -750,7 +750,7 @@
  },
  {
   "name": "rx-lab",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -778,7 +778,7 @@
  },
  {
   "name": "rx-report",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -806,7 +806,7 @@
  },
  {
   "name": "rx-pay",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -840,7 +840,7 @@
  },
  {
   "name": "rx-lab-home",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -869,7 +869,7 @@
  },
  {
   "name": "rx-home-expired",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -895,7 +895,7 @@
  },
  {
   "name": "rx-home-change",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -923,7 +923,7 @@
  },
  {
   "name": "rx-home-cancel",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",
@@ -951,7 +951,7 @@
  },
  {
   "name": "rx-home-expired-en",
-  "path": "/prescriptions/rx1",
+  "path": "/services/pharmacy/prescriptions/rx1",
   "test": {
    "user": {
     "uid": "u1",

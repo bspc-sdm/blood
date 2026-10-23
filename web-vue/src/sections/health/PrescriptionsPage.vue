@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // রোগী: আমার প্রেসক্রিপশন — অ্যাপের MyPrescriptionsScreen, RxListCard, RxDetailDialog, RxPaper, RxClaimDialog;
 // প্রিন্ট অ্যাপের RxPdf.kt-এর কাগজের মতো (শুধু কাগজটাই ছাপা হয়)।
+// থাকে সেবা → ফার্মেসি → "আমার প্রেসক্রিপশন" (/services/pharmacy/prescriptions) আর প্রোফাইলে — স্বাস্থ্যে নয় (মালিক)।
 import { computed, ref } from 'vue';
 import { Button, EmptyState, ErrorBox, Icon, InfoText, SkeletonCards } from '@/ui/kit';
 import ListDetail from '@/shell/ListDetail.vue';
@@ -13,7 +14,8 @@ import { useCareMode } from '@/lib/care';
 import { useNav, useSearchParams } from '@/lib/nav';
 import { useFlash } from './common';
 import type { Rx } from './rx';
-import HealthTabs from './HealthTabs.vue';
+import ServiceTabs from '../services/ServiceTabs.vue';
+import { RX_HOME, rxPath } from '../services/data';
 import RxListCard from './RxListCard.vue';
 import RxDetail from './RxDetail.vue';
 import RxClaimDialog from './RxClaimDialog.vue';
@@ -36,7 +38,7 @@ const [info, setInfo] = useFlash();
 const names = computed(() => [...new Set((q.data ?? []).map((r) => (r.patient?.name ?? '').trim()).filter(Boolean))]);
 const shown = computed(() => (q.data ?? []).filter((r) => !who.value || (r.patient?.name ?? '').trim() === who.value));
 const qs = () => (params.value.toString() ? `?${params.value}` : '');
-const open = (rid: string) => nav(`/prescriptions/${rid}${qs()}`);
+const open = (rid: string) => nav(`${rxPath(rid)}${qs()}`);
 function setWho(n: string) {
   const p = new URLSearchParams(params.value);
   if (n) p.set('who', n);
@@ -54,7 +56,7 @@ const fromList = computed(() => (props.id ? q.data?.find((r) => r.id === props.i
 <template>
   <ListDetail :has-detail="!!(id && !s.guest)">
     <div class="list-inner">
-      <HealthTabs value="rx" />
+      <ServiceTabs kind="pharmacy" sub="rx" />
       <EmptyState v-if="s.guest" icon="medication" :title="tr('My prescriptions', 'আমার প্রেসক্রিপশন')" :text="tr('Prescriptions from doctors on Lifolo appear here. Got a paper one? Add it with its code.', 'Lifolo-তে ডাক্তারের দেওয়া প্রেসক্রিপশন এখানে আসে। কাগজেরটা কোড দিয়ে যোগ করুন।')">
         <Button @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
       </EmptyState>
@@ -81,7 +83,7 @@ const fromList = computed(() => (props.id ? q.data?.find((r) => r.id === props.i
       <RxClaimDialog v-if="claiming" @close="claiming = false" @added="onAdded" />
     </div>
     <template #detail>
-      <RxDetail v-if="id && !s.guest" :id="id" :key="id" :initial="fromList" :list-loading="q.isPending" :back="() => nav(`/prescriptions${qs()}`)" />
+      <RxDetail v-if="id && !s.guest" :id="id" :key="id" :initial="fromList" :list-loading="q.isPending" :back="() => nav(`${RX_HOME}${qs()}`)" />
     </template>
     <template v-if="!s.guest" #placeholder><EmptyState icon="medication" :title="tr('Pick a prescription', 'একটা প্রেসক্রিপশন বেছে নিন')" /></template>
   </ListDetail>

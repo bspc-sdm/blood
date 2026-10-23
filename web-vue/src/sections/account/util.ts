@@ -150,7 +150,7 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
     // প্রেসক্রিপশনের খবর: সেই প্রেসক্রিপশন (পুরোনো নোটিফিকেশনে শুধু id — সেটাও প্রেসক্রিপশনের)
     case 'rx': {
       const rid = data.rxId || data.id;
-      return rid ? `/prescriptions/${encodeURIComponent(rid)}` : '/prescriptions';
+      return rid ? `/services/pharmacy/prescriptions/${encodeURIComponent(rid)}` : '/services/pharmacy/prescriptions';
     }
     case 'rx_review':
       return '/work/pro';

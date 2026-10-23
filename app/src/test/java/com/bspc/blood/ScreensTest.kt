@@ -735,6 +735,18 @@ class ScreensTest {
         shot("pharmacy_content")
     }
 
+    /** মালিক: "আমার প্রেসক্রিপশন" ফার্মেসির চিপে (আর প্রোফাইলে) — চাপলে প্রোফাইলের একই পাতা (RxNav "mine") */
+    @Test
+    fun pharmacyMyPrescriptionsChip() {
+        AppPrefs.lang.value = Lang.BN
+        RxNav.open.value = null
+        show { PharmacyContent(profile) }
+        rule.onNodeWithText("আমার প্রেসক্রিপশন").assertExists().performClick()
+        rule.waitForIdle()
+        org.junit.Assert.assertEquals("mine", RxNav.open.value)
+        RxNav.open.value = null
+    }
+
     @Test
     fun ambulanceMine() {
         show { AmbulanceContent(profile) }

@@ -15,7 +15,7 @@ async function actFor(page) {
 
 /** তালিকার কার্ডে কোড থাকে না — ওষুধ দিয়ে চেনা: DEMXRXB333 = Bislol-সহ, DEMXRXA222 = Secrin-সহ */
 async function openRxByCode(page, code) {
-  await go(page, '/prescriptions', { soft: true });
+  await go(page, '/services/pharmacy/prescriptions', { soft: true });
   const key = { DEMXRXB333: /Bislol/, DEMXRXA222: /Secrin/ }[code] || code;
   await page.locator('article, [role=button]').filter({ hasText: key }).filter({ hasNotText: 'বাতিল' }).first().click();
   await settle(page);
@@ -31,7 +31,7 @@ export async function run(J) {
     await actFor(page);
     await see(page, 'হয়ে কাজ করছেন');
     await J.shot('রহিমের হয়ে কাজ — ফিতা', 'ওপরে ফিতা ‘ডেমো রোগী রহিম-এর হয়ে কাজ করছেন’; রহিমের প্রেসক্রিপশন (একটা ‘বাতিল’সহ)।', { full: true });
-    await go(page, '/prescriptions', { soft: true });
+    await go(page, '/services/pharmacy/prescriptions', { soft: true });
     await J.shot('রহিমের প্রেসক্রিপশন (রুমার চোখে)', 'ডা. ডেমো হাসানের প্রেসক্রিপশন, একটায় ‘বাতিল’; রুমার নিজের নয়।', { full: true });
   });
 

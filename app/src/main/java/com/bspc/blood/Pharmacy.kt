@@ -236,7 +236,7 @@ object Pharmacies {
 
 }
 
-/** "সেবা" ট্যাবের ফার্মেসি অংশ: খোলা দোকান খোঁজা / ওষুধ খোঁজা / নিজের ফার্মেসি */
+/** "সেবা" ট্যাবের ফার্মেসি অংশ: খোলা দোকান খোঁজা / ওষুধ খোঁজা / আমার প্রেসক্রিপশন (আলাদা পাতা) / নিজের ফার্মেসি */
 @Composable
 fun PharmacyContent(profile: Profile) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -254,8 +254,10 @@ fun PharmacyContent(profile: Profile) {
             listOf(
                 PillTab(tr("Pharmacies", "ফার্মেসি"), R.drawable.ic_storefront),
                 PillTab(tr("Find a medicine", "ওষুধ খুঁজুন"), R.drawable.ic_search),
+                // মালিক: "আমার প্রেসক্রিপশন" ফার্মেসির ভেতরে আর প্রোফাইলে (স্বাস্থ্যে নয়) — প্রোফাইলের একই পাতা খোলে
+                PillTab(tr("My prescriptions", "আমার প্রেসক্রিপশন"), R.drawable.ic_list_alt),
             ),
-            { tab = it },
+            { if (it == 2) RxNav.open.value = "mine" else tab = it },
             secondary = true,
         )
         // নিজের ফার্মেসি: "সেবা" পাতার নিচের ভাসমান বাটন / উপরের + থেকে (ServicesTab)
