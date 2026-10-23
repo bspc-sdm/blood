@@ -17,14 +17,17 @@ async function signIn(custom) {
   return r;
 }
 
-/** ডেমো রোলের ID token (লগইন পাতার "ডেমো" তালিকার মতোই: verify-code {demo}) — uid সহ */
-export async function demo(role) {
-  if (tokens.has(role)) return tokens.get(role);
+/**
+ * ডেমো রোলের ID token (লগইন পাতার "ডেমো" তালিকার মতোই: verify-code {demo}) — uid সহ। একই রোলে পরে আবার ডেমো লগইন
+ * (ব্রাউজারে) হলে আগের টোকেন বাতিল ("লগইনের মেয়াদ শেষ") — তাই এক বারের কাজে keep: false (মনে রাখা হয় না)।
+ */
+export async function demo(role, { keep = true } = {}) {
+  if (keep && tokens.has(role)) return tokens.get(role);
   const r = await fetch(`${BASE}/api/auth/verify-code`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ demo: role }) }).then((x) => x.json());
   if (!r.token) throw new Error(`demo login ${role}: ${JSON.stringify(r).slice(0, 200)}`);
   const s = await signIn(r.token);
   const out = { token: s.idToken, uid: uidOf(s.idToken), role };
-  tokens.set(role, out);
+  if (keep) tokens.set(role, out);
   return out;
 }
 

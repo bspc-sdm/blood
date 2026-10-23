@@ -40,7 +40,8 @@ export async function demoConsents() {
   if (!CONSENT || consentReady) return;
   for (const r of Object.keys(ROLE_LABEL)) {
     try {
-      await ensureConsent(await demo(r));
+      // মনে না রাখা টোকেন: পরের যাত্রার ব্রাউজার-লগইনে এটা বাতিল হয় (১১/১২ পরে নিজের টোকেন নেয়)
+      await ensureConsent(await demo(r, { keep: false }));
     } catch (e) {
       // এই ডেমোতে না থাকা রোল (লগইন হয় না) — বাদ
       if (!/demo login/.test(e.message)) throw e;
