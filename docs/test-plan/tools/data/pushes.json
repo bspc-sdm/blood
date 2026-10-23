@@ -1,0 +1,440 @@
+[
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbRepo.kt",
+  "line": 333,
+  "title": ""
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 517,
+  "title": "ভাড়ার প্রস্তাবের সময় শেষ"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 1012,
+  "title": "${res.name} can come for ৳${res.fare}"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 1016,
+  "title": "${res.name} আসছে"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 1201,
+  "title": "$name পৌঁছেছে"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 1202,
+  "title": "ট্রিপ শেষ — অ্যাম্বুলেন্সকে রেটিং দিন"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 1203,
+  "title": "$name বাতিল করেছে"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbulanceService.kt",
+  "line": 153,
+  "title": ""
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/P2Support.kt",
+  "line": 114,
+  "title": ""
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/Reminders.kt",
+  "line": 95,
+  "title": ""
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/BloodLifecycle.kt",
+  "line": 63,
+  "title": ""
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/DonorService.kt",
+  "line": 119,
+  "title": "আপনাকে আবার রিকোয়েস্টে রাখা হয়েছে"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/DonorService.kt",
+  "line": 134,
+  "title": "এই রিকোয়েস্টে আপনাকে আর লাগবে না"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/DonorService.kt",
+  "line": 158,
+  "title": "আবার ডোনার লাগতে পারে"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestEndService.kt",
+  "line": 97,
+  "title": "একজন ডোনার আর থাকছেন না"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 480,
+  "title": "${o.labName} পরীক্ষা করতে পারবে না"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 512,
+  "title": "$lab $wBn আসবে"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 529,
+  "title": "$lab বাসায় আসতে পারবে না — প্যাথলজিতে গিয়ে নমুনা দিন"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 772,
+  "title": "ডাক্তার টাকা পেয়েছেন, রিপোর্ট দেখবেন"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 796,
+  "title": "ডাক্তার আপনার রিপোর্ট দেখেছেন"
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/RxOrders.kt",
+  "line": 92,
+  "title": ""
+ },
+ {
+  "type": "(helper default)",
+  "file": "backend/src/main/kotlin/com/lifolo/rx/RxPush.kt",
+  "line": 21,
+  "title": ""
+ },
+ {
+  "type": "amb_req_mine",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 405,
+  "title": ""
+ },
+ {
+  "type": "answer",
+  "file": "backend/src/main/kotlin/com/lifolo/content/CommunityActions.kt",
+  "line": 228,
+  "title": "আপনার প্রশ্নের উত্তর এসেছে"
+ },
+ {
+  "type": "appointment",
+  "file": "backend/src/main/kotlin/com/lifolo/admin/AdminWebActions.kt",
+  "line": 405,
+  "title": "Lifolo টিম আপনার চেম্বার সরিয়ে দিয়েছে"
+ },
+ {
+  "type": "appointment",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/ApptCancel.kt",
+  "line": 88,
+  "title": "অ্যাপয়েন্টমেন্ট বাতিল হয়েছে"
+ },
+ {
+  "type": "appointment",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/P2AccountDeletion.kt",
+  "line": 54,
+  "title": ""
+ },
+ {
+  "type": "appointment",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/QueueActions.kt",
+  "line": 275,
+  "title": "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — চেম্বারে চলে আসুন"
+ },
+ {
+  "type": "appointment",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/QueueActions.kt",
+  "line": 531,
+  "title": "ডাক্তার: ঠিক আছে, আপনার সিরিয়াল থাকছে"
+ },
+ {
+  "type": "appointment",
+  "file": "backend/src/main/kotlin/com/lifolo/appointments/Reminders.kt",
+  "line": 61,
+  "title": "অ্যাপয়েন্টমেন্টের অনুরোধে সাড়া আসেনি"
+ },
+ {
+  "type": "badge",
+  "file": "backend/src/main/kotlin/com/lifolo/admin/VerifyActions.kt",
+  "line": 121,
+  "title": "আপনার ${k.labelBn}-এর কাগজের ছবি দিন"
+ },
+ {
+  "type": "badge",
+  "file": "backend/src/main/kotlin/com/lifolo/content/BadgeActions.kt",
+  "line": 250,
+  "title": "আপনার ব্যাজের তথ্য সংশোধন হয়েছে"
+ },
+ {
+  "type": "care",
+  "file": "backend/src/main/kotlin/com/lifolo/care/CareActions.kt",
+  "line": 149,
+  "title": "$me আপনাকে কেয়ারগিভার করতে চান"
+ },
+ {
+  "type": "care",
+  "file": "backend/src/main/kotlin/com/lifolo/care/CareActions.kt",
+  "line": 183,
+  "title": "$name এখন আপনার কেয়ারগিভার"
+ },
+ {
+  "type": "correction",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/BloodHttpController.kt",
+  "line": 147,
+  "title": "তারিখ সংশোধন হয়েছে"
+ },
+ {
+  "type": "correction",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/BloodHttpController.kt",
+  "line": 155,
+  "title": "তারিখ সংশোধনের অনুরোধ বাতিল হয়েছে"
+ },
+ {
+  "type": "eligible",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/BloodLifecycle.kt",
+  "line": 54,
+  "title": "আপনি আবার রক্ত দিতে পারবেন"
+ },
+ {
+  "type": "emergency",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/EmergencyService.kt",
+  "line": 151,
+  "title": "জরুরি: ${u.group} রক্ত দরকার"
+ },
+ {
+  "type": "emergency",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/EmergencyService.kt",
+  "line": 195,
+  "title": "জরুরি আহ্বান শেষ"
+ },
+ {
+  "type": "hospital",
+  "file": "backend/src/main/kotlin/com/lifolo/content/Hospitals.kt",
+  "line": 308,
+  "title": ""
+ },
+ {
+  "type": "med_find",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/MedFindService.kt",
+  "line": 172,
+  "title": "কাছে একজন ওষুধ খুঁজছেন"
+ },
+ {
+  "type": "med_find_mine",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/MedFindService.kt",
+  "line": 281,
+  "title": "${shop.name}-এ আছে"
+ },
+ {
+  "type": "request",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/DonorService.kt",
+  "line": 214,
+  "title": "আপনাকে নিশ্চিত করা হয়েছে, অনুগ্রহ করে আসুন"
+ },
+ {
+  "type": "request",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/DonorService.kt",
+  "line": 223,
+  "title": "আপাতত যথেষ্ট ডোনার পাওয়া গেছে, ধন্যবাদ!"
+ },
+ {
+  "type": "request",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestFlowService.kt",
+  "line": 116,
+  "title": "${request.patientGroup} রক্ত দরকার${if (request.urgent) "
+ },
+ {
+  "type": "request",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestFlowService.kt",
+  "line": 323,
+  "title": "রক্ত দেওয়ার জন্য ধন্যবাদ!"
+ },
+ {
+  "type": "request",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestFlowService.kt",
+  "line": 466,
+  "title": "আবার ডোনার লাগতে পারে"
+ },
+ {
+  "type": "request",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestFlowService.kt",
+  "line": 481,
+  "title": "${e.before.patientGroup} রক্তের রিকোয়েস্টে পরিবর্তন"
+ },
+ {
+  "type": "request_removed",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestEndService.kt",
+  "line": 54,
+  "title": ""
+ },
+ {
+  "type": "response",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/DonorService.kt",
+  "line": 144,
+  "title": "একজন নিশ্চিত ডোনার বাতিল করেছেন"
+ },
+ {
+  "type": "response",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/RequestFlowService.kt",
+  "line": 224,
+  "title": "একজন ডোনার রাজি হয়েছেন"
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 612,
+  "title": "আপনার পরীক্ষার রিপোর্ট এসেছে"
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt",
+  "line": 164,
+  "title": "${shop.name}-এ কিছু ওষুধ নেই"
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt",
+  "line": 169,
+  "title": "প্রেসক্রিপশনের ওষুধ দেওয়া হয়েছে"
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt",
+  "line": 466,
+  "title": ""
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/rx/RxActions.kt",
+  "line": 393,
+  "title": "$doctorName নতুন প্রেসক্রিপশন দিয়েছেন"
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/rx/RxDaily.kt",
+  "line": 27,
+  "title": "কাল $name-এর কাছে আবার দেখানোর দিন"
+ },
+ {
+  "type": "rx",
+  "file": "backend/src/main/kotlin/com/lifolo/rx/RxDaily.kt",
+  "line": 55,
+  "title": "২ দিন পর ওষুধ শেষ হবে — কিনে নিন"
+ },
+ {
+  "type": "rx_lab",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 421,
+  "title": "নতুন পরীক্ষা — বাসা থেকে নমুনা"
+ },
+ {
+  "type": "rx_lab",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 553,
+  "title": "বাসায় যেতে হবে না — রোগী প্যাথলজিতে এসে নমুনা দেবেন"
+ },
+ {
+  "type": "rx_lab",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 572,
+  "title": "রোগী বাসা থেকে নমুনার সময় বদলেছেন"
+ },
+ {
+  "type": "rx_pharmacy",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt",
+  "line": 355,
+  "title": "নতুন অনলাইন অর্ডার"
+ },
+ {
+  "type": "rx_pharmacy",
+  "file": "backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt",
+  "line": 388,
+  "title": "ক্রেতা প্রেসক্রিপশন ফিরিয়ে নিয়েছেন"
+ },
+ {
+  "type": "rx_review",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 623,
+  "title": "একটা রিপোর্ট দেখার অপেক্ষায়"
+ },
+ {
+  "type": "rx_review",
+  "file": "backend/src/main/kotlin/com/lifolo/lab/LabActions.kt",
+  "line": 729,
+  "title": "রিপোর্ট দেখার টাকা মিলিয়ে নিন"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/admin/kernel/ListingReview.kt",
+  "line": 168,
+  "title": "রিপোর্টের পর আপনার ${k.labelBn} বন্ধ করা হয়েছে। প্রোফাইলের \\"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 387,
+  "title": "কাছেই"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 390,
+  "title": "অ্যাম্বুলেন্স দরকার — $where"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbReqService.kt",
+  "line": 410,
+  "title": "রোগী অন্য গাড়ি নিয়েছেন"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/ambulance/AmbulanceService.kt",
+  "line": 143,
+  "title": "${a.name} — এখনো খালি আছেন?"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/BloodBankService.kt",
+  "line": 354,
+  "title": "Lifolo টিম আপনার ব্লাড ব্যাংকের তথ্য ঠিক করেছে"
+ },
+ {
+  "type": "services",
+  "file": "backend/src/main/kotlin/com/lifolo/blood/BloodBankService.kt",
+  "line": 386,
+  "title": "আপনার ব্লাড ব্যাংক তালিকা থেকে সরানো হয়েছে"
+ },
+ {
+  "type": "support",
+  "file": "backend/src/main/kotlin/com/lifolo/admin/SupportActions.kt",
+  "line": 197,
+  "title": "Lifolo টিমের উত্তর এসেছে"
+ }
+]
