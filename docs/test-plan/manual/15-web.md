@@ -15,7 +15,7 @@
 - ফল: ☐ পাস ☐ ফেল
 
 **M-WEB-03 · পাতা রিফ্রেশ ও সরাসরি লিংক** — 🟠
-- ধাপ: এই ঠিকানাগুলো সরাসরি খুলে F5: `/my-requests`, `/services/ambulance`, `/appointment`, `/health/discussion`, `/prescriptions`, `/work`, `/profile`, `/settings`, `/inbox`, `/help`, `/care`।
+- ধাপ: এই ঠিকানাগুলো সরাসরি খুলে F5: `/my-requests`, `/services/ambulance`, `/appointment`, `/health/discussion`, `/services/pharmacy/prescriptions`, `/prescriptions` (পুরোনো ঠিকানা — `/services/pharmacy/prescriptions`-এ চলে যাওয়ার কথা), `/work`, `/profile`, `/settings`, `/inbox`, `/help`, `/care`।
 - ঠিক হলে: প্রতিটা খোলে (সাদা পাতা বা ৪০৪ নয়); লগইন লাগলে লগইনের পর সেখানেই ফেরে; ভুল ঠিকানায় (`/abc`) "পাওয়া যায়নি" পাতা।
 - ফল: ☐ পাস ☐ ফেল
 
