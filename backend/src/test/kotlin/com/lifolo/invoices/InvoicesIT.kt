@@ -501,6 +501,28 @@ class InvoicesIT : P4Test() {
         assertEquals(DOC, invoices.requireOwner("bn", AuthUser(DOC), "chamber", DOC).id)
     }
 
+    @Test
+    fun `online chamber fee - confirming the bKash fee gives the patient a receipt once, none without a fee in numbers`() {
+        doctor(DOC)
+        person(PAT)
+        appt("ap1", PAT, DOC)
+        jdbc.update("UPDATE appointments SET online = TRUE, pay_state = 'claimed', pay_ref = 'TRX55', fee = '৫০০ টাকা' WHERE id = 'ap1'")
+        val inv = creators.onlineFeePaid("bn", AuthUser(DOC), "ap1")!!
+        assertEquals(BigDecimal("500.00"), inv.total)
+        assertEquals("bkash", inv.payments.single().method)
+        assertEquals("TRX55", inv.payments.single().ref)
+        assertEquals(PAT, inv.patientUid)
+        assertEquals("appointment", inv.refType)
+        assertNull(creators.onlineFeePaid("bn", AuthUser(DOC), "ap1"), "once")
+        appt("ap2", PAT, DOC)
+        jdbc.update("UPDATE appointments SET online = TRUE, pay_state = 'claimed', fee = 'ফোনে জানুন' WHERE id = 'ap2'")
+        assertNull(creators.onlineFeePaid("bn", AuthUser(DOC), "ap2"))
+        person("invNobody")
+        appt("ap3", PAT, DOC)
+        jdbc.update("UPDATE appointments SET online = TRUE, pay_state = 'claimed', fee = '300' WHERE id = 'ap3'")
+        assertNull(creators.onlineFeePaid("bn", AuthUser("invNobody"), "ap3"), "only the doctor's side")
+    }
+
     // ------------------------------------------------------------------ online prescription order
 
     @Test
