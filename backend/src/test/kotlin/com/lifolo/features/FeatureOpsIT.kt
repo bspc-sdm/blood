@@ -86,7 +86,7 @@ class FeatureOpsIT : IntegrationTest() {
         assertTrue(call("p1", "features").body["keys"].all { it.booleanValue() })
         assertEquals(1, push.messages.count { it.uid == "p1" && it.data["type"] == "features_changed" }, "one silent push")
         // audit like the admin page, actor ops-features
-        assertEquals(Features.KEYS.size, jdbc.queryForObject("SELECT count(*) FROM admin_log WHERE action = 'admin_feature_set' AND by_email = 'ops-features'", Int::class.java))
+        assertEquals(Features.KEYS.size, jdbc.queryForObject("SELECT count(*) FROM admin_log WHERE action = 'admin_feature_set' AND by_email = 'ops-features' AND detail = 'on'", Int::class.java))
         assertEquals("on", row("SELECT detail FROM admin_log WHERE target = 'features/chat' ORDER BY at DESC LIMIT 1")["detail"])
         assertEquals("ops-features", row("SELECT by_email FROM feature_changes ORDER BY id DESC LIMIT 1")["by_email"])
         assertEquals("ops-features", row("SELECT updated_by FROM feature_flags WHERE key = 'chat'")["updated_by"])
