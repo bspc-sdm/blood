@@ -7,7 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import com.google.firebase.FirebaseApp
@@ -104,9 +105,10 @@ class ConsentScreensTest {
         var later = 0
         show { HealthConsentDialog(s, readOnly = false, onAgree = {}, onLater = { later++ }) }
         rule.onNodeWithText(s.text.title).assertExists()
-        for (sec in s.text.sections) rule.onNodeWithText(sec.heading).performScrollTo().assertExists()
-        rule.onNodeWithText(s.text.scopes.getValue("health_data")).performScrollTo().assertExists()
-        rule.onNodeWithText(s.text.scopes.getValue("data_abroad")).performScrollTo().assertExists()
+        // every section and both consents are in the (scrolling) dialog
+        for (sec in s.text.sections) rule.onNodeWithText(sec.heading).assertExists()
+        rule.onNodeWithText(s.text.scopes.getValue("health_data")).assertExists()
+        rule.onNodeWithText(s.text.scopes.getValue("data_abroad")).assertExists()
         rule.onNodeWithTag("consent_agree").assertExists()
         shot("consent_screen")
         rule.onNodeWithTag("consent_later").performClick()
@@ -128,7 +130,7 @@ class ConsentScreensTest {
         show { HealthConsentSettings() }
         rule.onNodeWithText("গোপনীয়তা").assertExists()
         rule.onNodeWithTag("consent_state_health_data").assertExists()
-        rule.onNodeWithText("দেওয়া আছে · " + HealthConsent.dateOf(1_792_740_000_000L)).assertExists()
+        rule.onAllNodesWithText("দেওয়া আছে · " + HealthConsent.dateOf(1_792_740_000_000L)).assertCountEquals(2)
         rule.onNodeWithText("পুরো লেখা দেখুন").assertExists()
         shot("consent_settings")
         rule.onNodeWithTag("consent_withdraw").performClick()
@@ -143,7 +145,7 @@ class ConsentScreensTest {
         HealthConsent.status.value = HealthConsent.parse(status("withdrawn", at = 1_792_740_000_000L))
         show { HealthConsentSettings() }
         rule.onNodeWithText("সম্মতি দিন").assertExists()
-        rule.onNodeWithText("তুলে নিয়েছেন · " + HealthConsent.dateOf(1_792_740_000_000L)).assertExists()
+        rule.onAllNodesWithText("তুলে নিয়েছেন · " + HealthConsent.dateOf(1_792_740_000_000L)).assertCountEquals(2)
         rule.onNodeWithTag("consent_withdraw").assertDoesNotExist()
     }
 
