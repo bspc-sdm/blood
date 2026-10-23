@@ -158,6 +158,8 @@ object ServerApi {
                     if (errCode == "account_disabled") SessionEvents.disabled.value = json.optString("error")
                     // অ্যাকাউন্ট সাময়িক বন্ধ (423): পুরো অ্যাপ আটকে "আবার চালু করুন"
                     if (errCode == "account_deactivated" && token != null) AccountState.onDeactivatedError(startedAt)
+                    // সুবিধা বন্ধ (ফিচার সুইচ): সুইচগুলো নতুন করে, যাতে বোতাম লুকায়
+                    if (errCode == Features.OFF_CODE) Features.onPush()
                     throw ServerError(
                         errorMessage(errCode, json.optString("error"), code),
                         errCode.ifBlank { null },

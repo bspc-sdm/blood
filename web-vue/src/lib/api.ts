@@ -14,6 +14,8 @@ export const PUBLIC_ACTIONS = new Set([
   'ambulances', 'pharmacies', 'bloodbanks', 'labs', 'lab_prices_public',
   'drug_search', 'catalog_get',
   'invoice_verify',
+  // ফিচার সুইচ (lib/features.ts) — অতিথিও জানে কোনগুলো সবার জন্য চালু
+  'features',
 ]);
 
 export class ServerError extends Error {
@@ -45,6 +47,15 @@ export function onAccountDeactivated(f: DeactivatedListener) {
   };
 }
 
+const featureOffListeners = new Set<() => void>();
+/** সার্ভার বলল সুবিধাটা বন্ধ (404 `feature_off`) — lib/features নতুন করে আনে, যাতে বোতাম লুকায় */
+export function onFeatureOff(f: () => void) {
+  featureOffListeners.add(f);
+  return () => {
+    featureOffListeners.delete(f);
+  };
+}
+
 async function request(path: string, body: Record<string, unknown>, token: string | null): Promise<any> {
   const startedAt = Date.now();
   const payload = { lang: getLang(), ...body };
@@ -70,6 +81,7 @@ async function request(path: string, body: Record<string, unknown>, token: strin
     if (json.code === 'account_deactivated') deactivatedListeners.forEach((f) => f(startedAt));
     // রোগী কেয়ারগিভার থেকে সরিয়ে দিয়েছেন: মোড বন্ধ, যাতে বাকি সব আবার নিজের হয়ে চলে
     if (json.code === 'care_revoked') setCareMode(null);
+    if (json.code === 'feature_off') featureOffListeners.forEach((f) => f());
     throw new ServerError(json.error || tr(`Server error (${res.status})`, `সার্ভারে সমস্যা (${res.status})`), res.status, json.code);
   }
   return json;

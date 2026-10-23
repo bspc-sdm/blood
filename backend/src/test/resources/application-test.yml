@@ -13,6 +13,9 @@ lifolo:
     keys: "*"
   demo:
     online-chambers: true
+  # feature switches: every key on in tests (FeaturesIT turns it off for its own checks)
+  features:
+    all-on: true
 logging:
   level:
     root: WARN

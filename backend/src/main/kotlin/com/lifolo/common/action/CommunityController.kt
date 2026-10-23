@@ -94,7 +94,7 @@ class ActionDispatcher(
         }
         val actor = if (user.guest) user else care.actAs(body, user, lang)
         val ctx = ActionContext(req, res, body, actor, user, action)
-        val result = if (user.guest) guestCache.cached(body) { handler.handle(ctx) } else handler.handle(ctx)
+        val result = if (user.guest && action !in ActionPolicy.GUEST_UNCACHED) guestCache.cached(body) { handler.handle(ctx) } else handler.handle(ctx)
         if (action.startsWith("admin_") && !isUnchanged(result)) adminLog.log(action, user, body)
         return result
     }

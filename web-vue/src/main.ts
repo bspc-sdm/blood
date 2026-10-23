@@ -15,6 +15,7 @@ import { router } from './router';
 import './offline/routes';
 import { queryClient } from './lib/query';
 import { initSession } from './lib/session';
+import { initFeatures } from './lib/features';
 import { applyTheme } from './lib/theme';
 import { getLang } from './lib/i18n';
 import { vFocus } from './ui/composables';
@@ -36,6 +37,8 @@ window.addEventListener('vite:preloadError', (e) => {
 });
 document.documentElement.lang = getLang();
 initSession();
+// ফিচার সুইচ: কোন নতুন সুবিধা চালু (শুরুতে, লগইনে, ফিরে এলে, SSE features_changed)
+initFeatures();
 
 const app = createApp(App).use(VueQueryPlugin, { queryClient }).use(router).directive('focus', vFocus);
 app.mount('#root');

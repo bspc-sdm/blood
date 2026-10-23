@@ -41,7 +41,7 @@ ADMIN_EMAILS=ekapkbd@gmail.com \
 CRON_SECRET=e2e-cron-secret-0123456789 \
 WEB_SESSION_SECRET=e2e-web-session-secret-0123456789 \
 EMAIL_CODE_SECRET=e2e-email-code-secret-0123456789 \
-PUSH_MODE=fake SENTRY_DSN='' \
+PUSH_MODE=fake SENTRY_DSN='' FEATURES_ALL_ON=true \
   nohup java -Xmx1g -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -jar "$JAR" > "$LOG" 2>&1 &
 echo $! > "$LOG.pid"
 for i in $(seq 1 120); do

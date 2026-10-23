@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppPrefs.init(this)
+        // ফিচার সুইচ: ফোনে রাখা শেষ অবস্থা (নতুন করে আনা লগইন বদলালে আর ফিরে এলে)
+        Features.init(this)
         // সার্ভারের শেষ উত্তর (ইন্টারনেট না থাকলে দেখানোর জন্য)
         OfflineCache.init(this)
         Catalog.init(this)
@@ -261,6 +263,8 @@ fun App(
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            // ফিচার সুইচ: ফিরে এলে (মিনিটে একবারের বেশি নয়)
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) Features.refreshSoon()
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && profile != null) {
                 val uid = AuthRepository.currentUid
                 if (uid != null) scope.launch {
@@ -381,6 +385,12 @@ fun App(
             errorMsg = tr("Check your internet connection and try again", "ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন")
             resetTo(Screen.Login)
         }
+    }
+
+    // ফিচার সুইচ: অ্যাপ চালু হলে আর লগইন/লগআউটে (আগের মানুষের পাইলট সুবিধা পরের জনের কাছে নয়)
+    LaunchedEffect(LoginGate.uid.value) {
+        if (LoginGate.uid.value == null) Features.clear()
+        Features.refresh()
     }
 
     // নোটিফিকেশন থেকে এলে, মূল স্ক্রিন তৈরি হওয়ার পর রিকোয়েস্টটা খোলা

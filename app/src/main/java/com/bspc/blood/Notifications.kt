@@ -164,6 +164,12 @@ class BloodMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // ফিচার সুইচ বদলেছে (নীরব পুশ — নোটিফিকেশন নয়): সুইচগুলো নতুন করে
+        if (message.data["type"] == Features.PUSH_TYPE) {
+            Features.ensureInit(applicationContext)
+            Features.onPush()
+            return
+        }
         // লগআউট করা ফোনে, বা এই ফোনে এখন অন্য অ্যাকাউন্ট থাকলে, আগের অ্যাকাউন্টের নোটিফিকেশন দেখানো হয় না
         val me = AuthRepository.currentUid ?: return
         val to = message.data["forUid"]

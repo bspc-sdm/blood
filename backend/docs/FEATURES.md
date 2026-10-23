@@ -1,0 +1,123 @@
+# Lifolo — Feature switches (ধাপে ধাপে চালু) — shared contract
+
+The owner decided on 2026-10-23 to release in as many small steps as possible. All new features ship in the code but stay
+**OFF** until the owner switches them on from the admin page. Turning a feature on needs no app update.
+The flags agent owns `backend/docs/FEATURES.md`, and that file is final once it is on main.
+
+## Keys (exact strings)
+| key | what it unlocks |
+|---|---|
+| `calls_audio` | in-app audio calls (all contexts except appointments) |
+| `calls_video` | video calls + "ভিডিওতে ধরুন" + upgrade (needs calls_audio) |
+| `appt_video` | doctor video appointments: appt_join, the join screen (needs online_chamber) |
+| `chat` | in-app text messages |
+| `chat_media` | photos + location in messages (needs chat) |
+| `online_chamber` | online chamber setup/booking + bKash fee flow |
+| `inv_pharmacy` | pharmacy receipts (books sale invoice, online order delivered lines) |
+| `inv_lab` | lab bills/receipts |
+| `inv_chamber` | doctor/assistant fee receipts + chamber desk |
+| `inv_ambulance` | ambulance trip finish + fare receipt |
+| `my_expenses` | patient "আমার রসিদ ও খরচ" (shows receipts of enabled kinds only) |
+| `desktop` | desktop_register/offline_* + desktop download link |
+
+## Modes per key
+`{mode: "off"|"pilot"|"on", pilotUids: [uid…], demo: boolean}`
+- `off`: nobody gets the feature. This is the default for every key in production.
+- `pilot`: only the uids in `pilotUids`, plus every demo account when `demo:true`.
+- `on`: everyone.
+- Dependencies: a key counts as on for a user only if every key it needs is also on for that user.
+- **Two-party features** (calls, chat, appt_video): the feature must be on for BOTH users. Otherwise `contact_can` returns false for that flag.
+- Test/CI profile: every key is on.
+
+## Backend
+- `Features.isOn(uid: String?, key: String): Boolean`. The result is cached in Redis for 30 s, and the cache is cleared on admin change.
+- `Features.require(ctx, key)`: throws 404 code `feature_off` with the Bangla message "এই সুবিধা এখনো চালু হয়নি".
+- EVERY action of a gated feature calls `require` first. Pushes and inbox entries for an off feature are not sent.
+- `features` action (guest allowed) → `{keys: {calls_audio: true, …}, v: <version int>}` for the caller.
+- `admin_features_get` → all keys with mode/pilotUids/demo and the last change.
+- `admin_feature_set {key, mode, pilotUids?, demo?}`: admin only, audited.
+  - After a change, send the silent FCM data push `features_changed {v}` to affected users. Sending to the topic `all` is fine.
+  - Also emit the SSE event `features_changed`.
+
+## Clients
+- **Android:** `object Features { val keys: StateFlow<Map<String,Boolean>>; fun on(key): Boolean; suspend fun refresh() }`
+  - Refresh on app start, login, resume (at most once a minute), and on the `features_changed` push.
+  - Persist the last keys so the app works offline.
+  - Every entry point of a gated feature is hidden while it's off: buttons, tabs, menu rows, settings switches.
+  - A deep link to an off feature shows "এই সুবিধা শিগগির আসছে".
+- **Web/desktop:** `web-vue/src/lib/features.ts`, which exports `featureOn(key)` (reactive) and `refreshFeatures()`.
+  - Same refresh rules, plus the SSE `features_changed` event.
+  - Router guard on gated routes.
+- Server `feature_off` errors show the same Bangla text and never crash.
+
+## Admin page
+`web-vue/admin`, page "ফিচার সুইচ":
+- A card per key: Bangla name + one-line description.
+- Mode buttons বন্ধ / পাইলট / সবার জন্য.
+- Pilot user list: add users by email or phone using the existing admin user search, remove them.
+- A "ডেমো অ্যাকাউন্টে চালু" toggle.
+- A confirm step before "সবার জন্য".
+- Change history.
+
+---
+
+## How to use it (helpers)
+
+### Backend — `com.lifolo.features.Features` (Spring bean)
+```kotlin
+class ChatActions(private val features: Features, …) : ActionModule {
+    fun send(ctx: ActionContext): Any {
+        features.require(ctx, Features.CHAT)              // first line of EVERY action of the feature
+        if (!features.bothOn(ctx.user.id, peerUid, Features.CHAT)) throw …   // two-party features
+        …
+        if (features.isOn(peerUid, Features.CHAT)) push.pushUsers(…)          // no push/inbox for an off feature
+    }
+}
+```
+- `isOn(uid: String?, key)`; `uid = null` is a guest (only `on` counts). Unknown keys are off.
+- `require(ctx, key)` checks the **caller** (`ctx.caller`, the person holding the phone — also when a caregiver acts
+  for a patient). `require(uid, key, lang)` is the same check outside an action (HTTP endpoints, jobs).
+- Error: HTTP 404 `{error: "এই সুবিধা এখনো চালু হয়নি", code: "feature_off"}` (English "This feature is not available yet"
+  for `lang: "en"`).
+- Key constants: `Features.CALLS_AUDIO … Features.DESKTOP`; `Features.NEEDS` (dependencies), `Features.TWO_PARTY`.
+- Cache: the settings (all keys + version) live in Redis `lifolo:features` for 30 s; `clearCache()` after a change.
+  When Redis fails, the database answers.
+- `lifolo.features.all-on` (env `FEATURES_ALL_ON`, default false): every key on for everyone. On in the test profile
+  (`application-test.yml`) and the e2e server (`e2e/spring.sh`); never in production. A test that checks the
+  off/pilot behaviour sets `features.allOn = false` and restores it afterwards (see `FeaturesIT`).
+
+### Tables (V670)
+- `feature_flags (key PK, mode off|pilot|on, pilot_uids text[], demo, updated_at, updated_by)` — no row = off.
+- `feature_changes` — one row per admin change (history; `max(id)` is the version `v`).
+- `feature_clients (uid)` — accounts whose app has called `features`; only they get the silent `features_changed`
+  push (an older app would show an empty notification).
+
+### `features` action
+Guest allowed (`ActionPolicy.PUBLIC_ACTIONS`) and **never** served from the 1-minute guest cache
+(`ActionPolicy.GUEST_UNCACHED`). Answer: `{keys: {calls_audio: false, chat: true, …all 12…}, v: 12}`.
+
+### Android — `app/src/main/java/com/bspc/blood/Features.kt`
+```kotlin
+if (Features.on(Features.CHAT)) { … }                     // plain code
+val chatOn = featureOn(Features.CHAT)                      // in a @Composable (recomposes on change)
+Features.keys                                              // StateFlow<Map<String, Boolean>>
+suspend Features.refresh()                                 // force; refreshSoon() = at most once a minute
+Features.soonText()                                        // "এই সুবিধা শিগগির আসছে" for a deep link to an off feature
+Features.isFeatureOff(e)                                   // ServerError code feature_off
+```
+Wired already: `Features.init` in `MainActivity.onCreate` (last keys from SharedPreferences), refresh on start and every
+login/logout (`LoginGate.uid`), `refreshSoon()` on every resume, the `features_changed` data push
+(`BloodMessagingService`, no notification shown), and any `feature_off` server error (ServerApi).
+
+### Web — `web-vue/src/lib/features.ts`
+```ts
+import { featureOn, featureGuard, gateRoutes, isFeatureOff, featureSoonText } from '@/lib/features';
+v-if="featureOn('chat')"                                   // reactive
+{ path: '/messages', component: Chat, beforeEnter: featureGuard('chat') }   // off → toast "শিগগির আসছে" + '/'
+gateRoutes(router, { '/messages': 'chat', '/work/desk': 'inv_chamber' })   // by path prefix (section routes)
+```
+Wired already: `initFeatures()` in `main.ts` — refresh on start, on login change, when the tab becomes visible (at most
+once a minute), on any `feature_off` error, and on the SSE event `features_changed` from `/api/events` (read with
+`fetch` because `EventSource` cannot send the token). Last keys kept in `localStorage` (`lf.features`).
+Tests: the mocked API (`test/fixtures/features.mjs`) answers every key on; a Playwright test can set
+`window.__lfTest.features = { chat: false }` to see the off state.

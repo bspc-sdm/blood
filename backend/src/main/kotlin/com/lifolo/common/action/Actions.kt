@@ -96,7 +96,12 @@ object ActionPolicy {
         "drug_search", "catalog_get",
         // the public receipt check (lifolo.com/v/<code>): business, no, date, total, paid/due, valid/void — no personal data
         "invoice_verify",
+        // feature switches (features/FeatureActions.kt) — answered per caller, never from the guest cache
+        "features",
     )
+
+    /** public actions whose guest answer must not be cached (it changes the moment an admin flips a switch) */
+    val GUEST_UNCACHED: Set<String> = setOf("features")
 
     val CARE_ACTIONS: Set<String> = setOf(
         "rx_mine", "rx_get", "rx_claim", "rx_activity", "rx_pharmacy_options", "rx_send_pharmacy", "rx_order_withdraw", "rx_shop_find",
