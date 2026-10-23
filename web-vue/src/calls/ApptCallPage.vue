@@ -41,7 +41,7 @@ function join() {
           : tr('You can join from 15 minutes before your time. Wait in the call — the doctor joins when it is your turn.', 'সময়ের ১৫ মিনিট আগে থেকে যুক্ত হতে পারবেন। কলে অপেক্ষা করুন — আপনার পালা এলে ডাক্তার যুক্ত হবেন।') /* bn-ok */ }}
       </p>
       <!-- ফিচার সুইচ appt_video বন্ধ: শিগগির আসছে -->
-      <EmptyState v-if="!featureOn('appt_video')" icon="videocam" :title="comingSoon()" data-testid="feature-soon" />
+      <EmptyState v-if="!featureOn('appt_video') || !featureOn('online_chamber')" icon="videocam" :title="comingSoon()" data-testid="feature-soon" />
       <EmptyState v-else-if="!mediaSupported()" icon="warning" :title="T.noSupport()" />
       <template v-else>
         <InfoText :text="T.permAsk(true)" />

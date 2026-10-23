@@ -119,7 +119,7 @@ async function joinReady() {
   </div>
 
   <!-- ডাক্তার অনলাইন অ্যাপয়েন্টমেন্টের কলে আছেন -->
-  <div v-else-if="callUi.apptReady && callUi.phase === 'idle' && featureOn('appt_video')" class="call-banner" role="status" data-testid="appt-call-ready">
+  <div v-else-if="callUi.apptReady && callUi.phase === 'idle' && featureOn('appt_video') && featureOn('online_chamber')" class="call-banner" role="status" data-testid="appt-call-ready">
     <div class="who">
       <span class="pulse"><Icon name="videocam" /></span>
       <span class="name grow">{{ tr('The doctor is in the video call — join', 'ডাক্তার ভিডিও কলে আছেন — যুক্ত হোন') /* bn-ok */ }}</span>

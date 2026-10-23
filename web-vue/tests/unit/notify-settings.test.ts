@@ -13,6 +13,7 @@ vi.mock('@/lib/api', () => ({
 import NotifySettings from '@/sections/account/NotifySettings.vue';
 import { NOTIFY_CATS, normalizePrefs, revertChange, withChange } from '@/lib/notifyPrefs';
 import { toastMessage } from '@/ui/toast';
+import { setFeaturesForTest } from '@/lib/features';
 
 // ConfirmDialog-এর বদলে সাধারণ বাক্স (Reka-র পোর্টাল লাগে না)
 const ConfirmStub = defineComponent({
@@ -32,6 +33,8 @@ type Server = { all: boolean; cats: Record<string, boolean>; sets: Record<string
 let st: Server;
 
 beforeEach(() => {
+  // "অ্যাপে কল" (calls) ধরনটা ফিচার সুইচ calls_audio চালু থাকলে তবেই
+  setFeaturesForTest({ calls_audio: true });
   localStorage.setItem('lf.lang', 'bn');
   toastMessage.value = null;
   st = { all: true, cats: Object.fromEntries(NOTIFY_CATS.map((c) => [c, true])), sets: [], fail: false };
