@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
  * feature to open or send.
  *
  * SHIM until spring-p19's `Features.isOn / require / bothOn` is on main: delegates to the calls' shim [CallFeatures]
- * (`lifolo.feature-shim.on`; empty in production = everything OFF, `*` in the test profile), so `contact_can`'s
+ * (`lifolo.feature-shim` keys; empty in production = everything OFF, `*` in the test profile), so `contact_can`'s
  * canMessage and the chat actions read the same switch. [override] lets tests switch a key per person.
  * On the rebase onto p19, [isOn] delegates to `Features.isOn` and this class stays the single place chat asks.
  */
