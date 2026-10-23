@@ -163,7 +163,7 @@ test('কলের রিপোর্ট: মেনু (calls_audio পাইল
     return route.fallback();
   });
   await login(page);
-  await expect(page.locator('nav.nav a', { hasText: 'অনলাইন ও কলের রিপোর্ট' })).toBeVisible();
+  await expect(page.locator('nav.nav a', { hasText: 'অনলাইন, কল ও মেসেজের রিপোর্ট' })).toBeVisible();
   await page.goto('/admin#/callreports');
   await expect(page.locator('.topbar h1')).toContainText('কলের রিপোর্ট');
   const main = page.locator('main.page');
@@ -174,4 +174,38 @@ test('কলের রিপোর্ট: মেনু (calls_audio পাইল
   await expect(main.getByRole('tab', { name: 'কল' })).toHaveAttribute('aria-selected', 'true');
   await main.getByRole('button', { name: 'সমাধান হয়েছে' }).click();
   await expect.poll(() => sets[0]).toMatchObject({ id: 'c1', status: 'resolved' });
+});
+
+test('মেসেজের রিপোর্ট: লেখা আর ছবি শুধু অ্যাডমিনের পাতায়, সমাধান', async ({ page }) => {
+  const errs = watchErrors(page);
+  const sets: any[] = [];
+  // ১×১ পিক্সেলের JPEG নয়, PNG-ও চলে — data: URL CSP-তে অনুমোদিত
+  const PIX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  await page.route('**/api/community', async (route) => {
+    const body = JSON.parse(route.request().postData() || '{}');
+    const json = (x: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(x) });
+    if (body.action === 'admin_features_get') return json({ items: [{ key: 'chat', mode: 'on', pilotUids: [], pilots: [], demo: false, needs: [], twoParty: true }], history: [], v: 1 });
+    if (body.action === 'admin_chat_reports') {
+      return json({ ok: true, items: body.status === 'open' ? [{
+        id: 'm1', messageId: 'msg1', threadId: 't1', reason: 'spam', note: '', status: 'open', createdAt: Date.now(),
+        reporter: { uid: 'u1', name: 'রহিম' }, reported: { uid: 'u2', name: 'করিম' },
+        message: { ctx: 'blood', kind: 'photo', text: 'টাকা পাঠান', at: Date.now() }, photo: `data:image/png;base64,${PIX}`,
+      }] : [] });
+    }
+    if (body.action === 'admin_chat_report_resolve') {
+      sets.push(body);
+      return json({ ok: true });
+    }
+    return route.fallback();
+  });
+  await login(page);
+  await page.goto('/admin#/msgreports');
+  await expect(page.locator('.topbar h1')).toContainText('মেসেজের রিপোর্ট');
+  const main = page.locator('main.page');
+  await expect(main).toContainText('স্প্যাম');
+  await expect(main).toContainText('টাকা পাঠান');
+  await expect(main.getByRole('img', { name: 'রিপোর্ট করা ছবি' })).toBeVisible();
+  await main.getByRole('button', { name: 'বাদ দিন' }).click();
+  await expect.poll(() => sets[0]).toMatchObject({ id: 'm1', status: 'dismissed' });
+  expect(errs).toEqual([]);
 });

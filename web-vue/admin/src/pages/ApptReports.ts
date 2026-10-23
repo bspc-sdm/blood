@@ -19,12 +19,12 @@ export function apptReportsOn(): boolean {
       .then((r: J) => (modes.value = Object.fromEntries(((r && r.items) || []).map((x: J) => [x.key, x.mode]))))
       .catch(() => (modes.value = {}));
   }
-  return live('online_chamber') || live('calls_audio');
+  return live('online_chamber') || live('calls_audio') || live('chat');
 }
 
-/** রিপোর্টের ধরন: অনলাইন অ্যাপয়েন্টমেন্ট / কল (মেসেজ — chat_report এলে) */
-const kindTabs = (cur: 'appt' | 'call') => h('div', { class: 'seg', role: 'tablist', 'aria-label': 'রিপোর্টের ধরন' }, // bn-ok
-  ([['apptreports', 'appt', 'অনলাইন অ্যাপয়েন্টমেন্ট'], ['callreports', 'call', 'কল']] as const).map(([path, k, label]) => // bn-ok
+/** রিপোর্টের ধরন: অনলাইন অ্যাপয়েন্টমেন্ট / কল / মেসেজ */
+const kindTabs = (cur: 'appt' | 'call' | 'msg') => h('div', { class: 'seg', role: 'tablist', 'aria-label': 'রিপোর্টের ধরন' }, // bn-ok
+  ([['apptreports', 'appt', 'অনলাইন অ্যাপয়েন্টমেন্ট'], ['callreports', 'call', 'কল'], ['msgreports', 'msg', 'মেসেজ']] as const).map(([path, k, label]) => // bn-ok
     h('a', { href: `#/${path}?s=open`, class: k === cur ? 'on' : null, role: 'tab', 'aria-selected': k === cur ? 'true' : 'false', text: label })));
 
 const STATUS: Record<string, string> = { open: 'খোলা', resolved: 'সমাধান হয়েছে', dismissed: 'বাদ দেওয়া' }; // bn-ok
@@ -113,5 +113,49 @@ export const CallReports = definePage('PageCallReports', async (r, { alive }) =>
         actionBtn('বাদ দিন', 'quiet', set(x.id, 'dismissed'), 'রিপোর্ট বাদ দেওয়া হয়েছে', after), // bn-ok
       ]
       : [actionBtn('আবার খুলুন', 'quiet', set(x.id, 'open'), 'রিপোর্ট আবার খোলা হয়েছে', after)])), // bn-ok
+  ];
+});
+
+// ---------- মেসেজের রিপোর্ট (#/msgreports?s=open) — admin_chat_reports / admin_chat_report_resolve (CHAT.md) ----------
+// রিপোর্ট করা মেসেজের লেখা আর ছবি শুধু অ্যাডমিন দেখেন (রিপোর্টের সময় রাখা কপি — মুছে ফেললেও থাকে)।
+const photoSrc = (p: unknown) => (typeof p === 'string' && p ? (p.startsWith('data:') ? p : `data:image/jpeg;base64,${p}`) : null);
+
+export const MessageReports = definePage('PageMessageReports', async (r, { alive }) => {
+  const st = ['open', 'resolved', 'dismissed'].includes(r.params.get('s') || '') ? (r.params.get('s') as string) : 'open';
+  const res = await act('admin_chat_reports', { status: st });
+  if (!alive()) return;
+  const items = ref<J[]>(res.items || []);
+  setTitle('মেসেজের রিপোর্ট', `${bn(items.value.length)}টা ${STATUS[st]}`); // bn-ok
+  const set = (id: string, status: string) => () => act('admin_chat_report_resolve', { id, status });
+  const after = () => route(false, true);
+  return () => [
+    kindTabs('msg'),
+    toolbar({ tabs: Object.entries(STATUS) as [string, string][], current: st, base: 'msgreports', count: items.value.length }),
+    h('p', { class: 'note', text: 'রিপোর্ট করা মেসেজ (লেখা/ছবি) শুধু এখানে দেখা যায়। যাঁর নামে রিপোর্ট, তাঁর পাতা খুলে ব্যবস্থা নিন।' }), // bn-ok
+    table(items.value, [
+      { label: 'কেন', main: true, cell: (x) => [ // bn-ok
+        h('div', { class: 'chips' }, h('span', { class: 'chip bad', text: CALL_REASON[x.reason] || x.reason || '—' })),
+        x.note ? h('div', { class: 'body', text: x.note }) : null,
+        h('div', { class: 'small', text: fmtDT(x.createdAt) }),
+      ] },
+      { label: 'মেসেজ', cell: (x) => { // bn-ok
+        const m = x.message || {};
+        const src = photoSrc(x.photo);
+        return [
+          m.text ? h('div', { class: 'body', text: m.text }) : null,
+          src ? h('img', { src, alt: 'রিপোর্ট করা ছবি', style: 'max-width:180px;max-height:180px;border-radius:8px;display:block' }) : null, // bn-ok
+          m.location ? h('div', { class: 'small', text: `লোকেশন: ${m.location.lat}, ${m.location.lng}` }) : null, // bn-ok
+          m.unsent ? h('div', { class: 'small', text: 'পাঠানোর পর মুছে ফেলা হয়েছে' }) : null, // bn-ok
+          h('div', { class: 'small', text: [m.ctx || null, m.at ? fmtDT(m.at) : null].filter(Boolean).join(' · ') }),
+        ];
+      } },
+      { label: 'যাঁর নামে', cell: (x) => person(x.reported) }, // bn-ok
+      { label: 'কে করেছেন', cell: (x) => person(x.reporter) }, // bn-ok
+    ], (x) => (x.status === 'open'
+      ? [
+        actionBtn('সমাধান হয়েছে', 'primary', set(x.id, 'resolved'), 'রিপোর্ট সমাধান হয়েছে', after), // bn-ok
+        actionBtn('বাদ দিন', 'quiet', set(x.id, 'dismissed'), 'রিপোর্ট বাদ দেওয়া হয়েছে', after), // bn-ok
+      ]
+      : null)),
   ];
 });

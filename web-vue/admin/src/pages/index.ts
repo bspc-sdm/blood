@@ -11,7 +11,7 @@ import { Admins, Corrections, Hospitals, Log, Reports } from './Simple';
 import { Ticket, Tickets } from './Tickets';
 import { User, Users } from './Users';
 import Demo from './Demo';
-import { ApptReports, CallReports } from './ApptReports';
+import { ApptReports, CallReports, MessageReports } from './ApptReports';
 import Features from './Features';
 
 export { Dashboard };
@@ -32,6 +32,7 @@ export const PAGES: Record<string, Component> = {
   reports: Reports,
   apptreports: ApptReports,
   callreports: CallReports,
+  msgreports: MessageReports,
   corrections: Corrections,
   users: Users,
   user: User,

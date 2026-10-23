@@ -392,7 +392,7 @@ test('অ্যাডমিন: "অনলাইন অ্যাপয়েন�
   await page.locator('input[autocomplete=one-time-code]').fill('১২৩৪৫৬');
   await page.getByRole('button', { name: 'লগইন করুন' }).click();
   await expect(page.locator('.shell')).toBeVisible();
-  const link = page.locator('nav.nav a', { hasText: 'অনলাইন ও কলের রিপোর্ট' });
+  const link = page.locator('nav.nav a', { hasText: 'অনলাইন, কল ও মেসেজের রিপোর্ট' });
   await expect(link).toBeVisible();
   await page.goto('/admin#/apptreports');
   await expect(page.locator('.topbar h1')).toContainText('অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট');
