@@ -104,6 +104,7 @@ function validate(): string | null {
     if (ch.some((c) => !c.fee.trim() && !c.noFee)) return tr('Enter the fee for each chamber, or tick "No fee"', 'প্রতিটা চেম্বারে ফি দিন, অথবা "ফি চাই না" টিক দিন');
     if (ch.some((c) => c.mode === 'online' && !c.noFee && !normBkash(c.bkashNumber))) return OT.errBkash();
     if (ch.some((c) => c.mode === 'online' && hasPhone(c.note))) return OT.errNotePhone();
+    if (ch.filter((c) => c.mode === 'online').length > 1) return OT.errOneOnline();
   }
   if (h.enabled) {
     if (!h.services.length) return tr('Choose the services you provide at home', 'বাসায় কোন কোন সেবা দেন বেছে নিন');
@@ -177,6 +178,8 @@ function addChamber() {
 }
 // অনলাইন (ভিডিও) চেম্বার — শুধু ডাক্তার (চুক্তি: "Online chambers (doctor)"); bKash আগে থেকে নিজের ফোন নম্বর
 const canOnline = computed(() => props.type === 'doctor');
+// সর্বোচ্চ ৩টা জায়গার চেম্বার, তার বাইরে একটা অনলাইন (সার্ভারের নিয়ম)
+const placeCount = computed(() => chambers.value.filter((c) => c.mode !== 'online').length);
 function addOnline() {
   chambers.value = [...chambers.value, { ...blankOnline(normBkash(s.profile?.phone ?? '') ?? ''), key: nextKey() }];
 }
@@ -253,8 +256,8 @@ const upName = (id: number) => {
           @district="districtFor = i"
           @remove="chambers = chambers.filter((_, j) => j !== i)"
         />
-        <button v-if="chambers.length < MAX_CHAMBERS" type="button" class="appt-add-ch" @click="addChamber"><Icon name="add" />{{ tr('Add chamber', 'চেম্বার যোগ করুন') }}</button>
-        <button v-if="canOnline && chambers.length < MAX_CHAMBERS" type="button" class="appt-add-ch" data-testid="add-online" @click="addOnline"><Icon name="language" />{{ OT.addOnline() }}</button>
+        <button v-if="placeCount < MAX_CHAMBERS" type="button" class="appt-add-ch" @click="addChamber"><Icon name="add" />{{ tr('Add chamber', 'চেম্বার যোগ করুন') }}</button>
+        <button v-if="canOnline && !chambers.some((c) => c.mode === 'online')" type="button" class="appt-add-ch" data-testid="add-online" @click="addOnline"><Icon name="language" />{{ OT.addOnline() }}</button>
       </div>
     </section>
 

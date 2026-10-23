@@ -1,11 +1,11 @@
 // অনলাইন (ভিডিও) চেম্বার: ফি bKash-এ (ডাক্তারের নিজের নম্বরে, অ্যাপে টাকা নেওয়া নয়), টাকার অবস্থা, কলের সময়ের জানালা।
-// চুক্তি: scratchpad calls/CONTRACT.md ("Online chambers") আর সার্ভারের backend/docs/CALLS.md (spring-p15)।
+// চুক্তি: সার্ভারের backend/docs/CHAMBERS-ONLINE.md (spring-p15) আর CALLS.md।
 // কল নিজে web-calls শাখার (/appointments/:id/call) — এখানে শুধু লিংক।
 // এগুলো নতুন লেখা (React-এ আগের রূপ নেই) — তাই বাংলা লাইনে bn-ok।
 import { tr } from '@/lib/i18n';
 
 export type ChamberMode = 'in_person' | 'online';
-/** rejected: ডাক্তার/সহকারী "পাইনি" বলেছেন (সার্ভার payState "rejected", অথবা "unpaid" + payRejected/কারণ) */
+/** rejected: ডাক্তার/সহকারী "পাইনি" বলেছেন — সার্ভারে payState "unpaid" + payNote (কারণ; নতুন দাবিতে মোছে) */
 export type PayState = 'unpaid' | 'claimed' | 'paid' | 'rejected';
 
 /** অ্যাপয়েন্টমেন্টের অনলাইন অংশ (my_appointments / rx_patients.appointments) */
@@ -29,7 +29,7 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '');
 export function parsePayState(o: any): PayState {
   const raw = o?.payState;
   if (raw === 'paid' || raw === 'claimed' || raw === 'rejected') return raw;
-  if (o?.payRejected === true || str(o?.payRejectReason) || str(o?.payReason)) return 'rejected';
+  if (raw === 'unpaid' && (o?.payNote != null || o?.payRejected === true || str(o?.payRejectReason))) return 'rejected';
   return 'unpaid';
 }
 export function parseOnline(o: any): OnlinePart {
@@ -37,10 +37,11 @@ export function parseOnline(o: any): OnlinePart {
     online: o?.online === true || o?.mode === 'online' || o?.chamberMode === 'online',
     payState: parsePayState(o),
     payRef: str(o?.payRef),
-    payReason: str(o?.payRejectReason) || str(o?.payReason),
+    payReason: str(o?.payNote) || str(o?.payRejectReason),
     bkashNumber: str(o?.bkashNumber),
     fee: str(o?.fee),
-    noFee: o?.noFee === true,
+    // payState null = কিছু দেওয়ার নেই (ফি নেই বা ০ টাকা)
+    noFee: o?.noFee === true || (o?.online === true && o?.payState == null),
     onlineNote: str(o?.onlineNote),
     startAt: typeof o?.start === 'number' ? o.start : typeof o?.startAt === 'number' ? o.startAt : 0,
     doctorJoined: o?.doctorJoined === true,
@@ -56,7 +57,11 @@ export function normBkash(v: string): string | null {
   return /^01[3-9]\d{8}$/.test(d) ? d : null;
 }
 /** TrxID: অক্ষর আর অঙ্ক, বড় হাতের, সর্বোচ্চ ২০ */
-export const trxInput = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 20);
+export const trxInput = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 30);
+/** সার্ভার: ৬–৩০ অক্ষর/অঙ্ক (খালি = TrxID ছাড়া) */
+export const trxOk = (v: string) => !v || /^[0-9A-Z]{6,30}$/.test(v);
+/** অনলাইন চেম্বারের key (chamberKey) */
+export const ONLINE_KEY = 'online';
 
 /** নোটে ফোন নম্বর চলে না (সার্ভার 400 দেয়) — ৭+ অঙ্ক একটানা (ফাঁকা/ড্যাশ বাদে, বাংলা অঙ্কসহ) */
 export function hasPhone(v: string): boolean {
@@ -109,6 +114,8 @@ export const T = {
   noteHint: () => tr('Only patients who booked see it. No phone numbers.', 'শুধু অ্যাপয়েন্টমেন্ট নেওয়া রোগীরা দেখবেন। ফোন নম্বর দেবেন না।'), // bn-ok
   errNotePhone: () => tr("The note can't have a phone number", 'নোটে ফোন নম্বর দেওয়া যাবে না'), // bn-ok
   bkashLater: () => tr('The new number starts after 24 hours', 'নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে'), // bn-ok
+  errTrx: () => tr('Write the TrxID from the bKash SMS (English letters and digits)', 'বিকাশ মেসেজের TrxID লিখুন (ইংরেজি অক্ষর ও সংখ্যা)'), // bn-ok
+  errOneOnline: () => tr('You can keep only one online chamber', 'অনলাইন চেম্বার একটাই রাখা যায়'), // bn-ok
   trxUsed: () => tr('This TrxID was already used. Check it and write the right one.', 'এই TrxID আগেই ব্যবহার হয়েছে। মিলিয়ে সঠিক TrxID লিখুন।'), // bn-ok
   report: () => tr('Report', 'রিপোর্ট করুন'), // bn-ok
   reportWhy: () => tr("Paid, but the doctor didn't join the call?", 'ফি দিয়েছেন, কিন্তু ডাক্তার কলে আসেননি?'), // bn-ok

@@ -8,7 +8,7 @@ import { dateInputValue, fromDateInput } from '@/lib/format';
 import { tr } from '@/lib/i18n';
 import { DAY_MS, chamberLabel, chamberOpenOn, chamberTimeText, today, type FamilyMember, type Provider } from './model';
 import { dayChip, nextOpenDays } from './doctors';
-import { T as OT } from './online';
+import { ONLINE_KEY, T as OT } from './online';
 
 const props = defineProps<{ provider: Provider; index: number }>();
 const emit = defineEmits<{ close: []; booked: [] }>();
@@ -42,7 +42,7 @@ async function send() {
       chamberIndex: props.index,
       date: d,
       note: note.value.trim(),
-      chamberKey: ch.hospitalId || ch.hospitalName,
+      chamberKey: ch.mode === 'online' ? ONLINE_KEY : ch.hospitalId || ch.hospitalName,
       ...(memberId.value ? { memberId: memberId.value } : {}),
     });
     emit('booked');

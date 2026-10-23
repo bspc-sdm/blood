@@ -6,7 +6,7 @@ import { Button, ErrorText, InfoText, Tag, TextInput, toast, useNow } from '@/ui
 import { ServerError, call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
 import type { Appointment } from '../model';
-import { T, canReportNoShow, payLabel, payTone, trxInput } from './index';
+import { T, canReportNoShow, payLabel, payTone, trxInput, trxOk } from './index';
 import ReasonReportDialog from '../ReasonReportDialog.vue';
 
 const props = defineProps<{ a: Appointment }>();
@@ -41,17 +41,21 @@ function copy() {
   );
 }
 async function claim() {
+  const ref_ = trxInput(trx.value);
+  if (!trxOk(ref_)) {
+    err.value = T.errTrx();
+    return;
+  }
   busy.value = true;
   err.value = null;
   try {
-    const ref_ = trxInput(trx.value);
     await call('appt_pay_claim', { appointmentId: props.a.id, ...(ref_ ? { payRef: ref_ } : {}) });
     toast(T.sentToast());
     trx.value = '';
     emit('changed');
   } catch (e) {
     // একই TrxID আবার: 409
-    err.value = e instanceof ServerError && e.status === 409 ? T.trxUsed() : errorText(e);
+    err.value = e instanceof ServerError && e.status === 409 && !['state', 'not_online', 'no_fee'].includes(e.code ?? '') ? T.trxUsed() : errorText(e);
   } finally {
     busy.value = false;
   }

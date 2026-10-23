@@ -16,7 +16,7 @@ vi.mock('@/lib/api', () => ({
 }));
 import { ServerError } from '@/lib/api';
 
-import { apptStartMs, callPath, canJoinCall, canReportNoShow, hasPhone, normBkash, parseOnline, parsePayState, trxInput, CALL_EARLY_MS, CALL_LATE_MS } from '@/sections/appointment/online';
+import { apptStartMs, callPath, canJoinCall, canReportNoShow, hasPhone, normBkash, parseOnline, parsePayState, trxInput, trxOk, CALL_EARLY_MS, CALL_LATE_MS } from '@/sections/appointment/online';
 import { chamberLabel, parseAppointment, parseChamber } from '@/sections/appointment/model';
 import { blankOnline, chamberJson } from '@/sections/appointment/pro/chamber';
 import OnlinePayCard from '@/sections/appointment/online/OnlinePayCard.vue';
@@ -60,6 +60,9 @@ describe('নিয়ম', () => {
     expect(normBkash('01212345678')).toBeNull();
     expect(normBkash('0171234567')).toBeNull();
     expect(trxInput(' 9gh7-k2lm 1p ')).toBe('9GH7K2LM1P');
+    expect(trxOk('')).toBe(true);
+    expect(trxOk('ABC12')).toBe(false);
+    expect(trxOk('ABC123')).toBe(true);
   });
 
   it('টাকার অবস্থা: rejected সরাসরি বা unpaid + কারণ', () => {
@@ -69,6 +72,12 @@ describe('নিয়ম', () => {
     expect(parsePayState({ payState: 'unpaid', payRejected: true })).toBe('rejected');
     expect(parsePayState({ payState: 'unpaid', payRejectReason: 'আসেনি' })).toBe('rejected');
     expect(parsePayState({})).toBe('unpaid');
+    // সার্ভারের রূপ (CHAMBERS-ONLINE.md): "পাইনি" = unpaid + payNote; payState null = কিছু দেওয়ার নেই
+    expect(parsePayState({ payState: 'unpaid', payNote: 'আসেনি' })).toBe('rejected');
+    expect(parsePayState({ payState: 'claimed', payNote: null })).toBe('claimed');
+    expect(parseOnline({ online: true, payState: 'unpaid', payNote: 'আসেনি' }).payReason).toBe('আসেনি');
+    expect(parseOnline({ online: true, payState: null, noFee: false }).noFee).toBe(true);
+    expect(parseOnline({ online: false, payState: null }).noFee).toBe(false);
     expect(parseOnline({ online: true, payRef: 'X1', start: 123 })).toMatchObject({ online: true, payRef: 'X1', startAt: 123 });
   });
 
@@ -126,6 +135,15 @@ describe('রোগী: ফি পাঠানো', () => {
     expect(w.emitted('changed')).toHaveLength(1);
   });
 
+  it('ছোট TrxID: সার্ভারে না পাঠিয়ে বাংলায় বলা', async () => {
+    const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
+    await w.get('input[data-testid="trx-input"]').setValue('AB12');
+    await w.get('[data-testid="pay-claim"]').trigger('click');
+    await flushPromises();
+    expect(call).not.toHaveBeenCalled();
+    expect(w.text()).toContain('বিকাশ মেসেজের TrxID লিখুন');
+  });
+
   it('TrxID ছাড়াও পাঠানো যায় (payRef যায় না)', async () => {
     const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
     await w.get('[data-testid="pay-claim"]').trigger('click');
@@ -143,7 +161,7 @@ describe('রোগী: ফি পাঠানো', () => {
     expect(paid.get('[data-testid="pay-state"]').text()).toBe('ফি পরিশোধিত');
     expect(paid.find('[data-testid="bkash-shown"]').exists()).toBe(false);
 
-    const rej = mount(OnlinePayCard, { props: { a: appt({ payState: 'rejected', payRejectReason: 'টাকা আসেনি' }) }, global: { stubs } });
+    const rej = mount(OnlinePayCard, { props: { a: appt({ payState: 'unpaid', payNote: 'টাকা আসেনি' }) }, global: { stubs } });
     expect(rej.get('[data-testid="pay-state"]').text()).toBe('ডাক্তার পাননি');
     expect(rej.text()).toContain('কারণ: টাকা আসেনি');
     expect(rej.find('[data-testid="pay-claim"]').exists()).toBe(true);
@@ -237,7 +255,7 @@ describe('নিরাপত্তার নিয়ম (নোটে ফোন
   it('একই TrxID আবার (409): বাংলায় বলা', async () => {
     call.mockRejectedValueOnce(new ServerError('x', 409));
     const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
-    await w.get('input[data-testid="trx-input"]').setValue('USED1');
+    await w.get('input[data-testid="trx-input"]').setValue('USED12');
     await w.get('[data-testid="pay-claim"]').trigger('click');
     await flushPromises();
     expect(w.text()).toContain('এই TrxID আগেই ব্যবহার হয়েছে');

@@ -36,7 +36,7 @@ const ONLINE_DOC = {
   uid: 'p_online', type: 'doctor', name: 'ডা. রুবিনা ইয়াসমিন', specialties: ['medicine'], degrees: 'MBBS, FCPS', gender: 'female',
   listed: true, appointments: true, rating: 4.8, ratingCount: 12, photo: '',
   chambers: [{
-    mode: 'online', hospitalId: null, hospitalName: '', hospitalNameBn: '', district: '', upazilaId: null, unionId: null, room: '', schedule: '',
+    mode: 'online', hospitalId: null, hospitalName: 'Online video consultation', hospitalNameBn: 'অনলাইন ভিডিও পরামর্শ', district: null, upazilaId: null, unionId: null, room: '', schedule: '',
     fee: '৫০০ টাকা', noFee: false, appointments: true, serialPhone: '', days: [0, 1, 2, 3, 4, 5, 6], start: '00:00', end: '23:59', note: 'নেট চালু রাখবেন',
   }],
   homeVisit: null,
@@ -71,7 +71,7 @@ test('তালিকা: "অনলাইন" ব্যাজ, ছাঁকন�
   await expect(dlg.getByTestId('online-book-hint')).toContainText('bKash');
   await dlg.getByLabel('কী সমস্যা').fill('জ্বর আর কাশি');
   await dlg.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
-  await expect.poll(() => seen.find((c) => c.action === 'book')?.body).toMatchObject({ providerUid: 'p_online', chamberIndex: 0 });
+  await expect.poll(() => seen.find((c) => c.action === 'book')?.body).toMatchObject({ providerUid: 'p_online', chamberIndex: 0, chamberKey: 'online' });
   expect(errs).toEqual([]);
 });
 
@@ -118,7 +118,7 @@ test('রোগী: ফি bKash-এ — নম্বর কপি, TrxID দি
 });
 
 test('রোগী: ডাক্তার পাননি — কারণ আর আবার জানানো; ফি পরিশোধিত', async ({ page }) => {
-  let pay: any = { payState: 'rejected', payRejectReason: 'এই TrxID-তে টাকা আসেনি', payRef: 'OLD1' };
+  let pay: any = { payState: 'unpaid', payNote: 'এই TrxID-তে টাকা আসেনি', payRef: 'OLD1' };
   await mock(page, async (action, body, route) => {
     if (action === 'appointment_queue' && body.id === 'on2') return { live: false };
     if (action !== 'my_appointments') return undefined;
@@ -156,6 +156,8 @@ test('ডাক্তার: সেটআপে "অনলাইন (ভিড�
   await expect(card.getByText('ঠিকানা', { exact: true })).toHaveCount(0);
   // প্রোফাইলের ফোন আগে থেকে
   await expect(card.getByTestId('bkash-number')).toHaveValue('01711000999');
+  // অনলাইন চেম্বার একটাই
+  await expect(page.getByTestId('add-online')).toHaveCount(0);
 
   // "চেম্বারে"-তে ফেরালে হাসপাতাল বেছে নিতে বলে; বন্ধ করে আবার অনলাইন
   const third = page.locator('.appt-ch-ed').nth(2);
@@ -199,7 +201,7 @@ async function proBookings(page: Page, payState: string) {
       return { ok: true };
     }
     if (action === 'appt_pay_reject') {
-      pay = { payState: 'rejected', payRef: 'TRX42AB' };
+      pay = { payState: 'unpaid', payNote: body.reason ?? '', payRef: 'TRX42AB' };
       return { ok: true };
     }
     if (action !== 'my_appointments') return undefined;
