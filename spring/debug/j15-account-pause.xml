@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="0" time="130.831" timestamp="2026-10-23T07:25:27">
+    <testcase id="j15-account-pause" name="j15-account-pause" classname="j15-account-pause" file="/home/runner/work/blood/blood/e2e/android/flows/j15-account-pause.yaml" time="130.791" timestamp="2026-10-23T07:25:27" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,7 @@
+Starting: Intent { flg=0x14000000 cmp=com.bspc.blood/.MainActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.bspc.blood/.MainActivity
+TotalTime: 1545
+WaitTime: 1641
+Complete

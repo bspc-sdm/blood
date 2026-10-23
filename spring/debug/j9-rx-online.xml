@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="112.727" timestamp="2026-10-23T07:15:48">
+    <testcase id="j9-rx-online" name="j9-rx-online" classname="j9-rx-online" file="/home/runner/work/blood/blood/e2e/android/flows/j9-rx-online.yaml" time="112.698" timestamp="2026-10-23T07:15:48" status="ERROR">
+      <failure>No visible element found: ".*ডেমো লাইফ ফার্মেসি — পাঠানো হ(?:য়|য়)েছে — অপেক্ষা(?:য়|য়).*"</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

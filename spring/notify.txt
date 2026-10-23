@@ -1,0 +1,39 @@
+PASS n-response --es type response --es requestId demo-rq-patient-open
+PASS n-answer --es type answer --es questionId demo-q-diabetes
+PASS n-appointment --es type appointment --es role patient
+PASS n-homecare --es type homecare
+PASS n-support --es type support
+PASS n-amb_req_mine --es type amb_req_mine --es reqId e2e-no-such-request
+PASS n-rx --es type rx --es rxId demo-rx-b
+PASS n-rx-list --es type rx
+PASS n-med_find_mine --es type med_find_mine
+PASS n-emergency --es type emergency
+PASS n-badge --es type badge
+PASS n-correction --es type correction
+PASS n-eligible --es type eligible
+PASS n-hospital --es type hospital
+PASS n-request_removed --es type request_removed
+PASS n-badge-bg --es type badge
+PASS n-eligible-bg --es type eligible
+PASS n-appointment-bg --es type appointment --es role patient
+PASS n-rx-bg --es type rx --es rxId demo-rx-b
+PASS n-rx-cold --es type rx --es rxId demo-rx-b
+PASS n-response-cold --es type response --es requestId demo-rq-patient-open
+PASS n-badge-cold --es type badge
+PASS n-correction-cold --es type correction
+PASS n-eligible-cold --es type eligible
+PASS n-appointment-cold --es type appointment --es role patient
+PASS n-request --es type request --es requestId demo-rq-patient-open
+PASS n-appointment-provider --es type appointment --es role provider
+PASS n-rx_review --es type rx_review
+PASS n-appointment-doctor-as-patient --es type appointment --es role patient
+PASS n-appointment-provider-bg --es type appointment --es role provider
+PASS n-appointment-provider-cold --es type appointment --es role provider
+PASS n-rx_pharmacy --es type rx_pharmacy
+PASS n-med_find --es type med_find
+PASS n-services-pharmacy --es type services --es kind pharmacy
+PASS n-rx_lab --es type rx_lab
+PASS n-care --es type care
+PASS n-care-rx --es type care --es asUid demo-patient --es rxId demo-rx-b
+PASS n-services-ambulance --es type services --es kind ambulance --es reqId e2e-no-such-request
+PASS n-services --es type services

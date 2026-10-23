@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="76.283" timestamp="2026-10-23T07:24:05">
+    <testcase id="j14-account-delete" name="j14-account-delete" classname="j14-account-delete" file="/home/runner/work/blood/blood/e2e/android/flows/j14-account-delete.yaml" time="76.255" timestamp="2026-10-23T07:24:05" status="ERROR">
+      <failure>Assertion is false: id: pause_instead_button is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

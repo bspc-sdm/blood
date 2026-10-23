@@ -1,0 +1,17 @@
+j3-pharmacy rc=0 119s
+j1-patient rc=0 135s
+j2-services rc=0 103s
+j4-lab rc=0 52s
+j5-doctor rc=0 74s
+j6-ambulance rc=0 54s
+j7-blood rc=0 44s
+j8-profile rc=0 81s
+j9-rx-online rc=1 119s
+j10-blood rc=0 98s
+j11-ambulance-driver rc=0 80s
+j12-appointments rc=0 97s
+j13-notify-settings rc=0 101s
+j14-account-delete rc=1 82s
+j15-account-pause rc=0 137s
+notify: 39 pass, 0 fail
+n-notify 1003s

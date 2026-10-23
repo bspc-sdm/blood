@@ -1,0 +1,11 @@
+Running on test
+ > Flow check
+Run ../common/dismiss.yaml...
+  Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible...
+  Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible... SKIPPED
+Run ../common/dismiss.yaml... COMPLETED
+Assert that "${WANT}" is visible... COMPLETED
+Run flow when ${WANT2 != ''} is true...
+Run flow when false is true... SKIPPED
+Wait for animation to end within 3000 ms... COMPLETED
+Take screenshot ${SHOT}... COMPLETED
