@@ -13,6 +13,7 @@ import { useNav } from '@/lib/nav';
 import { callHistory, type HistoryItem } from './api';
 import { T, clock, ctxText, stateText } from './text';
 import FlagActions from './FlagActions.vue';
+import { comingSoon, featureOn } from '@/lib/features';
 
 const s = useSession();
 const nav = useNav();
@@ -36,7 +37,7 @@ async function load(more = false) {
     loading.value = false;
   }
 }
-watch(() => (s.ready && !s.guest ? s.uid : null), (u) => u && load(), { immediate: true });
+watch(() => (s.ready && !s.guest && featureOn('calls_audio') ? s.uid : null), (u) => u && load(), { immediate: true });
 
 const missed = (x: HistoryItem) => x.state === 'missed' || (x.dir === 'in' && x.state === 'declined');
 const icon = (x: HistoryItem) => (missed(x) ? 'phone_missed' : x.dir === 'in' ? 'call_received' : x.dir === 'out' ? 'call_made' : x.video ? 'videocam' : 'call');
@@ -66,7 +67,8 @@ function target(x: HistoryItem): string | null {
       <IconButton icon="refresh" :label="tr('Refresh', 'রিফ্রেশ')" :disabled="loading" @click="load()" />
     </div>
     <p class="t-body-s muted">{{ T.historySub() }}</p>
-    <EmptyState v-if="s.ready && s.guest" icon="call" :title="tr('Log in to do this', 'এর জন্য লগইন করুন')">
+    <EmptyState v-if="!featureOn('calls_audio')" icon="call" :title="comingSoon()" data-testid="feature-soon" />
+    <EmptyState v-else-if="s.ready && s.guest" icon="call" :title="tr('Log in to do this', 'এর জন্য লগইন করুন')">
       <Button @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
     </EmptyState>
     <SkeletonCards v-else-if="loading && !items.length" :n="5" :h="60" />

@@ -1,6 +1,7 @@
 // পথ (route) — React ওয়েবের App.tsx-এর হুবহু একই ঠিকানা; প্রতিটা অংশ (section) পুরো পথ দেখে নিজের পাতা বাছে
 import { createRouter, createWebHistory } from 'vue-router';
 import NotFound from './pages/NotFound.vue';
+import { featureGuard } from './lib/features';
 
 const Blood = () => import('./sections/blood/BloodSection.vue');
 const Services = () => import('./sections/services/ServicesSection.vue');
@@ -28,9 +29,9 @@ export const router = createRouter({
     { path: rest('/appointment'), component: Appointment },
     { path: rest('/my-appointments'), component: Appointment },
     // অনলাইন (ভিডিও) অ্যাপয়েন্টমেন্টের কলে ঢোকা (?role=provider&name=…) — calls/
-    { path: '/appointments/:id/call', component: () => import('./calls/ApptCallPage.vue') },
+    { path: '/appointments/:id/call', component: () => import('./calls/ApptCallPage.vue'), beforeEnter: featureGuard('appt_video') },
     // অ্যাপে কলের তালিকা
-    { path: '/calls', component: () => import('./calls/CallHistoryPage.vue') },
+    { path: '/calls', component: () => import('./calls/CallHistoryPage.vue'), beforeEnter: featureGuard('calls_audio') },
     // স্বাস্থ্য: আলোচনা, টিপস, প্রেসক্রিপশন
     { path: rest('/health'), component: Health },
     { path: rest('/prescriptions'), component: Health },

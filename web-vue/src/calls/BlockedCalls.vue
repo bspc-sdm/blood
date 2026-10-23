@@ -7,6 +7,7 @@ import { useQ } from '@/lib/query';
 import { callBlocks, callUnblock } from './api';
 import { T } from './text';
 import SLabel from '@/sections/account/SLabel.vue';
+import { featureOn } from '@/lib/features';
 
 const open = ref(false);
 const q = useQ(() => ({ queryKey: ['call_blocks'], queryFn: callBlocks, enabled: open.value, staleTime: 0 }));
@@ -29,7 +30,7 @@ async function unblock(uid: string) {
 </script>
 
 <template>
-  <section class="acct-scard" data-testid="call-blocks">
+  <section v-if="featureOn('calls_audio') || featureOn('chat')" class="acct-scard" data-testid="call-blocks">
     <SLabel icon="call">{{ T.inApp() }}</SLabel>
     <ListRow icon="close" :title="T.blockedList()" :on-click="() => (open = true)" />
     <Dialog v-if="open" :title="T.blockedList()" size="small" @close="open = false">

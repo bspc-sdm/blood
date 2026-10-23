@@ -21,6 +21,7 @@ import PhoneVerifyDialog from './PhoneVerifyDialog.vue';
 import PhotoMenuDialog from './PhotoMenuDialog.vue';
 import AcctMenu from './AcctMenu';
 import { T } from '@/calls/text';
+import { featureOn } from '@/lib/features';
 import InfoLine from './InfoLine.vue';
 import BecomeDonorCard from './BecomeDonorCard.vue';
 import { SUPPORT_EMAIL, badgeLabel, hasBusiness, useAccountState } from './util';
@@ -198,7 +199,7 @@ function phoneVerified() {
             <ListRow icon="list_alt" :title="tr('My Requests', 'আমার রিকোয়েস্ট')" :on-click="() => nav('/my-requests')" />
             <ListRow icon="calendar_month" :title="tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')" :on-click="() => nav('/my-appointments')" />
             <ListRow icon="medication" :title="tr('My prescriptions', 'আমার প্রেসক্রিপশন')" :on-click="() => nav('/prescriptions')" />
-            <ListRow icon="call" :title="T.history()" :sub="T.historySub()" :on-click="() => nav('/calls')" />
+            <ListRow v-if="featureOn('calls_audio')" icon="call" :title="T.history()" :sub="T.historySub()" :on-click="() => nav('/calls')" />
             <ListRow
               icon="health_and_safety_filled"
               :title="tr('Caregivers & family', 'কেয়ারগিভার ও পরিবার')"

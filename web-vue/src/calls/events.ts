@@ -7,6 +7,7 @@
 import { auth } from '@/lib/firebase';
 import { testUser } from '@/lib/testmode';
 import { callHistory, parseIncoming, parseState } from './api';
+import { refreshFeatures } from '@/lib/features';
 import { onApptReady, onIncoming, onRemoteState, onUpgradeDeclined, onUpgraded, onUpgradeRequest } from './state';
 
 export const eventTiming = { backoffMs: [2000, 5000, 10000, 30000], pollMs: 15000, recentMs: 60_000 };
@@ -15,6 +16,8 @@ let stopFn: (() => void) | null = null;
 
 /** SSE-র একটা ঘটনা */
 export function handleEvent(name: string, data: string) {
+  // ফিচার সুইচ বদলেছে (data থাকুক বা না থাকুক)
+  if (name === 'features_changed') return void refreshFeatures();
   let o: any = null;
   try {
     o = JSON.parse(data);

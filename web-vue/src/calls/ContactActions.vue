@@ -4,7 +4,7 @@
 // - অডিও/ভিডিও কল: সার্ভারের contact_can (canCall/canVideo); তা না পেলে পাতার নিজের হিসাব (`show`) আর call_config।
 // - মেসেজ: `message` দিলে তবেই, আর canMessage হলে; চাপলে `message` ঘটনা {ctx, refId, peerUid} (চ্যাট অংশ খোলে)।
 // - blocked (আমি ব্লক করেছি): বোতামের বদলে "আনব্লক"।
-// দেখায় শুধু লগইন থাকলে, নিজের হয়ে (কেয়ারগিভার মোডে নয়)।
+// দেখায় শুধু লগইন থাকলে, নিজের হয়ে (কেয়ারগিভার মোডে নয়)। ফিচার সুইচ: calls_audio, calls_video, chat।
 import { computed, ref } from 'vue';
 import { Icon, toast } from '@/ui/kit';
 import { cx } from '@/ui/composables';
@@ -13,6 +13,7 @@ import { num } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
 import { useCall } from '@/lib/query';
+import { featureOn } from '@/lib/features';
 import { callUnblock, type CallCtx } from './api';
 import { contactCan, forgetContactCan } from './contactCan';
 import { busy, startCall } from './state';
@@ -41,11 +42,11 @@ const care = useCareMode();
 const me = computed(() => !!s.uid && !s.guest && !care.value && !!props.refId);
 const can = computed(() => (me.value ? contactCan({ ctx: props.ctx, refId: props.refId, peerUid: props.peerUid }) : null));
 // সার্ভারে contact_can না থাকলে: call_config + পাতার হিসাব
-const cfg = useCall<{ enabled?: boolean }>('call_config', {}, () => ({ enabled: me.value && can.value === null, staleTime: 10 * 60_000, retry: false }));
+const cfg = useCall<{ enabled?: boolean }>('call_config', {}, () => ({ enabled: me.value && featureOn('calls_audio') && can.value === null, staleTime: 10 * 60_000, retry: false }));
 const fallback = computed(() => props.show && cfg.data?.enabled === true);
-const audio = computed(() => me.value && (can.value ? can.value.canCall && !can.value.blocked : can.value === null && fallback.value));
-const video = computed(() => me.value && (can.value ? can.value.canVideo && !can.value.blocked : can.value === null && fallback.value));
-const msg = computed(() => me.value && props.message && !!can.value?.canMessage && !can.value.blocked);
+const audio = computed(() => me.value && featureOn('calls_audio') && (can.value ? can.value.canCall && !can.value.blocked : can.value === null && fallback.value));
+const video = computed(() => me.value && featureOn('calls_audio') && featureOn('calls_video') && (can.value ? can.value.canVideo && !can.value.blocked : can.value === null && fallback.value));
+const msg = computed(() => me.value && props.message && featureOn('chat') && !!can.value?.canMessage && !can.value.blocked);
 const blocked = computed(() => me.value && !!can.value?.blocked);
 const phoneShown = computed(() => props.withPhone && !!props.phone);
 const any = computed(() => phoneShown.value || audio.value || video.value || msg.value || blocked.value);

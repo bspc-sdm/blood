@@ -11,6 +11,7 @@ import {
   revertChange, saveFailed, saveNotifyPrefs, withChange, type NotifyCat, type NotifyChange, type NotifyPrefs,
 } from '@/lib/notifyPrefs';
 import SLabel from './SLabel.vue';
+import { featureOn } from '@/lib/features';
 
 const props = defineProps<{ showBusiness: boolean }>();
 const emit = defineEmits<{ nearby: [on: boolean] }>();
@@ -24,7 +25,8 @@ const rev = ref(0);
 /** শেষ বদলের ক্রম — পরে আরেকটা বদল চললে তার উত্তরই শেষ কথা */
 let seq = 0;
 
-const cats = () => NOTIFY_CATS.filter((c) => c !== BUSINESS_CAT || props.showBusiness);
+// অ্যাপে কল: ফিচার সুইচ calls_audio চালু থাকলে তবেই
+const cats = () => NOTIFY_CATS.filter((c) => (c !== BUSINESS_CAT || props.showBusiness) && (c !== 'calls' || featureOn('calls_audio')));
 
 function set(p: NotifyPrefs) {
   const was = prefs.value?.cats.blood_nearby;

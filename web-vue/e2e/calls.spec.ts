@@ -511,3 +511,38 @@ test('রক্তের ভিডিও কল এলে: "অডিওতে �
   const log = await page.evaluate(() => (window as any).__lfCallFake.log as string[]);
   expect(log).not.toContain('cam true');
 });
+
+test('ফিচার সুইচ: calls_audio বন্ধ — কলের বোতাম, কলের তালিকা, নোটিফিকেশনের সুইচ নেই; appt_video বন্ধ — "শিগগির আসছে"', async ({ page }) => {
+  await api(page);
+  const off = { features: { calls_audio: false, calls_video: false, appt_video: false } };
+  await open(page, withTest(def('blood', 'my-request-detail'), off));
+  await expect(page.locator('.blood-donor').first()).toBeVisible();
+  await expect(page.getByTestId('call-buttons')).toHaveCount(0);
+  await open(page, withTest(def('account', 'settings'), off));
+  await expect(page.locator('[data-cat="rx"]')).toBeVisible();
+  await expect(page.locator('[data-cat="calls"]')).toHaveCount(0);
+  await expect(page.getByTestId('call-blocks')).toHaveCount(0);
+  await open(page, withTest(def('account', 'profile-nobiz'), off), '/calls');
+  await expect(page.getByTestId('feature-soon')).toContainText('এই সুবিধা শিগগির আসছে');
+  await open(page, withTest(def('appointment', 'my'), off), '/appointments/a1/call');
+  await expect(page.getByTestId('feature-soon')).toContainText('এই সুবিধা শিগগির আসছে');
+  await expect(page.getByTestId('appt-join')).toHaveCount(0);
+});
+
+test('ফিচার সুইচ: calls_video বন্ধ — শুধু অডিও কল; ভিডিও কল এলেও একটাই "ধরুন" (অডিওতে), ভিডিওর অনুরোধ নেই', async ({ page }) => {
+  const st = await api(page, { call_status: () => ({ state: 'ringing' }) });
+  await sse(page, [{ event: 'call_incoming', data: { callId: 'nv1', video: true, ctx: 'blood', refId: 'r9', caller: { uid: 'x1', name: 'সালমা আক্তার' } } }]);
+  await openLive(page, withTest(def('account', 'profile-nobiz'), { features: { calls_video: false }, fakeMedia: { peerAfterMs: 50 }, callTiming: FAST }));
+  const banner = page.getByTestId('call-incoming');
+  await expect(banner.getByTestId('call-accept')).toHaveText('ধরুন');
+  await expect(banner.getByTestId('call-accept-audio')).toHaveCount(0);
+  await banner.getByTestId('call-accept').click();
+  await expect.poll(() => did(st, 'call_accept').map((c) => c.body.video)).toEqual([false]);
+  await expect(screen(page)).toHaveAttribute('data-phase', 'active');
+  await expect(status(page)).toHaveText(/^০০:/);
+  await expect(page.getByTestId('call-ask-video')).toHaveCount(0);
+  await page.getByTestId('call-hangup').click();
+  await open(page, withTest(def('blood', 'my-request-detail'), { features: { calls_video: false } }));
+  await expect(page.getByTestId('call-audio').first()).toBeVisible();
+  await expect(page.getByTestId('call-video')).toHaveCount(0);
+});

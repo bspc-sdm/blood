@@ -8,6 +8,7 @@ import { num, tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { eventTiming, startCallEvents, stopCallEvents } from './events';
 import { TEST_MODE } from '@/lib/testmode';
+import { featureOn, initFeatures } from '@/lib/features';
 import { startRing, userActivated, watchActivation } from './ring';
 import {
   accept, acceptVideo, attachVideo, callUi, clearApptReady, decline, declineVideo, dismiss, flipCamera, hangUp, holdEnded, joinAppointment,
@@ -27,9 +28,14 @@ if (TEST_MODE) {
     Object.assign(eventTiming, t.events ?? {});
   }
 }
-onMounted(watchActivation);
+onMounted(() => {
+  watchActivation();
+  initFeatures();
+});
+// কলের খবর শোনা: লগইন থাকলে আর calls_audio বা appt_video চালু থাকলে (ফিচার সুইচ)
+const listening = computed(() => featureOn('calls_audio') || featureOn('appt_video'));
 watch(
-  () => (s.ready && !s.guest ? s.uid : null),
+  () => (s.ready && !s.guest && listening.value ? s.uid : null),
   (uid, old) => {
     if (uid) startCallEvents();
     else {
@@ -91,7 +97,7 @@ async function joinReady() {
 
 <template>
   <!-- কল আসছে -->
-  <div v-if="callUi.phase === 'incoming'" class="call-banner" role="alertdialog" aria-live="assertive" :aria-label="callUi.video ? T.incomingVideo() : T.incoming()" data-testid="call-incoming">
+  <div v-if="callUi.phase === 'incoming' && featureOn('calls_audio')" class="call-banner" role="alertdialog" aria-live="assertive" :aria-label="callUi.video ? T.incomingVideo() : T.incoming()" data-testid="call-incoming">
     <div class="who">
       <span class="pulse"><Icon :name="callUi.video ? 'videocam' : 'call'" /></span>
       <span class="col gap-2 grow" :style="{ minWidth: 0 }">
@@ -103,16 +109,17 @@ async function joinReady() {
     <div class="acts">
       <button type="button" class="btn square has-icon call-decline" data-testid="call-decline" @click="decline"><Icon name="call_end" />{{ T.decline() }}</button>
       <!-- রক্ত/অ্যাম্বুলেন্স/অর্ডারের ভিডিও কল: অডিওতে না ভিডিওতে ধরবেন -->
-      <template v-if="callUi.video && callUi.ctx !== 'appointment'">
+      <template v-if="callUi.video && callUi.ctx !== 'appointment' && featureOn('calls_video')">
         <button type="button" class="btn square has-icon call-accept" data-testid="call-accept-audio" @click="accept(false)"><Icon name="call" />{{ T.answerAudio() }}</button>
         <button type="button" class="btn square has-icon call-accept" data-testid="call-accept" @click="accept(true)"><Icon name="videocam" />{{ T.answerVideo() }}</button>
       </template>
-      <button v-else type="button" class="btn square has-icon call-accept" data-testid="call-accept" @click="accept()"><Icon :name="callUi.video ? 'videocam' : 'call'" />{{ T.answer() }}</button>
+      <!-- ভিডিও কল বন্ধ (calls_video) থাকলে ভিডিও কলও অডিওতে ধরা -->
+      <button v-else type="button" class="btn square has-icon call-accept" data-testid="call-accept" @click="accept(featureOn('calls_video') || callUi.ctx === 'appointment' ? undefined : false)"><Icon :name="callUi.video ? 'videocam' : 'call'" />{{ T.answer() }}</button>
     </div>
   </div>
 
   <!-- ডাক্তার অনলাইন অ্যাপয়েন্টমেন্টের কলে আছেন -->
-  <div v-else-if="callUi.apptReady && callUi.phase === 'idle'" class="call-banner" role="status" data-testid="appt-call-ready">
+  <div v-else-if="callUi.apptReady && callUi.phase === 'idle' && featureOn('appt_video')" class="call-banner" role="status" data-testid="appt-call-ready">
     <div class="who">
       <span class="pulse"><Icon name="videocam" /></span>
       <span class="name grow">{{ tr('The doctor is in the video call — join', 'ডাক্তার ভিডিও কলে আছেন — যুক্ত হোন') /* bn-ok */ }}</span>
@@ -144,7 +151,7 @@ async function joinReady() {
       </div>
       <div v-if="callUi.note && callUi.phase !== 'ended'" class="call-note" role="status" data-testid="call-note">{{ callUi.note }}</div>
       <!-- অডিও কলে ভিডিও: ওপাশ চাইছেন -->
-      <div v-if="callUi.upgrade === 'offered' && callUi.phase === 'active'" class="call-note" role="alertdialog" data-testid="call-video-offer">
+      <div v-if="callUi.upgrade === 'offered' && callUi.phase === 'active' && featureOn('calls_video')" class="call-note" role="alertdialog" data-testid="call-video-offer">
         <div>{{ T.offeredVideo() }}</div>
         <div class="row gap-8" :style="{ justifyContent: 'center', marginTop: '6px' }">
           <button type="button" class="btn outline small" data-testid="call-video-no" @click="declineVideo">{{ T.notNow() }}</button>
@@ -152,7 +159,7 @@ async function joinReady() {
         </div>
       </div>
       <button
-        v-if="callUi.phase === 'active' && !callUi.video && !callUi.appt && !callUi.upgrade && callUi.peerIn"
+        v-if="callUi.phase === 'active' && !callUi.video && !callUi.appt && !callUi.upgrade && callUi.peerIn && featureOn('calls_video')"
         type="button"
         class="btn outline small has-icon"
         data-testid="call-ask-video"
