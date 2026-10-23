@@ -226,7 +226,7 @@ class OnlineChamberScreensTest {
         // ছোট TrxID: পাঠানোর আগেই বলা
         rule.onNodeWithTag("pay_trxid").performTextInput("AB12")
         rule.onNodeWithText("ডাক্তারকে জানান").performClick()
-        rule.onNodeWithText("bKash-এর TrxID-তে অন্তত ৬টা অক্ষর/সংখ্যা থাকে").assertExists()
+        rule.onNodeWithText("bKash-এর TrxID ঠিক ১০ অক্ষরের (ইংরেজি অক্ষর ও সংখ্যা)").assertExists()
     }
 
     @Test
@@ -259,7 +259,11 @@ class OnlineChamberScreensTest {
     @Test
     fun trxReuseMessage() {
         assertEquals("এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।", OnlineText.error(ServerError("x", "trx_used")))
-        assertEquals("সার্ভারের বার্তা", OnlineText.error(ServerError("সার্ভারের বার্তা", "state")))
+        assertEquals("সার্ভারের বার্তা", OnlineText.error(ServerError("সার্ভারের বার্তা", null)))
+        assertEquals("এই অ্যাপয়েন্টমেন্টে ফি নেই।", OnlineText.error(ServerError("x", "no_fee")))
+        assertTrue(OnlineText.trxOk("8N7A6B5C4D"))
+        assertFalse(OnlineText.trxOk("8N7A6B5C4"))
+        assertFalse(OnlineText.trxOk("8N7A6B5C4D1"))
     }
 
     // ---------------- ডাক্তার/সহকারী ----------------

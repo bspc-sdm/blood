@@ -147,12 +147,19 @@ object OnlineText {
     const val JOIN = "ভিডিও কলে যুক্ত হোন"
     const val BKASH_24H = "নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে"
 
+    /** bKash TrxID: ঠিক ১০টা ইংরেজি অক্ষর/সংখ্যা */
+    fun trxOk(t: String): Boolean = Regex("^[A-Za-z0-9]{10}$").matches(t)
+    val TRX_HINT: String get() = tr("A bKash TrxID has exactly 10 English letters/digits", "bKash-এর TrxID ঠিক ১০ অক্ষরের (ইংরেজি অক্ষর ও সংখ্যা)")
+
     /** ফির কাজের ভুল বাংলায়: একই TrxID আবার (409), ভুল অবস্থা ইত্যাদি; বাকিগুলো সার্ভারের বার্তা */
     fun error(e: Throwable): String {
         val code = (e as? ServerError)?.code.orEmpty()
         return when {
             code.contains("trx", true) || code.contains("pay_ref", true) || code.contains("payref", true) || code == "duplicate" ->
                 tr("This TrxID was already used. Check the bKash message and enter the right one.", "এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।")
+            code == "not_online" -> tr("This is not an online appointment.", "এটা অনলাইন অ্যাপয়েন্টমেন্ট নয়।")
+            code == "no_fee" -> tr("There is no fee for this appointment.", "এই অ্যাপয়েন্টমেন্টে ফি নেই।")
+            code == "state" -> tr("Can't be done in this state — refresh the list.", "এই অবস্থায় করা যায় না — তালিকা রিফ্রেশ করে দেখুন।")
             else -> e.message ?: tr("Something went wrong", "সমস্যা হয়েছে")
         }
     }
@@ -164,7 +171,7 @@ object OnlineApi {
 
     /** রোগী: "টাকা পাঠিয়েছি" (TrxID ঐচ্ছিক) → claimed */
     suspend fun claim(appointmentId: String, payRef: String) {
-        call("appt_pay_claim", JSONObject().put("appointmentId", appointmentId).apply { if (payRef.isNotBlank()) put("payRef", payRef.trim().take(30)) })
+        call("appt_pay_claim", JSONObject().put("appointmentId", appointmentId).apply { if (payRef.isNotBlank()) put("payRef", payRef.trim().take(10)) })
     }
 
     /** ডাক্তার/সহকারী: "ফি পেয়েছি" → paid */
@@ -179,7 +186,7 @@ object OnlineApi {
 
     /** ডাক্তার/সহকারী: "পাইনি" (কারণ ঐচ্ছিক) — রোগী আবার পাঠাতে পারেন */
     suspend fun reject(appointmentId: String, reason: String) {
-        call("appt_pay_reject", JSONObject().put("appointmentId", appointmentId).apply { if (reason.isNotBlank()) put("reason", reason.trim().take(120)) })
+        call("appt_pay_reject", JSONObject().put("appointmentId", appointmentId).apply { if (reason.isNotBlank()) put("reason", reason.trim().take(200)) })
     }
 }
 
@@ -515,8 +522,10 @@ fun PayClaimDialog(appointmentId: String, initial: String, onDismiss: () -> Unit
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(tr("Giving the TrxID helps the doctor find your payment.", "TrxID দিলে ডাক্তার সহজে আপনার টাকা খুঁজে পাবেন।"), style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
-                    trx, { trx = it.filter { c -> c.isLetterOrDigit() && c.code < 128 }.uppercase().take(30) },
+                    trx, { trx = it.filter { c -> c.isLetterOrDigit() && c.code < 128 }.uppercase().take(10) },
                     label = { Text(tr("TrxID (optional)", "TrxID (ঐচ্ছিক)")) },
+                    supportingText = { Text(tr("10 English letters/digits, from the bKash message", "bKash মেসেজের ১০ অক্ষরের TrxID (ইংরেজি অক্ষর ও সংখ্যা)") + " · " + num(trx.length) + "/" + num(10)) },
+                    isError = trx.isNotEmpty() && trx.length != 10,
                     placeholder = { Text("8N7A6B5C4D") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("pay_trxid"),
@@ -529,8 +538,8 @@ fun PayClaimDialog(appointmentId: String, initial: String, onDismiss: () -> Unit
                 scope.launch {
                     busy = true
                     errorMsg = null
-                    if (trx.isNotEmpty() && trx.length < 6) {
-                        errorMsg = tr("A bKash TrxID has at least 6 letters/digits", "bKash-এর TrxID-তে অন্তত ৬টা অক্ষর/সংখ্যা থাকে")
+                    if (trx.isNotEmpty() && !OnlineText.trxOk(trx)) {
+                        errorMsg = OnlineText.TRX_HINT
                     } else {
                         runCatching { OnlineApi.claim(appointmentId, trx) }.onSuccess { onDone() }.onFailure { errorMsg = OnlineText.error(it) }
                     }
@@ -614,7 +623,7 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(tr("The patient will be told and can send it again.", "রোগীকে জানানো হবে, উনি আবার পাঠাতে পারবেন।"), style = MaterialTheme.typography.bodyMedium)
                         OutlinedTextField(
-                            reason, { reason = it.take(120) },
+                            reason, { reason = it.take(200) },
                             label = { Text(tr("Reason (optional)", "কারণ (ঐচ্ছিক)")) },
                             placeholder = { Text(tr("e.g. This TrxID didn't match", "যেমন: এই TrxID মেলেনি")) },
                             modifier = Modifier.fillMaxWidth(),
