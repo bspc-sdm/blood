@@ -111,9 +111,17 @@ env:
 - tapOn:
     text: "দোকান"
     index: 0
+# তিন ট্যাবের একটাই স্ক্রল (WorkTabsScaffold): "অর্ডার"-এ নিচে নামা থাকলে "দোকান" সেই জায়গা থেকে খোলে, উপরের
+# "তথ্য বদলান" পর্দার উপরে থাকে — তাই উপরে স্ক্রল করে খোঁজা
 - extendedWaitUntil:
-    visible: ".*তথ্য বদলান.*"
+    visible: ".*(দোকানের QR ও কোড|তথ্য বদলান|ছাপার পোস্টার খুলুন).*"
     timeout: 20000
+- takeScreenshot: j3-10a-shop-tab-as-opened
+- scrollUntilVisible:
+    element: ".*তথ্য বদলান.*"
+    direction: UP
+    timeout: 20000
+    centerElement: true
 - takeScreenshot: j3-10-shop-tab
 - scroll
 - takeScreenshot: j3-11-shop-more

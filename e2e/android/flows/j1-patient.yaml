@@ -40,8 +40,10 @@ env:
     timeout: 30000
 - takeScreenshot: j1-04-rx-list
 - tapOn: ".*Ecosprin.*"
+# বাটনের লেখা হুবহু "ফার্মেসিতে পাঠান" — সময়রেখার "ফার্মেসিতে পাঠানো — …" (একই ডেমো দিনের আগের চালানো) বা
+# "… অন্য ফার্মেসিতে পাঠান" যেন না মেলে (Maestro-র text পুরো লেখার সাথে মেলায়)
 - extendedWaitUntil:
-    visible: ".*ফার্মেসিতে পাঠান.*"
+    visible: "ফার্মেসিতে পাঠান"
     timeout: 30000
 - takeScreenshot: j1-05-rx-top-buttons
 # পরীক্ষা লেখা থাকলে তবেই "প্যাথলজিতে পাঠান"
@@ -57,8 +59,9 @@ env:
           optional: true
       - takeScreenshot: j1-06-lab-pick
       - back
+# উপরের বড় বাটন (নিচের "ওষুধ কেনা" ঘরে একই লেখার আরেকটা বাটন — index 0 = উপরেরটা)
 - tapOn:
-    text: ".*ফার্মেসিতে পাঠান.*"
+    text: "ফার্মেসিতে পাঠান"
     index: 0
 - extendedWaitUntil:
     visible: ".*দোকানে আছি.*"

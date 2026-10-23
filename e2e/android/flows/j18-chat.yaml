@@ -131,14 +131,18 @@ env:
 - extendedWaitUntil:
     visible: ".*ফার্মেসিতে পাঠান.*"
     timeout: 30000
+# প্রেসক্রিপশনের পাতা আলাদা জানালা (FullScreenDialog) — সেখানে testTag (contact_message) resource-id হয় না;
+# তাই চালু অর্ডারের সারি ("ডেমো লাইফ ফার্মেসি — পথে আছে" ইত্যাদি) পর্যন্ত নেমে তার নিচের "মেসেজ" (আইকনের বর্ণনা)
 - scrollUntilVisible:
-    element:
-      id: "contact_message"
+    element: "ডেমো লাইফ ফার্মেসি — .*"
     direction: DOWN
     timeout: 20000
     centerElement: true
+- takeScreenshot: j18-05b-rx-order-row
 - tapOn:
-    id: "contact_message"
+    text: "মেসেজ"
+    below: "ডেমো লাইফ ফার্মেসি — .*"
+    index: 0
 - extendedWaitUntil:
     visible:
       id: "chat_input"

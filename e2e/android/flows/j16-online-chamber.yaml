@@ -111,13 +111,43 @@ env:
 - extendedWaitUntil:
     visible: ".*ডা\\. ডেমো.*"
     timeout: 30000
-- runFlow:
-    when:
-      visible: "অনলাইন \\(ভিডিও\\)"
+# নতুন তালিকা (২.৩৭.০): "অনলাইন (ভিডিও)" এক সারির চিপে অনেক ডানে (ফিল্টার · চার পদ্ধতি · আজ · কাল · এখন চেম্বারে ·
+# অনলাইন) — সারিটা বাঁয়ে সরিয়ে চিপ (testTag chip_online), তাতে শুধু অনলাইন চেম্বারের ডাক্তার; না মিললে তালিকায় নেমে খোঁজা
+- repeat:
+    while:
+      notVisible:
+        id: "chip_online"
+    times: 5
     commands:
-      - tapOn: "অনলাইন \\(ভিডিও\\)"
+      - runFlow:
+          when:
+            visible:
+              id: "system_chips"
+          commands:
+            - swipe:
+                from:
+                  id: "system_chips"
+                direction: LEFT
+      - runFlow:
+          when:
+            visible:
+              id: "listing_chips"
+          commands:
+            - swipe:
+                from:
+                  id: "listing_chips"
+                direction: LEFT
+      - waitForAnimationToEnd:
+          timeout: 2000
+- tapOn:
+    id: "chip_online"
 - extendedWaitUntil:
     visible: ".*ডা\\. ডেমো হাসান.*"
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element: ".*ডা\\. ডেমো হাসান.*"
+    direction: DOWN
     timeout: 30000
 - takeScreenshot: j16-05-online-list
 - tapOn: ".*ডা\\. ডেমো হাসান.*"
@@ -228,10 +258,55 @@ env:
     text: "ফি পে(?:য়|য়)েছি"
     below: "ফি যাচাই করুন"
     index: 0
+# দুই রকম ঘর, দুটোতেই তিনটা মিলের টিক (TrxID · টাকার অঙ্ক · শেষ ৪ সংখ্যা): লাইফলো পে-র অনুরোধ যাচাই বাকি থাকলে
+# "টাকা পেয়েছেন?" (PayConfirmDialog), নইলে "ফি পেয়েছেন?" (appt_pay_confirm)
 - extendedWaitUntil:
-    visible: "ফি পে(?:য়|য়)েছেন\\?"
+    visible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 5000
 - takeScreenshot: j16-11-confirm-fee
+# যাচাই (RC4): টিকের লেখায় চাপলে ঘর বন্ধ হয়ে যায় কি না — লেখাটা চাপার যোগ্য নয়, চাপ পেছনের "বাইরে চাপলে বন্ধ"-এ যায়
+# কি না দেখা। বন্ধ হলে ছবি (j16-11c) রেখে আবার খোলা; টিক দেওয়া হয় লেখার বাঁয়ের টিক-বাক্সে
+- tapOn: "TrxID মিলেছে"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: j16-11b-after-label-tap
+- runFlow:
+    when:
+      notVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
+    commands:
+      - takeScreenshot: j16-11c-sheet-closed-by-label-tap
+      - tapOn:
+          text: "ফি পে(?:য়|য়)েছি"
+          below: "ফি যাচাই করুন"
+          index: 0
+      - extendedWaitUntil:
+          visible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
+          timeout: 10000
+      - waitForAnimationToEnd:
+          timeout: 5000
+# ডায়ালগ আলাদা জানালা — testTag (pay_check_*, appt_check_*) resource-id হয় না, তাই লেখার বাঁয়ের টিক-বাক্স
+- runFlow:
+    when:
+      visible: "TrxID মিলেছে"
+    commands:
+      - tapOn:
+          leftOf: "TrxID মিলেছে"
+- runFlow:
+    when:
+      visible: "টাকার অঙ্ক মিলেছে"
+    commands:
+      - tapOn:
+          leftOf: "টাকার অঙ্ক মিলেছে"
+- runFlow:
+    when:
+      visible: "শেষ ৪ সংখ্যা মিলেছে"
+    commands:
+      - tapOn:
+          leftOf: "শেষ ৪ সংখ্যা মিলেছে"
+- assertVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
+- takeScreenshot: j16-11d-ticked
 - tapOn: "হ্যাঁ, পে(?:য়|য়)েছি"
 - extendedWaitUntil:
     visible: "ফি পরিশোধিত"

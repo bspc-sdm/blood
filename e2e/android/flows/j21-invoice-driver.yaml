@@ -17,6 +17,23 @@ env:
 - tapOn: "লোকেশন লিখুন"
 - inputText: "Tongi Bazar"
 - hideKeyboard
+# এখনকার জায়গা না দিলে উপজেলা লাগে ("উপজেলা বেছে নিন") — নইলে "পাঠান" শুধু ভুল দেখায়। লেখার ঘরের নিচের
+# জেলা › উপজেলা চিপ → তালিকা থেকে গাজীপুর সদর (টঙ্গী এই উপজেলায়; ডেমো অ্যাম্বুলেন্সও গাজীপুরে)।
+# (ডায়ালগ আলাদা জানালা — testTag resource-id হয় না, তাই লেখা দিয়ে)
+- scrollUntilVisible:
+    element: "উপজেলা"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+- tapOn: "উপজেলা"
+- extendedWaitUntil:
+    visible: "গাজীপুর সদর"
+    timeout: 10000
+- tapOn: "গাজীপুর সদর"
+- extendedWaitUntil:
+    visible: "গাজীপুর সদর"
+    timeout: 10000
+- takeScreenshot: j21-00a-upazila-picked
 - scrollUntilVisible:
     element: "হাসপাতাল বা ক্লিনিক বেছে নিন.*"
     direction: DOWN
@@ -41,6 +58,7 @@ env:
     element: "পাঠান"
     direction: DOWN
     timeout: 10000
+- takeScreenshot: j21-00b-before-send
 - tapOn: "পাঠান"
 - extendedWaitUntil:
     visible: ".*অ্যাম্বুলেন্স খোঁজা হচ্ছে.*"
