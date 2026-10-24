@@ -1,0 +1,7 @@
+# Web e2e — mywork-web-gaps 367b60cc1f9006bda2484b8796a362d280ec9463
+
+spring: ❌ scenarios 246/247, stopped journeys 0, bug steps 1, API 5xx 0, server errors 0
+node: (no report)
+verdict: FAIL (no baseline: Spring must be fully green)
+
+
